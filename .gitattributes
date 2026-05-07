@@ -1,0 +1,11 @@
+# Automatically normalize line endings.
+* text=auto
+
+# File extensions that should always indicate binary files.
+*.png binary
+*.jpg binary
+
+# Windows files that need an explicit CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
