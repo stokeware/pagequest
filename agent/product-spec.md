@@ -354,14 +354,18 @@ Suggested relationships:
 
 ## 14. Recommended Technology Stack
 
+Use the latest stable patch releases available at implementation time within the compatible major lines below.
+
 ## Frontend
-- Next.js 15 with App Router
-- React 19
-- TypeScript
-- Tailwind CSS for styling
-- shadcn/ui for accessible component primitives
-- Framer Motion for targeted interface animation and celebratory leaderboard moments
-- React Hook Form with Zod for form handling and validation
+- Next.js 16.x with App Router
+- React 19.x
+- TypeScript on the current stable release line
+- Tailwind CSS 4.x for styling
+- shadcn/ui using the current `shadcn` CLI and Tailwind CSS 4-compatible
+	component templates
+- Motion for React 12.x via the `motion` package, which supersedes the older
+	Framer Motion package line
+- React Hook Form 7.x with Zod 4.x for form handling and validation
 
 Rationale:
 - Next.js provides a modern full-stack React foundation with strong support for responsive web apps, server rendering, caching, and routing.
@@ -370,7 +374,7 @@ Rationale:
 
 ## Backend
 - Next.js server actions and route handlers for the initial backend-for-frontend layer
-- Prisma ORM for database access and schema management
+- Prisma ORM and Prisma Client 7.x for database access and schema management
 - Azure Functions for scheduled jobs and asynchronous processes such as reminders, digest emails, and leaderboard snapshots if needed
 
 Rationale:
@@ -387,7 +391,8 @@ Rationale:
 
 ## Authentication and identity
 - Microsoft Entra External ID for customer and guest authentication
-- OIDC integration through Auth.js
+- OIDC integration through Auth.js, using the stable `next-auth` 4.x package
+	line and matching `@auth/*` adapters where needed
 
 Rationale:
 - Supports invite-based access with Azure-aligned identity infrastructure.
@@ -408,9 +413,9 @@ Rationale:
 - GitHub Actions for build, test, and deployment automation
 
 ## Testing and quality
-- Vitest for unit and component tests
-- Playwright for end-to-end flows across desktop and mobile viewports
-- ESLint and TypeScript strict mode
+- Vitest 4.x for unit and component tests
+- Playwright 1.59.x for end-to-end flows across desktop and mobile viewports
+- ESLint 10.x and TypeScript strict mode
 
 ## Local development and testing
 - Primary day-to-day development should run locally on a developer machine before deploying to Azure environments.
@@ -419,7 +424,10 @@ Rationale:
 	- PostgreSQL via Docker Compose
 	- Mailpit or similar SMTP capture tool for invitation and reminder email testing
 	- Optional Azurite or a local filesystem adapter for blob-like asset storage during development
-- Authentication should support a development-friendly path through Auth.js, using either a dedicated Microsoft Entra External ID test tenant or a clearly isolated development-only sign-in mode for local testing.
+- Authentication should support a development-friendly path through Auth.js,
+  using the stable `next-auth` package line together with either a dedicated
+  Microsoft Entra External ID test tenant or a clearly isolated
+  development-only sign-in mode for local testing.
 - Background jobs such as reminders and quest status transitions should have a local execution path, such as a manual script, scheduled dev task, or local Azure Functions runtime if adopted.
 - Environment configuration should be managed through local env files for development and Azure-managed configuration for hosted environments.
 

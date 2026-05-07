@@ -20,20 +20,25 @@ This plan is written as an execution sequence for a coding agent. Each phase sho
 
 ## 3. Target architecture
 
+Use the latest stable patch releases available at implementation time within the compatible major lines called out below.
+
 ## Application shape
-- Single Next.js 15 application using the App Router.
-- TypeScript across application, database, tests, and tooling.
-- Prisma for schema, migrations, and data access.
-- Auth.js for authentication integration.
-- Tailwind CSS, shadcn/ui, and a small custom design system layer.
+- Single Next.js 16 application using the App Router and React 19.
+- TypeScript on the current stable release line across application, database, tests, and tooling.
+- Prisma 7 for schema, migrations, and data access.
+- Auth.js for authentication integration, implemented with the stable
+	`next-auth` package line and matching `@auth/*` adapters where needed.
+- Tailwind CSS 4, shadcn/ui, Motion for React, and a small custom design system layer.
 
 ## Local environment
 - Node.js 22 LTS.
-- pnpm as the package manager.
+- pnpm 11 as the package manager.
+- `uv` as the default Python project, environment, and package manager,
+	using Python 3.12 if any Python-based tooling is introduced.
 - Docker Compose for PostgreSQL and local developer support services.
 - Mailpit for local email capture.
 - Optional Azurite or local filesystem-backed asset storage adapter.
-- Playwright for browser-level testing against the local app.
+- Playwright 1.59 for browser-level testing against the local app.
 
 ## Hosted environment
 - Azure App Service for the Next.js application.
@@ -59,13 +64,23 @@ This plan is written as an execution sequence for a coding agent. Each phase sho
 Create the project scaffold and local development baseline.
 
 ### Tasks
-1. Initialize a Next.js 15 app with App Router, TypeScript, Tailwind CSS, ESLint, and pnpm.
-2. Add shadcn/ui and establish the shared UI primitives folder structure.
-3. Add core developer tooling: Prettier if desired by the repo, Vitest, Playwright, Prisma, Zod, React Hook Form, Auth.js, and Framer Motion.
-4. Add Docker Compose for local PostgreSQL and Mailpit.
-5. Create env templates for local development and document required variables.
-6. Add scripts for `dev`, `build`, `lint`, `test`, `test:e2e`, `db:migrate`, `db:seed`, and `dev:services`.
-7. Add a base README section for local startup and test execution.
+1. Initialize a Next.js 16 app with App Router, React 19, current-stable
+	TypeScript, Tailwind CSS 4, ESLint 10, and pnpm 11.
+2. Add shadcn/ui using the current `shadcn` CLI and Tailwind CSS 4-compatible
+	component templates, then establish the shared UI primitives folder
+	structure.
+3. Add core developer tooling: Prettier 3 if desired by the repo, Vitest 4,
+	Playwright 1.59, Prisma 7, Zod 4, React Hook Form 7, Auth.js via
+	`next-auth` plus matching `@auth/*` packages, and Motion for React 12.
+4. Create a `uv` project based on Python 3.12 for any incidental
+	Python-based tooling or scripts needed during development, and create the
+	matching virtual environment requirement within that `uv` project when this
+	step is executed.
+5. Add Docker Compose for local PostgreSQL and Mailpit.
+6. Create env templates for local development and document required variables.
+7. Add scripts for `dev`, `build`, `lint`, `test`, `test:e2e`, `db:migrate`,
+	`db:seed`, and `dev:services`.
+8. Add a base README section for local startup and test execution.
 
 ### Deliverables
 - Working app scaffold.
@@ -375,7 +390,9 @@ Promote the local-first application into a maintainable hosted system.
 
 ## Required local tools
 - Node.js 22 LTS
-- pnpm
+- pnpm 11.x
+- `uv` for Python 3.12 project, environment, and package management if a
+	Python-based helper is needed
 - Docker Engine or Docker Desktop with Compose
 - Playwright browser dependencies
 
