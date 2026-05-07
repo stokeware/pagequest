@@ -412,6 +412,22 @@ Rationale:
 - Playwright for end-to-end flows across desktop and mobile viewports
 - ESLint and TypeScript strict mode
 
+## Local development and testing
+- Primary day-to-day development should run locally on a developer machine before deploying to Azure environments.
+- The application should support a local stack with the web app, PostgreSQL, and supporting developer services started through simple documented commands.
+- Recommended local supporting services:
+	- PostgreSQL via Docker Compose
+	- Mailpit or similar SMTP capture tool for invitation and reminder email testing
+	- Optional Azurite or a local filesystem adapter for blob-like asset storage during development
+- Authentication should support a development-friendly path through Auth.js, using either a dedicated Microsoft Entra External ID test tenant or a clearly isolated development-only sign-in mode for local testing.
+- Background jobs such as reminders and quest status transitions should have a local execution path, such as a manual script, scheduled dev task, or local Azure Functions runtime if adopted.
+- Environment configuration should be managed through local env files for development and Azure-managed configuration for hosted environments.
+
+Rationale:
+- Local-first development keeps feedback loops short for UI, form, and scoring work.
+- Production deployment remains Azure-aligned while development stays practical for a single maintainer or small team.
+- Clear separation between local adapters and Azure-backed adapters reduces delivery friction without changing the product architecture.
+
 ## 15. Recommended Azure Deployment Architecture
 
 ## MVP deployment model
@@ -422,6 +438,13 @@ Rationale:
 - Emails sent through Azure Communication Services Email
 - Monitoring through Application Insights and Log Analytics
 - Secrets stored in Azure Key Vault
+
+## Local-to-cloud architecture alignment
+- Use the same Next.js, Prisma, and Auth.js application structure in local and hosted environments.
+- Keep integration boundaries explicit for email, asset storage, and background jobs so local adapters can be swapped for Azure services through configuration.
+- Keep environment variable names consistent between local env files, CI, and Azure App Service settings.
+- Prefer Docker Compose for local dependency orchestration so the database and developer support services closely mirror deployed behavior.
+- Treat local development as the default implementation path and Azure deployment as the promotion target once features pass local and CI validation.
 
 Why this hosting model:
 - Simple to operate for a single full-stack web application.
@@ -509,4 +532,4 @@ Deferred beyond MVP unless later approved:
 
 Build Page Quest as a single full-stack TypeScript application using Next.js, PostgreSQL, Prisma, and Microsoft Entra External ID, deployed to Azure App Service with supporting Azure services for storage, email, secrets, and monitoring.
 
-This is the most suitable modern architecture for the initial release because it keeps the application maintainable, mobile-friendly, visually flexible, and operationally straightforward while fitting naturally into an Azure hosting strategy, while also supporting configurable scoring, participant history pages, and recurring single-season quest management.
+This is the most suitable modern architecture for the initial release because it keeps the application maintainable, mobile-friendly, visually flexible, and operationally straightforward while fitting naturally into an Azure hosting strategy, while also supporting configurable scoring, participant history pages, recurring single-season quest management, and a practical local development workflow.
