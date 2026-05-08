@@ -3,8 +3,8 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 const cardBaseClass = [
-    'group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card',
-    'py-4 text-sm text-card-foreground ring-1 ring-foreground/10',
+    'group/card flex flex-col gap-4 overflow-hidden rounded-[calc(var(--radius-xl)-2px)] bg-card/90',
+    'py-4 text-sm text-card-foreground ring-1 ring-[color:var(--line-strong)] shadow-[var(--shadow-soft)] backdrop-blur-[10px]',
     'has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0',
     'data-[size=sm]:gap-3 data-[size=sm]:py-3',
     'data-[size=sm]:has-data-[slot=card-footer]:pb-0',
@@ -95,7 +95,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
         <div
             data-slot='card-footer'
             className={cn(
-                'flex items-center rounded-b-xl border-t bg-muted/50 p-4',
+                'flex items-center rounded-b-xl border-t border-[color:var(--line-strong)] bg-muted/50 p-4',
                 'group-data-[size=sm]/card:p-3',
                 className
             )}
