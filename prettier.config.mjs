@@ -1,6 +1,7 @@
 const prettierConfig = {
     semi: false,
     singleQuote: true,
+    jsxSingleQuote: true,
     tabWidth: 4,
     trailingComma: 'es5',
 }

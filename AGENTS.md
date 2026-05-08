@@ -15,6 +15,7 @@ Page Quest is a web application that my family and friends use to track our prog
 ## Style Guidelines
 
 Color palette
+
 - spicy paprika: #ca592f
 - blue slate: #40697c
 - goldenrod: #daa518
