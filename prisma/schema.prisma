@@ -5,3 +5,258 @@ generator client {
 datasource db {
     provider = "postgresql"
 }
+
+enum AppRole {
+    ADMIN
+    COMPETITOR
+}
+
+enum QuestStatus {
+    DRAFT
+    SCHEDULED
+    ACTIVE
+    COMPLETED
+    ARCHIVED
+}
+
+enum QuestVisibility {
+    INVITE_ONLY
+}
+
+enum InvitationStatus {
+    PENDING
+    ACCEPTED
+    EXPIRED
+    REVOKED
+}
+
+enum ReadingEntryType {
+    BOOK_COMPLETION
+    PAGES_READ
+    AUDIOBOOK_MINUTES
+    CHALLENGE_COMPLETION
+}
+
+enum ChallengeAvailability {
+    ONE_TIME
+    REPEATABLE
+}
+
+enum ChallengeReviewState {
+    PENDING
+    APPROVED
+    REJECTED
+    AUTO_APPROVED
+}
+
+model User {
+    id               String           @id @default(cuid())
+    email            String           @unique
+    emailVerified    DateTime?
+    name             String?
+    image            String?
+    timezone         String?
+    lastSignedInAt   DateTime?
+    createdAt        DateTime         @default(now())
+    updatedAt        DateTime         @updatedAt
+    auditLogs        AuditLog[]       @relation("AuditActor")
+    challengeReviews ChallengeCompletion[] @relation("ChallengeReviewedBy")
+    challengesCreated Challenge[]     @relation("ChallengeCreatedBy")
+    invitationsAccepted Invitation[]  @relation("InvitationAcceptedBy")
+    invitationsSent  Invitation[]     @relation("InvitationInvitedBy")
+    questParticipants QuestParticipant[]
+    questsCreated    Quest[]          @relation("QuestCreatedBy")
+    readingEntriesCreated ReadingEntry[] @relation("ReadingEntryCreatedBy")
+    readingEntriesUpdated ReadingEntry[] @relation("ReadingEntryUpdatedBy")
+    roleAssignments  RoleAssignment[]
+}
+
+model RoleAssignment {
+    id        String   @id @default(cuid())
+    userId    String
+    role      AppRole
+    createdAt DateTime @default(now())
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, role])
+}
+
+model Quest {
+    id                          String           @id @default(cuid())
+    name                        String
+    description                 String?
+    startAt                     DateTime
+    endAt                       DateTime
+    timezone                    String
+    status                      QuestStatus      @default(DRAFT)
+    visibility                  QuestVisibility  @default(INVITE_ONLY)
+    pointsPerBook               Decimal          @default(1) @db.Decimal(12, 4)
+    pointsPerPage               Decimal          @default(1) @db.Decimal(12, 4)
+    pointsPerAudiobookMinute    Decimal          @default(0.75) @db.Decimal(12, 4)
+    pointsPerChallengeCompletion Decimal         @default(1) @db.Decimal(12, 4)
+    challengeCategoryBonuses    Json?
+    entryEditWindowMinutes      Int?
+    entryDeleteWindowMinutes    Int?
+    publishedAt                 DateTime?
+    archivedAt                  DateTime?
+    createdByUserId             String?
+    createdAt                   DateTime         @default(now())
+    updatedAt                   DateTime         @updatedAt
+    auditLogs                   AuditLog[]
+    createdBy                   User?            @relation("QuestCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+    invitations                 Invitation[]
+    participants                QuestParticipant[]
+    questChallenges             QuestChallenge[]
+}
+
+model QuestParticipant {
+    id                     String              @id @default(cuid())
+    questId                String
+    userId                 String
+    joinedAt               DateTime?
+    removedAt              DateTime?
+    totalBooks             Int                 @default(0)
+    totalPages             Int                 @default(0)
+    totalAudiobookMinutes  Int                 @default(0)
+    totalChallenges        Int                 @default(0)
+    totalPoints            Decimal             @default(0) @db.Decimal(12, 4)
+    lastActivityAt         DateTime?
+    createdAt              DateTime            @default(now())
+    updatedAt              DateTime            @updatedAt
+    acceptedInvitation     Invitation?         @relation("AcceptedParticipant")
+    auditLogs              AuditLog[]
+    challengeCompletions   ChallengeCompletion[]
+    quest                  Quest               @relation(fields: [questId], references: [id], onDelete: Cascade)
+    readingEntries         ReadingEntry[]
+    user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([questId, totalPoints, lastActivityAt])
+    @@index([userId, lastActivityAt])
+    @@unique([questId, userId])
+}
+
+model Invitation {
+    id                       String           @id @default(cuid())
+    questId                  String
+    email                    String
+    status                   InvitationStatus @default(PENDING)
+    tokenHash                String           @unique
+    expiresAt                DateTime
+    lastSentAt               DateTime?
+    acceptedAt               DateTime?
+    revokedAt                DateTime?
+    invitedByUserId          String?
+    acceptedByUserId         String?
+    acceptedParticipantId    String?           @unique
+    createdAt                DateTime         @default(now())
+    updatedAt                DateTime         @updatedAt
+    acceptedBy               User?            @relation("InvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+    acceptedParticipant      QuestParticipant? @relation("AcceptedParticipant", fields: [acceptedParticipantId], references: [id], onDelete: SetNull)
+    auditLogs                AuditLog[]
+    invitedBy                User?            @relation("InvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+    quest                    Quest            @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+    @@unique([questId, email])
+}
+
+model Challenge {
+    id                 String                @id @default(cuid())
+    title              String
+    description        String?
+    category           String?
+    pointValue         Decimal?              @db.Decimal(12, 4)
+    availability       ChallengeAvailability @default(ONE_TIME)
+    requiresReview     Boolean               @default(false)
+    evidencePrompt     String?
+    createdByUserId    String?
+    createdAt          DateTime              @default(now())
+    updatedAt          DateTime              @updatedAt
+    auditLogs          AuditLog[]
+    challengeCompletions ChallengeCompletion[]
+    createdBy          User?                 @relation("ChallengeCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+    questChallenges    QuestChallenge[]
+}
+
+model QuestChallenge {
+    id                 String                @id @default(cuid())
+    questId            String
+    challengeId        String
+    sortOrder          Int                   @default(0)
+    pointValueOverride Decimal?              @db.Decimal(12, 4)
+    isActive           Boolean               @default(true)
+    createdAt          DateTime              @default(now())
+    updatedAt          DateTime              @updatedAt
+    challenge          Challenge             @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+    challengeCompletions ChallengeCompletion[]
+    quest              Quest                 @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+    @@unique([questId, challengeId])
+}
+
+model ReadingEntry {
+    id                 String            @id @default(cuid())
+    questParticipantId String
+    type               ReadingEntryType
+    value              Int
+    activityDate       DateTime
+    bookTitle          String?
+    bookAuthor         String?
+    notes              String?
+    createdByUserId    String?
+    updatedByUserId    String?
+    deletedAt          DateTime?
+    createdAt          DateTime          @default(now())
+    updatedAt          DateTime          @updatedAt
+    auditLogs          AuditLog[]
+    challengeCompletion ChallengeCompletion?
+    createdBy          User?             @relation("ReadingEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+    questParticipant   QuestParticipant  @relation(fields: [questParticipantId], references: [id], onDelete: Cascade)
+    updatedBy          User?             @relation("ReadingEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+    @@index([questParticipantId, deletedAt, activityDate])
+}
+
+model ChallengeCompletion {
+    id                 String               @id @default(cuid())
+    readingEntryId     String               @unique
+    questParticipantId String
+    challengeId        String
+    questChallengeId   String?
+    reviewState        ChallengeReviewState @default(PENDING)
+    evidenceText       String?
+    reviewNotes        String?
+    awardedPoints      Decimal?             @db.Decimal(12, 4)
+    reviewedAt         DateTime?
+    reviewedByUserId   String?
+    createdAt          DateTime             @default(now())
+    updatedAt          DateTime             @updatedAt
+    auditLogs          AuditLog[]
+    challenge          Challenge            @relation(fields: [challengeId], references: [id], onDelete: Restrict)
+    questChallenge     QuestChallenge?      @relation(fields: [questChallengeId], references: [id], onDelete: SetNull)
+    questParticipant   QuestParticipant     @relation(fields: [questParticipantId], references: [id], onDelete: Cascade)
+    readingEntry       ReadingEntry         @relation(fields: [readingEntryId], references: [id], onDelete: Cascade)
+    reviewedBy         User?                @relation("ChallengeReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+    id                   String               @id @default(cuid())
+    actorUserId          String?
+    questId              String?
+    questParticipantId   String?
+    invitationId         String?
+    challengeId          String?
+    challengeCompletionId String?
+    readingEntryId       String?
+    entityType           String
+    entityId             String
+    action               String
+    metadata             Json?
+    createdAt            DateTime             @default(now())
+    actor                User?                @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+    challenge            Challenge?           @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+    challengeCompletion  ChallengeCompletion? @relation(fields: [challengeCompletionId], references: [id], onDelete: SetNull)
+    invitation           Invitation?          @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+    quest                Quest?               @relation(fields: [questId], references: [id], onDelete: SetNull)
+    questParticipant     QuestParticipant?    @relation(fields: [questParticipantId], references: [id], onDelete: SetNull)
+    readingEntry         ReadingEntry?        @relation(fields: [readingEntryId], references: [id], onDelete: SetNull)
+}
