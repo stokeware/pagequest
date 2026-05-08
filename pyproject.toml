@@ -1,0 +1,10 @@
+[project]
+name = 'pagequest-tools'
+version = '0.1.0'
+description = 'Incidental Python tooling for the Page Quest workspace.'
+readme = 'README.md'
+requires-python = '>=3.12,<3.13'
+dependencies = []
+
+[tool.uv]
+package = false

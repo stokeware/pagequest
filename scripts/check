@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
+
+run ./scripts/format-check
+run ./scripts/lint
+run ./scripts/test

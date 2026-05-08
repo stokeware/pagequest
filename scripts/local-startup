@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
+
+run ./scripts/services-up
+run ./scripts/db-migrate
+run ./scripts/db-seed
+
+echo 'Local services are up and the database workflow completed.'
+echo 'Start the app with ./scripts/dev'

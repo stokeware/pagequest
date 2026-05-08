@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
+
+run docker compose ps "$@"

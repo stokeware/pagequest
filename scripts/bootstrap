@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
+
+if [[ ! -f .env ]]; then
+    cp .env.example .env
+fi
+
+if [[ ! -f .env.local ]]; then
+    cp .env.example .env.local
+fi
+
+run pnpm install
+run docker compose up -d
