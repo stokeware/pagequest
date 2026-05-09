@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { recordLogProgressEntry } from '@/lib/log-progress-service'
+import {
+    recordLogProgressEntry,
+    updateReadingEntryAsAdmin,
+} from '@/lib/log-progress-service'
 
 function buildParticipantSnapshot({
     challengeRequiresReview = false,
@@ -84,7 +87,9 @@ function buildTransaction({
         },
         readingEntry: {
             create: vi.fn(async () => ({ id: 'entry-1' })),
+            findUnique: vi.fn(async () => null),
             findMany: vi.fn(async () => persistedEntries),
+            update: vi.fn(async () => undefined),
         },
     }
 }
@@ -315,5 +320,116 @@ describe('recordLogProgressEntry', () => {
         })
         expect(result.totals.totalChallenges).toBe(0)
         expect(result.totals.totalPoints.toString()).toBe('30')
+    })
+})
+
+describe('updateReadingEntryAsAdmin', () => {
+    it('updates a standard reading entry and recalculates totals', async () => {
+        const participant = buildParticipantSnapshot()
+        const transaction = buildTransaction({
+            participant,
+            persistedEntries: [
+                {
+                    activityDate: new Date('2026-05-03T12:00:00.000Z'),
+                    challengeCompletion: null,
+                    type: 'BOOK_COMPLETION',
+                    value: 1,
+                },
+                {
+                    activityDate: new Date('2026-05-08T12:00:00.000Z'),
+                    challengeCompletion: null,
+                    type: 'PAGES_READ',
+                    value: 24,
+                },
+            ],
+        })
+
+        transaction.readingEntry.findUnique.mockResolvedValue({
+            activityDate: new Date('2026-05-08T12:00:00.000Z'),
+            bookAuthor: 'Lois Lowry',
+            bookTitle: 'The Giver',
+            createdAt: new Date('2026-05-08T12:05:00.000Z'),
+            deletedAt: null,
+            id: 'entry-1',
+            notes: 'Original note',
+            questParticipant: participant,
+            type: 'PAGES_READ',
+            value: 42,
+        })
+
+        const result = await updateReadingEntryAsAdmin(transaction, {
+            actorUserId: 'admin-1',
+            formValues: {
+                activityDate: '2026-05-08',
+                bookAuthor: 'Lois Lowry',
+                bookTitle: 'The Giver',
+                challengeId: '',
+                notes: 'Corrected by admin',
+                type: 'PAGES_READ',
+                value: '24',
+            },
+            now: new Date('2026-05-08T20:00:00.000Z'),
+            readingEntryId: 'entry-1',
+        })
+
+        expect(transaction.readingEntry.update).toHaveBeenCalledWith({
+            data: {
+                activityDate: new Date('2026-05-08T12:00:00.000Z'),
+                bookAuthor: 'Lois Lowry',
+                bookTitle: 'The Giver',
+                notes: 'Corrected by admin',
+                type: 'PAGES_READ',
+                updatedByUserId: 'admin-1',
+                value: 24,
+            },
+            where: {
+                id: 'entry-1',
+            },
+        })
+        expect(transaction.auditLog.create).toHaveBeenCalledWith({
+            data: {
+                action: 'reading-entry.admin-updated',
+                actorUserId: 'admin-1',
+                entityId: 'entry-1',
+                entityType: 'ReadingEntry',
+                metadata: {
+                    previousEntry: {
+                        activityDate: '2026-05-08T12:00:00.000Z',
+                        bookAuthor: 'Lois Lowry',
+                        bookTitle: 'The Giver',
+                        hasNotes: true,
+                        type: 'PAGES_READ',
+                        value: 42,
+                    },
+                    updatedEntry: {
+                        activityDate: '2026-05-08',
+                        bookAuthor: 'Lois Lowry',
+                        bookTitle: 'The Giver',
+                        hasNotes: true,
+                        type: 'PAGES_READ',
+                        value: 24,
+                    },
+                },
+                questId: 'quest-1',
+                questParticipantId: 'participant-1',
+                readingEntryId: 'entry-1',
+            },
+        })
+        expect(transaction.questParticipant.update).toHaveBeenCalledWith({
+            data: {
+                lastActivityAt: new Date('2026-05-08T12:00:00.000Z'),
+                totalAudiobookMinutes: 0,
+                totalBooks: 1,
+                totalChallenges: 0,
+                totalPages: 24,
+                totalPoints: expect.objectContaining({
+                    toString: expect.any(Function),
+                }),
+            },
+            where: {
+                id: 'participant-1',
+            },
+        })
+        expect(result.totals.totalPoints.toString()).toBe('34')
     })
 })

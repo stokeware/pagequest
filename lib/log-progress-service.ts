@@ -62,6 +62,19 @@ type PersistedReadingEntry = {
     value: number
 }
 
+type EditableReadingEntrySnapshot = {
+    activityDate: Date
+    bookAuthor: string | null
+    bookTitle: string | null
+    createdAt: Date
+    deletedAt: Date | null
+    id: string
+    notes: string | null
+    questParticipant: ParticipantSnapshot
+    type: ReadingEntryType
+    value: number
+}
+
 type LogProgressTransaction = {
     auditLog: {
         create: (args: {
@@ -192,6 +205,61 @@ type LogProgressTransaction = {
         }) => Promise<{
             id: string
         }>
+        findUnique: (args: {
+            select: {
+                activityDate: true
+                bookAuthor: true
+                bookTitle: true
+                createdAt: true
+                deletedAt: true
+                id: true
+                notes: true
+                questParticipant: {
+                    select: {
+                        id: true
+                        removedAt: true
+                        userId: true
+                        quest: {
+                            select: {
+                                entryDeleteWindowMinutes: true
+                                entryEditWindowMinutes: true
+                                endAt: true
+                                id: true
+                                pointsPerAudiobookMinute: true
+                                pointsPerBook: true
+                                pointsPerChallengeCompletion: true
+                                pointsPerPage: true
+                                questChallenges: {
+                                    where: {
+                                        isActive: true
+                                    }
+                                    select: {
+                                        challenge: {
+                                            select: {
+                                                availability: true
+                                                pointValue: true
+                                                requiresReview: true
+                                                title: true
+                                            }
+                                        }
+                                        challengeId: true
+                                        id: true
+                                        pointValueOverride: true
+                                    }
+                                }
+                                startAt: true
+                                timezone: true
+                            }
+                        }
+                    }
+                }
+                type: true
+                value: true
+            }
+            where: {
+                id: string
+            }
+        }) => Promise<EditableReadingEntrySnapshot | null>
         findMany: (args: {
             orderBy: {
                 activityDate: 'asc'
@@ -212,6 +280,20 @@ type LogProgressTransaction = {
                 questParticipantId: string
             }
         }) => Promise<PersistedReadingEntry[]>
+        update: (args: {
+            data: {
+                activityDate: Date
+                bookAuthor: string | null
+                bookTitle: string | null
+                notes: string | null
+                type: Exclude<ReadingEntryType, 'CHALLENGE_COMPLETION'>
+                updatedByUserId: string
+                value: number
+            }
+            where: {
+                id: string
+            }
+        }) => Promise<unknown>
     }
 }
 
@@ -234,6 +316,20 @@ export type RecordLogProgressInput = {
 
 export type RecordLogProgressResult = {
     challengeCompletionId: string | null
+    questId: string
+    questParticipantId: string
+    readingEntryId: string
+    totals: ParticipantScoreTotals
+}
+
+export type AdminUpdateReadingEntryInput = {
+    actorUserId: string
+    formValues: LogProgressFormValues
+    now: Date
+    readingEntryId: string
+}
+
+export type AdminUpdateReadingEntryResult = {
     questId: string
     questParticipantId: string
     readingEntryId: string
@@ -502,6 +598,194 @@ export async function recordLogProgressEntry(
         }
     }
 
+    const totals = await recalculateParticipantTotals(transaction, participant)
+
+    return {
+        challengeCompletionId,
+        questId: participant.quest.id,
+        questParticipantId: participant.id,
+        readingEntryId: readingEntry.id,
+        totals,
+    }
+}
+
+export async function updateReadingEntryAsAdmin(
+    transaction: LogProgressTransaction,
+    input: AdminUpdateReadingEntryInput
+): Promise<AdminUpdateReadingEntryResult> {
+    const readingEntry = await transaction.readingEntry.findUnique({
+        select: {
+            activityDate: true,
+            bookAuthor: true,
+            bookTitle: true,
+            createdAt: true,
+            deletedAt: true,
+            id: true,
+            notes: true,
+            questParticipant: {
+                select: {
+                    id: true,
+                    removedAt: true,
+                    userId: true,
+                    quest: {
+                        select: {
+                            entryDeleteWindowMinutes: true,
+                            entryEditWindowMinutes: true,
+                            endAt: true,
+                            id: true,
+                            pointsPerAudiobookMinute: true,
+                            pointsPerBook: true,
+                            pointsPerChallengeCompletion: true,
+                            pointsPerPage: true,
+                            questChallenges: {
+                                select: {
+                                    challenge: {
+                                        select: {
+                                            availability: true,
+                                            pointValue: true,
+                                            requiresReview: true,
+                                            title: true,
+                                        },
+                                    },
+                                    challengeId: true,
+                                    id: true,
+                                    pointValueOverride: true,
+                                },
+                                where: {
+                                    isActive: true,
+                                },
+                            },
+                            startAt: true,
+                            timezone: true,
+                        },
+                    },
+                },
+            },
+            type: true,
+            value: true,
+        },
+        where: {
+            id: input.readingEntryId,
+        },
+    })
+
+    if (!readingEntry || readingEntry.deletedAt) {
+        throw new LogProgressMutationError(
+            'reading-entry-not-found',
+            'The selected reading entry is no longer available for moderation.'
+        )
+    }
+
+    if (readingEntry.questParticipant.removedAt) {
+        throw new LogProgressMutationError(
+            'participant-removed',
+            'This quest profile is no longer active.'
+        )
+    }
+
+    if (
+        readingEntry.type === 'CHALLENGE_COMPLETION' ||
+        input.formValues.type === 'CHALLENGE_COMPLETION'
+    ) {
+        throw new LogProgressMutationError(
+            'challenge-entry-admin-edit-unsupported',
+            'Challenge completion entries should be corrected from the challenge review tools.'
+        )
+    }
+
+    const participant = readingEntry.questParticipant
+    const validationResult = validateLogProgressFormValues(input.formValues, {
+        availableChallengeIds: participant.quest.questChallenges.map(
+            (challenge) => challenge.id
+        ),
+        questPolicy: toQuestPolicy(participant.quest),
+    })
+
+    if (!validationResult.success) {
+        const firstIssue = validationResult.error.issues[0]
+
+        throw new LogProgressMutationError(
+            'invalid-entry',
+            firstIssue?.message ?? 'The progress entry is invalid.'
+        )
+    }
+
+    const metadata = normalizeReadingEntryMetadata(input.formValues)
+    const notes = normalizeOptionalString(input.formValues.notes)
+    const activityDate = toStoredActivityDate(input.formValues.activityDate)
+    const entryValue = Number.parseInt(input.formValues.value, 10)
+
+    await transaction.readingEntry.update({
+        data: {
+            activityDate,
+            bookAuthor: metadata.bookAuthor,
+            bookTitle: metadata.bookTitle,
+            notes,
+            type: input.formValues.type,
+            updatedByUserId: input.actorUserId,
+            value: entryValue,
+        },
+        where: {
+            id: readingEntry.id,
+        },
+    })
+
+    await transaction.auditLog.create({
+        data: {
+            action: 'reading-entry.admin-updated',
+            actorUserId: input.actorUserId,
+            entityId: readingEntry.id,
+            entityType: 'ReadingEntry',
+            metadata: {
+                previousEntry: {
+                    activityDate: readingEntry.activityDate.toISOString(),
+                    bookAuthor: readingEntry.bookAuthor,
+                    bookTitle: readingEntry.bookTitle,
+                    hasNotes: readingEntry.notes != null,
+                    type: readingEntry.type,
+                    value: readingEntry.value,
+                },
+                updatedEntry: {
+                    activityDate: input.formValues.activityDate,
+                    bookAuthor: metadata.bookAuthor,
+                    bookTitle: metadata.bookTitle,
+                    hasNotes: notes != null,
+                    type: input.formValues.type,
+                    value: entryValue,
+                },
+            },
+            questId: participant.quest.id,
+            questParticipantId: participant.id,
+            readingEntryId: readingEntry.id,
+        },
+    })
+
+    const totals = await recalculateParticipantTotals(transaction, participant)
+
+    return {
+        questId: participant.quest.id,
+        questParticipantId: participant.id,
+        readingEntryId: readingEntry.id,
+        totals,
+    }
+}
+
+export function resolveLogProgressMutationErrorCode(error: unknown) {
+    if (error instanceof ChallengeReviewError) {
+        return error.code
+    }
+
+    if (error instanceof LogProgressMutationError) {
+        return error.code
+    }
+
+    return 'unexpected-error'
+}
+
+async function recalculateParticipantTotals(
+    transaction: LogProgressTransaction,
+    participant: ParticipantSnapshot
+) {
     const persistedEntries = await transaction.readingEntry.findMany({
         orderBy: {
             activityDate: 'asc',
@@ -542,25 +826,7 @@ export async function recordLogProgressEntry(
         },
     })
 
-    return {
-        challengeCompletionId,
-        questId: participant.quest.id,
-        questParticipantId: participant.id,
-        readingEntryId: readingEntry.id,
-        totals,
-    }
-}
-
-export function resolveLogProgressMutationErrorCode(error: unknown) {
-    if (error instanceof ChallengeReviewError) {
-        return error.code
-    }
-
-    if (error instanceof LogProgressMutationError) {
-        return error.code
-    }
-
-    return 'unexpected-error'
+    return totals
 }
 
 function toQuestPolicy(
