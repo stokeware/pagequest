@@ -248,6 +248,7 @@ After Azure creates the deployment workflow, open it and make these changes.
 - Set Node to version `22`.
 - Install pnpm `11.0.8`.
 - Replace `npm install` or `npm ci` with `pnpm install --frozen-lockfile`.
+- Add `pnpm exec prisma generate` immediately after dependency installation.
 - Replace `npm run build` with `pnpm build`.
 
 ### Add deployment environment variables
@@ -273,9 +274,12 @@ env:
 
 ### Add an explicit production validation step
 
-Add this before the build step:
+Add this after Prisma client generation and before the build step:
 
 ```yaml
+- name: Generate Prisma client
+  run: pnpm exec prisma generate
+
 - name: Validate production environment contract
   run: pnpm env:validate -- --target production
 ```
