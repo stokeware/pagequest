@@ -237,6 +237,7 @@ function calculateParticipantTotals(entries) {
 
 async function resetDatabase() {
     await prisma.auditLog.deleteMany()
+    await prisma.notificationDelivery.deleteMany()
     await prisma.challengeCompletion.deleteMany()
     await prisma.readingEntry.deleteMany()
     await prisma.campaignChallenge.deleteMany()

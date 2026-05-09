@@ -49,6 +49,13 @@ enum ChallengeReviewState {
     AUTO_APPROVED
 }
 
+enum NotificationDeliveryStatus {
+    PENDING
+    SENDING
+    SENT
+    FAILED
+}
+
 model User {
     id               String           @id @default(cuid())
     email            String           @unique
@@ -107,6 +114,7 @@ model Campaign {
     invitations                 Invitation[]
     participants                CampaignParticipant[]
     campaignChallenges             CampaignChallenge[]
+    notificationDeliveries      NotificationDelivery[]
 }
 
 model CampaignParticipant {
@@ -127,6 +135,7 @@ model CampaignParticipant {
     auditLogs              AuditLog[]
     challengeCompletions   ChallengeCompletion[]
     campaign                  Campaign               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+    notificationDeliveries  NotificationDelivery[]
     readingEntries         ReadingEntry[]
     user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -259,4 +268,27 @@ model AuditLog {
     campaign                Campaign?               @relation(fields: [campaignId], references: [id], onDelete: SetNull)
     campaignParticipant     CampaignParticipant?    @relation(fields: [campaignParticipantId], references: [id], onDelete: SetNull)
     readingEntry         ReadingEntry?        @relation(fields: [readingEntryId], references: [id], onDelete: SetNull)
+}
+
+model NotificationDelivery {
+    id                   String                     @id @default(cuid())
+    kind                 String
+    idempotencyKey       String                     @unique
+    status               NotificationDeliveryStatus @default(PENDING)
+    campaignId           String?
+    campaignParticipantId String?
+    recipientEmail       String
+    providerMessageId    String?
+    metadata             Json?
+    scheduledFor         DateTime?
+    startedAt            DateTime?
+    sentAt               DateTime?
+    failedAt             DateTime?
+    createdAt            DateTime                   @default(now())
+    updatedAt            DateTime                   @updatedAt
+    campaign             Campaign?                  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+    campaignParticipant  CampaignParticipant?       @relation(fields: [campaignParticipantId], references: [id], onDelete: SetNull)
+
+    @@index([kind, status, scheduledFor])
+    @@index([campaignParticipantId, kind, sentAt])
 }
