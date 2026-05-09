@@ -19,6 +19,7 @@ type SignInFormProps = {
     authMode: AuthMode
     localDemoEmails: readonly string[]
     localPassphraseHint: string | null
+    providerLabel: string
 }
 
 function subscribeToHydration() {
@@ -37,6 +38,7 @@ export function SignInForm({
     authMode,
     localDemoEmails,
     localPassphraseHint,
+    providerLabel,
 }: SignInFormProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -92,25 +94,25 @@ export function SignInForm({
         })
     }
 
-    function handleEntraSignIn() {
+    function handleHostedSignIn() {
         setErrorMessage(null)
 
         startTransition(async () => {
-            await signIn('microsoft-entra-external-id', {
+            await signIn(authMode, {
                 callbackUrl,
             })
         })
     }
 
-    if (authMode === 'entra') {
+    if (authMode !== 'local') {
         return (
             <FormCard
                 title='Sign in'
-                description='Use the hosted identity flow configured for Microsoft Entra External ID.'
+                description={`Use the hosted identity flow configured for ${providerLabel}.`}
             >
-                <FormActions note='The local credentials form stays disabled whenever the app runs in Entra mode.'>
-                    <Button onClick={handleEntraSignIn} disabled={isPending}>
-                        Continue with Microsoft Entra External ID
+                <FormActions note='The local credentials form stays disabled whenever the app runs in hosted auth mode.'>
+                    <Button onClick={handleHostedSignIn} disabled={isPending}>
+                        Continue with {providerLabel}
                     </Button>
                 </FormActions>
             </FormCard>

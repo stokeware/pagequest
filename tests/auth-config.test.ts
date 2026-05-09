@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+    getAuth0Config,
     getAuthMode,
     getAuthUiConfig,
     getEntraExternalIdConfig,
@@ -17,6 +18,14 @@ describe('auth config', () => {
         expect(getLocalAuthPassphrase({})).toBe('pagequest-local')
     })
 
+    it('accepts auth0 as the hosted auth mode', () => {
+        expect(
+            getAuthMode({
+                PAGEQUEST_AUTH_MODE: 'auth0',
+            })
+        ).toBe('auth0')
+    })
+
     it('uses the configured local passphrase when provided', () => {
         expect(
             getLocalAuthPassphrase({
@@ -31,6 +40,14 @@ describe('auth config', () => {
                 PAGEQUEST_AUTH_MODE: 'entra',
             }).providerLabel
         ).toBe('Microsoft Entra External ID')
+    })
+
+    it('returns the Auth0 provider label when auth0 mode is selected', () => {
+        expect(
+            getAuthUiConfig({
+                PAGEQUEST_AUTH_MODE: 'auth0',
+            }).providerLabel
+        ).toBe('Auth0')
     })
 
     it('requires the Entra configuration in entra mode', () => {
@@ -54,6 +71,28 @@ describe('auth config', () => {
             clientId: 'client-id',
             clientSecret: 'client-secret',
             issuer: 'https://login.example.com/tenant/v2.0',
+            scope: 'openid profile email',
+        })
+    })
+
+    it('requires the Auth0 configuration when requested', () => {
+        expect(() => getAuth0Config({})).toThrow(/AUTH0_CLIENT_ID/)
+    })
+
+    it('returns the configured Auth0 settings', () => {
+        expect(
+            getAuth0Config({
+                AUTH0_AUDIENCE: 'https://api.pagequest.example.com',
+                AUTH0_CLIENT_ID: 'auth0-client-id',
+                AUTH0_CLIENT_SECRET: 'auth0-client-secret',
+                AUTH0_ISSUER: 'https://pagequest.us.auth0.com',
+                AUTH0_SCOPE: 'openid profile email',
+            })
+        ).toEqual({
+            audience: 'https://api.pagequest.example.com',
+            clientId: 'auth0-client-id',
+            clientSecret: 'auth0-client-secret',
+            issuer: 'https://pagequest.us.auth0.com',
             scope: 'openid profile email',
         })
     })

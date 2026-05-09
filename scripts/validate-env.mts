@@ -1,5 +1,9 @@
 type EnvironmentTarget = 'local' | 'production'
 
+// This validates either the local developer contract or the hosted production
+// contract. `./scripts/build` uses the production path so Vercel fails before
+// shipping a broken deployment.
+
 async function loadValidateEnvironment() {
     const environmentModule = await import('../lib/env')
     const { validateEnvironment } = environmentModule

@@ -1,6 +1,6 @@
 export type EnvSource = Partial<Record<string, string | undefined>>
 
-export type AuthMode = 'local' | 'entra'
+export type AuthMode = 'auth0' | 'entra' | 'local'
 
 export type EmailDeliveryMode = 'azure-communication-services' | 'smtp'
 
@@ -132,6 +132,17 @@ function normalizeUrl(value: string): string {
     return value.endsWith('/') ? value.slice(0, -1) : value
 }
 
+function validateRequiredHttpsUrl(name: string, env: EnvSource): string {
+    const value = readRequiredEnv(name, env)
+    const parsedValue = parseAbsoluteUrl(name, value)
+
+    if (parsedValue.protocol !== 'https:') {
+        throw new Error(`Environment variable ${name} must use https.`)
+    }
+
+    return value
+}
+
 export function getAppUrl(env: EnvSource = process.env): string {
     const configuredAppUrl = readOptionalEnv('APP_URL', env)
     const configuredNextAuthUrl = readOptionalEnv('NEXTAUTH_URL', env)
@@ -156,6 +167,19 @@ function isLoopbackUrl(value: string): boolean {
 
 function collectError(errors: string[], error: unknown) {
     errors.push(error instanceof Error ? error.message : String(error))
+}
+
+function collectRequiredEnvError(
+    errors: string[],
+    name: string,
+    env: EnvSource,
+    scope?: string
+) {
+    try {
+        readRequiredEnv(name, env, scope)
+    } catch (error) {
+        collectError(errors, error)
+    }
 }
 
 export function validateEnvironment({
@@ -218,7 +242,7 @@ export function validateEnvironment({
         authMode = readEnumEnv(
             'PAGEQUEST_AUTH_MODE',
             env,
-            ['local', 'entra'],
+            ['auth0', 'local', 'entra'],
             'local'
         )
     } catch (error) {
@@ -248,17 +272,18 @@ export function validateEnvironment({
         try {
             readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_ID', env)
             readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_SECRET', env)
-            const issuer = readRequiredEnv('ENTRA_EXTERNAL_ID_ISSUER', env)
-            const parsedIssuer = parseAbsoluteUrl(
-                'ENTRA_EXTERNAL_ID_ISSUER',
-                issuer
-            )
+            validateRequiredHttpsUrl('ENTRA_EXTERNAL_ID_ISSUER', env)
+        } catch (error) {
+            collectError(errors, error)
+        }
+    }
 
-            if (parsedIssuer.protocol !== 'https:') {
-                errors.push(
-                    'Environment variable ENTRA_EXTERNAL_ID_ISSUER must use https.'
-                )
-            }
+    if (authMode === 'auth0') {
+        collectRequiredEnvError(errors, 'AUTH0_CLIENT_ID', env)
+        collectRequiredEnvError(errors, 'AUTH0_CLIENT_SECRET', env)
+
+        try {
+            validateRequiredHttpsUrl('AUTH0_ISSUER', env)
         } catch (error) {
             collectError(errors, error)
         }
@@ -301,16 +326,23 @@ export function validateEnvironment({
             errors.push('Missing required environment variable: NEXTAUTH_URL')
         }
 
-        if (authMode !== 'entra') {
+        if (authMode !== 'auth0') {
             errors.push(
-                'PAGEQUEST_AUTH_MODE must be set to "entra" for production.'
+                'PAGEQUEST_AUTH_MODE must be set to "auth0" for production.'
             )
         }
 
-        if (emailMode !== 'azure-communication-services') {
+        if (emailMode !== 'smtp') {
             errors.push(
-                'PAGEQUEST_EMAIL_DELIVERY_MODE must be set to "azure-communication-services" for production.'
+                'PAGEQUEST_EMAIL_DELIVERY_MODE must be set to "smtp" for production.'
             )
+        }
+
+        if (emailMode === 'smtp') {
+            collectRequiredEnvError(errors, 'SMTP_PORT', env)
+            collectRequiredEnvError(errors, 'SMTP_SECURE', env)
+            collectRequiredEnvError(errors, 'SMTP_USER', env)
+            collectRequiredEnvError(errors, 'SMTP_PASSWORD', env)
         }
 
         if (nextAuthSecret) {

@@ -18,6 +18,7 @@ export default function SignInPage() {
                     authMode={authUiConfig.mode}
                     localDemoEmails={authUiConfig.localDemoEmails}
                     localPassphraseHint={authUiConfig.localPassphraseHint}
+                    providerLabel={authUiConfig.providerLabel}
                 />
             </Suspense>
         </PublicShell>

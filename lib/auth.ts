@@ -1,16 +1,18 @@
 import type { AppRole } from '@prisma/client'
 import type { NextAuthOptions, Profile } from 'next-auth'
+import Auth0Provider from 'next-auth/providers/auth0'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import type { OAuthConfig } from 'next-auth/providers/oauth'
 
 import {
+    getAuth0Config,
     getAuthMode,
     getEntraExternalIdConfig,
     getLocalAuthPassphrase,
 } from '@/lib/auth/config'
 import { prisma } from '@/lib/prisma'
 
-type EntraProfile = Profile & {
+type HostedIdentityProfile = Profile & {
     email?: string
     emails?: string[]
     name?: string
@@ -85,7 +87,7 @@ async function touchUserLastSignedInAt(userId: string) {
     })
 }
 
-function getProfileEmail(profile: EntraProfile) {
+function getProfileEmail(profile: HostedIdentityProfile) {
     const candidateEmail = normalizeEmail(profile.email)
 
     if (candidateEmail) {
@@ -185,7 +187,7 @@ function createLocalCredentialsProvider() {
 function createEntraExternalIdProvider() {
     const config = getEntraExternalIdConfig()
 
-    const provider: OAuthConfig<EntraProfile> = {
+    const provider: OAuthConfig<HostedIdentityProfile> = {
         authorization: {
             params: {
                 scope: config.scope,
@@ -222,10 +224,34 @@ function createEntraExternalIdProvider() {
     return provider
 }
 
+function createAuth0Provider() {
+    const config = getAuth0Config()
+
+    return Auth0Provider({
+        authorization: {
+            params: {
+                ...(config.audience ? { audience: config.audience } : {}),
+                scope: config.scope,
+            },
+        },
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        issuer: config.issuer,
+    })
+}
+
 function getAuthProviders() {
-    return getAuthMode() === 'entra'
-        ? [createEntraExternalIdProvider()]
-        : [createLocalCredentialsProvider()]
+    const mode = getAuthMode()
+
+    if (mode === 'auth0') {
+        return [createAuth0Provider()]
+    }
+
+    if (mode === 'entra') {
+        return [createEntraExternalIdProvider()]
+    }
+
+    return [createLocalCredentialsProvider()]
 }
 
 export const authOptions: NextAuthOptions = {
@@ -263,13 +289,13 @@ export const authOptions: NextAuthOptions = {
             return session
         },
         async signIn({ account, profile, user }) {
-            if (account?.provider !== 'microsoft-entra-external-id') {
+            if (account?.provider === 'credentials') {
                 return true
             }
 
-            const entraProfile = profile as EntraProfile
+            const hostedProfile = profile as HostedIdentityProfile
             const email =
-                normalizeEmail(user.email) || getProfileEmail(entraProfile)
+                normalizeEmail(user.email) || getProfileEmail(hostedProfile)
 
             if (!email) {
                 return false
@@ -277,8 +303,8 @@ export const authOptions: NextAuthOptions = {
 
             const persistedUser = await syncExternalIdentityUser({
                 email,
-                image: user.image ?? entraProfile.picture ?? null,
-                name: user.name ?? entraProfile.name ?? email,
+                image: user.image ?? hostedProfile.picture ?? null,
+                name: user.name ?? hostedProfile.name ?? email,
             })
 
             user.email = persistedUser.email

@@ -58,11 +58,35 @@ describe('environment validation', () => {
                     PAGEQUEST_AUTH_MODE: 'local',
                     PAGEQUEST_EMAIL_DELIVERY_MODE: 'smtp',
                     SMTP_HOST: '127.0.0.1',
+                    SMTP_PASSWORD: 'smtp-password',
+                    SMTP_PORT: '465',
                     SMTP_SECURE: 'false',
+                    SMTP_USER: 'resend',
                 },
                 target: 'production',
             })
-        ).toThrow(/PAGEQUEST_AUTH_MODE must be set to "entra" for production/)
+        ).toThrow(/PAGEQUEST_AUTH_MODE must be set to "auth0" for production/)
+    })
+
+    it('fails clearly when hosted Auth0 or SMTP variables are missing', () => {
+        expect(() =>
+            validateEnvironment({
+                env: {
+                    APP_URL: 'https://pagequest.example.com',
+                    DATABASE_URL: 'postgresql://db',
+                    DIRECT_URL: 'postgresql://db',
+                    EMAIL_FROM: 'Page Quest <noreply@pagequest.example.com>',
+                    NEXTAUTH_SECRET: 'a-secure-production-secret-with-32-plus',
+                    NEXTAUTH_URL: 'https://pagequest.example.com',
+                    PAGEQUEST_AUTH_MODE: 'auth0',
+                    PAGEQUEST_EMAIL_DELIVERY_MODE: 'smtp',
+                    SMTP_HOST: 'smtp.resend.com',
+                    SMTP_PORT: '465',
+                    SMTP_SECURE: 'true',
+                },
+                target: 'production',
+            })
+        ).toThrow(/AUTH0_CLIENT_ID|SMTP_USER|SMTP_PASSWORD/)
     })
 
     it('accepts a valid production environment contract', () => {
@@ -70,27 +94,28 @@ describe('environment validation', () => {
             validateEnvironment({
                 env: {
                     APP_URL: 'https://pagequest.example.com',
-                    AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING:
-                        'endpoint=https://example.communication.azure.com/;accesskey=secret',
+                    AUTH0_CLIENT_ID: 'auth0-client-id',
+                    AUTH0_CLIENT_SECRET: 'auth0-client-secret',
+                    AUTH0_ISSUER: 'https://pagequest.us.auth0.com',
                     DATABASE_URL: 'postgresql://db',
                     DIRECT_URL: 'postgresql://db',
                     EMAIL_FROM: 'Page Quest <noreply@pagequest.example.com>',
-                    ENTRA_EXTERNAL_ID_CLIENT_ID: 'client-id',
-                    ENTRA_EXTERNAL_ID_CLIENT_SECRET: 'client-secret',
-                    ENTRA_EXTERNAL_ID_ISSUER:
-                        'https://login.example.com/tenant/v2.0',
                     NEXTAUTH_SECRET: 'a-secure-production-secret-with-32-plus',
                     NEXTAUTH_URL: 'https://pagequest.example.com',
-                    PAGEQUEST_AUTH_MODE: 'entra',
-                    PAGEQUEST_EMAIL_DELIVERY_MODE:
-                        'azure-communication-services',
+                    PAGEQUEST_AUTH_MODE: 'auth0',
+                    PAGEQUEST_EMAIL_DELIVERY_MODE: 'smtp',
+                    SMTP_HOST: 'smtp.resend.com',
+                    SMTP_PASSWORD: 'smtp-password',
+                    SMTP_PORT: '465',
+                    SMTP_SECURE: 'true',
+                    SMTP_USER: 'resend',
                 },
                 target: 'production',
             })
         ).toMatchObject({
             appUrl: 'https://pagequest.example.com',
-            authMode: 'entra',
-            emailMode: 'azure-communication-services',
+            authMode: 'auth0',
+            emailMode: 'smtp',
             nextAuthUrl: 'https://pagequest.example.com',
             target: 'production',
         })

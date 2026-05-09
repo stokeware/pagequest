@@ -5,10 +5,10 @@ These scripts are the command-line entrypoints for routine local development tas
 ## Setup and startup
 
 - `./scripts/bootstrap`: install dependencies, create local env files if missing, and start Docker services.
-- `./scripts/validate-env --target local|production`: validate the current environment contract before local work or hosted startup.
+- `./scripts/validate-env --target local|production`: validate the current environment contract before local work or a hosted build/start.
 - `./scripts/local-startup`: start local services, run Prisma migrations, and run the seed command.
 - `./scripts/dev`: start the Next.js development server.
-- `./scripts/build`: build the app for production.
+- `./scripts/build`: validate the hosted production contract, then build the app for Vercel or another production-style target.
 - `./scripts/start`: start the production server.
 
 ## Database and services
