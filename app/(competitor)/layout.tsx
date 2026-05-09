@@ -11,6 +11,7 @@ import {
     getRoleAwareSession,
     protectAuthenticatedRoute,
 } from '@/lib/auth/session'
+import { getCompetitorDashboardViewModel } from '@/lib/competitor-dashboard'
 import { redirect } from 'next/navigation'
 
 const competitorNavItems: ShellNavItem[] = [
@@ -22,24 +23,6 @@ const competitorNavItems: ShellNavItem[] = [
     },
     { href: '/leaderboard', label: 'Leaderboard', icon: 'trophy' },
     { href: '/history', label: 'My history', icon: 'history' },
-]
-
-const competitorMetrics: ShellMetric[] = [
-    {
-        label: 'Active quest',
-        value: 'Spring Story Sprint',
-        detail: '42 days remaining',
-    },
-    {
-        label: 'Current standing',
-        value: '#2',
-        detail: '18 points behind first place',
-    },
-    {
-        label: 'Weekly pace',
-        value: '186 pages',
-        detail: 'Plus 95 audiobook minutes',
-    },
 ]
 
 export default async function CompetitorLayout({
@@ -66,12 +49,17 @@ export default async function CompetitorLayout({
         redirect(invitationRedirectPath)
     }
 
+    const dashboardViewModel = await getCompetitorDashboardViewModel(
+        viewer.userId
+    )
+    const competitorMetrics: ShellMetric[] = dashboardViewModel.shellMetrics
+
     return (
         <AppShell
             shellVariant='competitor'
             audienceLabel='Competitor experience'
             title='A focused reading hub for logging progress and checking the race.'
-            description='This authenticated shell establishes the future competitor route family without depending on live auth or quest data yet.'
+            description='Track your quest standing, latest entries, and next move from one place.'
             navItems={competitorNavItems}
             metrics={competitorMetrics}
             viewer={viewer}

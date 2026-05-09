@@ -7,33 +7,18 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
+    EmptyState,
     StatCard,
 } from '@/components/ui'
+import {
+    defaultCompetitorDashboardViewModel,
+    getCompetitorDashboardViewModel,
+} from '@/lib/competitor-dashboard'
+import { getRoleAwareSession } from '@/lib/auth/session'
 
 type DashboardPageProps = {
     searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
-
-const dashboardCards = [
-    {
-        title: 'Current rank',
-        value: '#2',
-        description:
-            'Hold second place with steady page totals and one approved challenge.',
-    },
-    {
-        title: 'Time remaining',
-        value: '42 days',
-        description:
-            'The current quest still has enough runway for a late sprint and a few bonus challenges.',
-    },
-    {
-        title: 'Recent activity',
-        value: '1 challenge',
-        description:
-            'Your next entry will eventually surface here beside quest alerts and leaderboard movement.',
-    },
-]
 
 function getFirstSearchParamValue(
     value: string | string[] | undefined
@@ -48,10 +33,14 @@ function getFirstSearchParamValue(
 export default async function DashboardPage({
     searchParams,
 }: DashboardPageProps) {
+    const viewer = await getRoleAwareSession('COMPETITOR')
     const resolvedSearchParams = searchParams ? await searchParams : {}
     const invitationAccepted =
         getFirstSearchParamValue(resolvedSearchParams.invitationAccepted) ===
         '1'
+    const viewModel = viewer.isAuthorized
+        ? await getCompetitorDashboardViewModel(viewer.userId)
+        : defaultCompetitorDashboardViewModel
 
     return (
         <div className='auth-page-stack'>
@@ -60,46 +49,124 @@ export default async function DashboardPage({
                     <CardHeader>
                         <CardTitle>Invitation accepted</CardTitle>
                         <CardDescription>
-                            Your account is now linked to the quest. Future
-                            phases will replace this placeholder dashboard with
-                            live onboarding guidance, stats, and progress tools.
+                            Your account is now linked to the quest. This
+                            dashboard is ready to show your standing, countdown,
+                            and recent progress as soon as entries are
+                            available.
                         </CardDescription>
                     </CardHeader>
                 </Card>
             ) : null}
 
-            <div className='auth-card-grid'>
-                {dashboardCards.map((card) => (
-                    <StatCard
-                        key={card.title}
-                        eyebrow='Competitor snapshot'
-                        title={card.title}
-                        value={card.value}
-                        description={card.description}
-                    />
-                ))}
-            </div>
+            {viewModel.hasQuest ? (
+                <>
+                    <Card className='surface-card'>
+                        <CardHeader>
+                            <CardTitle>{viewModel.questName}</CardTitle>
+                            <CardDescription>
+                                {viewModel.questStatusLabel}.{' '}
+                                {viewModel.participantSummary}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className='auth-inline-actions'>
+                            <Button render={<Link href='/log-progress' />}>
+                                Log today&apos;s progress
+                            </Button>
+                            <Button
+                                variant='outline'
+                                render={<Link href='/leaderboard' />}
+                            >
+                                Open leaderboard
+                            </Button>
+                        </CardContent>
+                    </Card>
 
-            <Card className='surface-warm'>
-                <CardHeader>
-                    <CardTitle>Next steps for this shell</CardTitle>
-                    <CardDescription>
-                        Phase 7 and Phase 8 will swap these placeholders for
-                        live quest stats, forms, and standings.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className='auth-inline-actions'>
-                    <Button render={<Link href='/log-progress' />}>
-                        Open log progress
-                    </Button>
-                    <Button
-                        variant='outline'
-                        render={<Link href='/leaderboard' />}
-                    >
-                        View leaderboard
-                    </Button>
-                </CardContent>
-            </Card>
+                    <div className='auth-card-grid'>
+                        {viewModel.snapshotCards.map((card) => (
+                            <StatCard
+                                key={card.title}
+                                eyebrow='Competitor snapshot'
+                                title={card.title}
+                                value={card.value}
+                                description={card.description}
+                            />
+                        ))}
+                    </div>
+
+                    <Card className='surface-warm'>
+                        <CardHeader>
+                            <CardTitle>Summary stats</CardTitle>
+                            <CardDescription>
+                                Totals for your selected quest profile.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className='auth-card-grid'>
+                                {viewModel.summaryMetrics.map((metric) => (
+                                    <StatCard
+                                        key={metric.label}
+                                        eyebrow={metric.label}
+                                        title={metric.value}
+                                        description={metric.detail}
+                                        className='surface-card'
+                                    />
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className='surface-card'>
+                        <CardHeader>
+                            <CardTitle>Recent activity</CardTitle>
+                            <CardDescription>
+                                Your latest reading and challenge entries for
+                                this quest.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className='space-y-4'>
+                            {viewModel.recentActivity.length > 0 ? (
+                                viewModel.recentActivity.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className='rounded-2xl border border-border/70 bg-background/80 px-4 py-3'
+                                    >
+                                        <p className='font-medium'>
+                                            {item.title}
+                                        </p>
+                                        <p className='text-sm text-muted-foreground'>
+                                            {item.description}
+                                        </p>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className='text-sm text-muted-foreground'>
+                                    Your latest entries will appear here after
+                                    you log progress.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </>
+            ) : (
+                <EmptyState
+                    eyebrow='Competitor dashboard'
+                    title='Your dashboard is waiting for a quest.'
+                    description={viewModel.participantSummary}
+                    action={
+                        <div className='auth-inline-actions'>
+                            <Button render={<Link href='/log-progress' />}>
+                                Open log progress
+                            </Button>
+                            <Button
+                                variant='outline'
+                                render={<Link href='/leaderboard' />}
+                            >
+                                View leaderboard
+                            </Button>
+                        </div>
+                    }
+                />
+            )}
         </div>
     )
 }
