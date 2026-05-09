@@ -28,23 +28,38 @@ GitHub remains the repository host and source of truth.
 
 GitHub Actions does not own application deployment in this target model.
 
-## Deployment Checklist
+## Environment Matrix
+
+| Environment       | Auth                                     | Email                         | Database                                  | Notes                                                                                          |
+| ----------------- | ---------------------------------------- | ----------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Local development | `local` credentials                      | Local SMTP via Mailpit        | Local PostgreSQL                          | Self-contained development loop                                                                |
+| CI                | `local` credentials                      | SMTP with CI-safe values      | CI database setup                         | GitHub Actions validates, but does not deploy                                                  |
+| Vercel preview    | `auth0` when callback URLs are supported | Resend SMTP preview values    | Neon preview or shared hosted environment | Best for UI review and non-authenticated validation if Auth0 preview callbacks are constrained |
+| Vercel production | `auth0`                                  | Resend SMTP production values | Neon production                           | The only live production target                                                                |
+
+CI and Playwright should remain on local credentials unless there is a specific hosted-auth test requirement.
+
+## First Deployment Checklist
 
 Use this checklist when wiring the repository to Vercel for the first hosted
 deployment:
 
-1. Connect the GitHub repository to Vercel through the Vercel GitHub app or the
+1. Create the Neon project and production database.
+2. Create the Auth0 tenant and application.
+3. Verify the Resend sender domain and SMTP credentials.
+4. Connect the GitHub repository to Vercel through the Vercel GitHub app or the
    Vercel import flow.
-2. Confirm the Vercel project root is the repository root.
-3. Confirm the production branch is `main`.
-4. Keep preview deployments enabled for pull requests.
-5. Set the build command to `pnpm build:vercel`.
-6. Add the required Vercel environment variables for Auth0, Neon, Resend SMTP,
+5. Confirm the Vercel project root is the repository root.
+6. Confirm the production branch is `main`.
+7. Keep preview deployments enabled for pull requests.
+8. Set the build command to `pnpm build:vercel`.
+9. Add the required Vercel environment variables for Auth0, Neon, Resend SMTP,
    and NextAuth.
-7. Run database migrations with `pnpm db:migrate:deploy` against the direct
-   Neon connection string before or during the first cutover.
-8. Verify that GitHub pull requests show both the CI result and the Vercel
-   deployment status.
+10. Run database migrations with `pnpm db:migrate:deploy` against the direct
+    Neon connection string before or during the first cutover.
+11. Verify hosted sign-in, invitation delivery, and invitation acceptance.
+12. Verify that GitHub pull requests show both the CI result and the Vercel
+    deployment status.
 
 ## Vercel Project Settings
 

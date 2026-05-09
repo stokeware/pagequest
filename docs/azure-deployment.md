@@ -16,5 +16,9 @@ For the active deployment contract, see
 [deployment-model.md](./deployment-model.md) and
 [vercel-deployment.md](./vercel-deployment.md).
 
+The environment matrix for local development, CI, Vercel preview, and Vercel production now lives in
+[local-environment.md](./local-environment.md) and
+[deployment-model.md](./deployment-model.md).
+
 This document exists to make the repository intent explicit while older Azure
 assumptions are removed in later phases of the retarget.

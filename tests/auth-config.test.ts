@@ -41,10 +41,10 @@ describe('auth config', () => {
         ).toBe('Auth0')
     })
 
-    it('rejects the legacy entra auth mode', () => {
+    it('rejects unsupported hosted auth modes', () => {
         expect(() =>
             getAuthMode({
-                PAGEQUEST_AUTH_MODE: 'entra',
+                PAGEQUEST_AUTH_MODE: 'mystery',
             })
         ).toThrow(/PAGEQUEST_AUTH_MODE/)
     })

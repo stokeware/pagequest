@@ -50,6 +50,17 @@ Use [.env.example](../.env.example) as the single source of truth for local envi
 - `./scripts/bootstrap`, `./scripts/dev`, and `./scripts/check` now run the local validation automatically.
 - `./scripts/start` runs production validation automatically before the hosted server starts.
 
+## Environment Matrix
+
+| Environment       | Auth mode                                                      | Email mode                   | Hosted provider dependency                    |
+| ----------------- | -------------------------------------------------------------- | ---------------------------- | --------------------------------------------- |
+| Local development | `local`                                                        | `smtp` via Mailpit           | None                                          |
+| CI                | `local`                                                        | `smtp` with test-safe values | None for routine verification                 |
+| Vercel preview    | Usually `auth0`, with preview-safe callback handling as needed | `smtp` via Resend            | Auth0, Resend, Neon, and Vercel as configured |
+| Vercel production | `auth0`                                                        | `smtp` via Resend            | Auth0, Resend, Neon, and Vercel               |
+
+Playwright, Vitest, and the default CI workflow should remain on local credentials so the developer loop stays self-contained.
+
 ## Production Expectations
 
 - Set both `APP_URL` and `NEXTAUTH_URL` to the same public HTTPS origin.
@@ -58,3 +69,5 @@ Use [.env.example](../.env.example) as the single source of truth for local envi
 - Use `PAGEQUEST_EMAIL_DELIVERY_MODE=smtp` for hosted environments.
 - Use Resend SMTP values for `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM`.
 - Do not point `APP_URL` or `NEXTAUTH_URL` at loopback hosts such as `127.0.0.1` or `localhost` in production.
+
+For the hosted deployment checklist and Vercel project settings, see [vercel-deployment.md](./vercel-deployment.md).
