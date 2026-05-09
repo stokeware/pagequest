@@ -2,12 +2,11 @@ import {
     getAppUrl,
     type EnvSource,
     readBooleanEnv,
-    readEnumEnv,
     readIntegerEnv,
     readRequiredEnv,
 } from '@/lib/env'
 
-export type EmailDeliveryMode = 'azure-communication-services' | 'smtp'
+export type EmailDeliveryMode = 'smtp'
 
 export type EmailDeliveryConfig = {
     appUrl: string
@@ -23,18 +22,17 @@ export type SmtpEmailDeliveryConfig = EmailDeliveryConfig & {
     user: string | null
 }
 
-export type AzureCommunicationServicesEmailConfig = EmailDeliveryConfig & {
-    connectionString: string
-}
-
 export function getEmailDeliveryMode(
     env: EnvSource = process.env
 ): EmailDeliveryMode {
-    return readEnumEnv(
-        'PAGEQUEST_EMAIL_DELIVERY_MODE',
-        env,
-        ['azure-communication-services', 'smtp'],
-        'smtp'
+    const mode = env.PAGEQUEST_EMAIL_DELIVERY_MODE?.trim()
+
+    if (!mode || mode === 'smtp') {
+        return 'smtp'
+    }
+
+    throw new Error(
+        'Environment variable PAGEQUEST_EMAIL_DELIVERY_MODE must be set to "smtp" when provided.'
     )
 }
 
@@ -60,20 +58,5 @@ export function getSmtpEmailDeliveryConfig(
         port: readIntegerEnv('SMTP_PORT', env, 1025),
         secure: readBooleanEnv('SMTP_SECURE', env),
         user: env.SMTP_USER?.trim() || null,
-    }
-}
-
-export function getAzureCommunicationServicesEmailConfig(
-    env: EnvSource = process.env
-): AzureCommunicationServicesEmailConfig {
-    const baseConfig = getEmailDeliveryConfig(env)
-
-    return {
-        ...baseConfig,
-        connectionString: readRequiredEnv(
-            'AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING',
-            env,
-            'email'
-        ),
     }
 }

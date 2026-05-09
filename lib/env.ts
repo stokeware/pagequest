@@ -2,7 +2,7 @@ export type EnvSource = Partial<Record<string, string | undefined>>
 
 export type AuthMode = 'auth0' | 'local'
 
-export type EmailDeliveryMode = 'azure-communication-services' | 'smtp'
+export type EmailDeliveryMode = 'smtp'
 
 export type EnvironmentTarget = 'local' | 'production'
 
@@ -252,12 +252,18 @@ export function validateEnvironment({
     let emailMode: EmailDeliveryMode = 'smtp'
 
     try {
-        emailMode = readEnumEnv(
+        const configuredEmailMode = readOptionalEnv(
             'PAGEQUEST_EMAIL_DELIVERY_MODE',
-            env,
-            ['azure-communication-services', 'smtp'],
-            'smtp'
+            env
         )
+
+        if (configuredEmailMode && configuredEmailMode !== 'smtp') {
+            throw new Error(
+                'Environment variable PAGEQUEST_EMAIL_DELIVERY_MODE must be set to "smtp" when provided.'
+            )
+        }
+
+        emailMode = 'smtp'
     } catch (error) {
         collectError(errors, error)
     }
@@ -291,17 +297,6 @@ export function validateEnvironment({
             }
 
             readBooleanEnv('SMTP_SECURE', env, false)
-        } catch (error) {
-            collectError(errors, error)
-        }
-    }
-
-    if (emailMode === 'azure-communication-services') {
-        try {
-            readRequiredEnv(
-                'AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING',
-                env
-            )
         } catch (error) {
             collectError(errors, error)
         }

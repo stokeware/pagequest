@@ -52,6 +52,21 @@ URL that has been registered as an allowed callback in Auth0. Vercel preview
 deployments remain useful for UI review, non-authenticated integration checks,
 and validating pages that do not require the hosted callback flow.
 
+## Production Email Variables
+
+Production email delivery uses Resend through SMTP.
+
+- `PAGEQUEST_EMAIL_DELIVERY_MODE=smtp`
+- `SMTP_HOST=smtp.resend.com`
+- `SMTP_PORT=465`
+- `SMTP_SECURE=true`
+- `SMTP_USER=resend`
+- `SMTP_PASSWORD=<resend-smtp-password>`
+- `EMAIL_FROM=<verified-sender-address>`
+
+Local development should keep using Mailpit with the same SMTP variables pointed
+at the local Mailpit host and ports.
+
 ## Summary
 
 Page Quest now has one deployment story:

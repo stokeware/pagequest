@@ -1,8 +1,6 @@
 import nodemailer from 'nodemailer'
 
 import {
-    getAzureCommunicationServicesEmailConfig,
-    getEmailDeliveryMode,
     getSmtpEmailDeliveryConfig,
     type EmailDeliveryMode,
 } from '@/lib/email/config'
@@ -65,20 +63,6 @@ async function sendWithSmtp(message: EmailDeliveryMessage) {
     } satisfies EmailDeliveryResult
 }
 
-async function sendWithAzureCommunicationServices(
-    message: EmailDeliveryMessage
-) {
-    getAzureCommunicationServicesEmailConfig()
-
-    throw new Error(
-        `Azure Communication Services delivery is not wired yet. The current email payload already matches the Azure contract for ${message.content.subject}.`
-    )
-}
-
 export async function sendEmail(message: EmailDeliveryMessage) {
-    const mode = getEmailDeliveryMode()
-
-    return mode === 'azure-communication-services'
-        ? sendWithAzureCommunicationServices(message)
-        : sendWithSmtp(message)
+    return sendWithSmtp(message)
 }

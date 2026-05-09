@@ -38,7 +38,7 @@ describe('sendEmail', () => {
         vi.unstubAllEnvs()
     })
 
-    it('sends the Azure-compatible payload through the smtp adapter', async () => {
+    it('sends invitation email through the smtp adapter', async () => {
         const result = await sendEmail({
             content: {
                 html: '<p>Hello</p>',

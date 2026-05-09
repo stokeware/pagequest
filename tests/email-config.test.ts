@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    getAzureCommunicationServicesEmailConfig,
     getEmailDeliveryConfig,
     getEmailDeliveryMode,
     getSmtpEmailDeliveryConfig,
@@ -30,21 +29,12 @@ describe('email config', () => {
         })
     })
 
-    it('reads the Azure Communication Services settings when requested', () => {
-        expect(
-            getAzureCommunicationServicesEmailConfig({
-                AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING:
-                    'endpoint=https://example.communication.azure.com/;accesskey=secret',
-                EMAIL_FROM: 'Page Quest <noreply@pagequest.local>',
-                PAGEQUEST_EMAIL_DELIVERY_MODE: 'azure-communication-services',
+    it('rejects unsupported hosted email delivery modes', () => {
+        expect(() =>
+            getEmailDeliveryMode({
+                PAGEQUEST_EMAIL_DELIVERY_MODE: 'legacy-mode',
             })
-        ).toEqual({
-            appUrl: 'http://127.0.0.1:3000',
-            connectionString:
-                'endpoint=https://example.communication.azure.com/;accesskey=secret',
-            fromAddress: 'Page Quest <noreply@pagequest.local>',
-            mode: 'azure-communication-services',
-        })
+        ).toThrow(/PAGEQUEST_EMAIL_DELIVERY_MODE.*smtp/)
     })
 
     it('requires the sender address for any delivery mode', () => {
