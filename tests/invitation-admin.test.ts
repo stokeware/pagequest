@@ -29,9 +29,7 @@ describe('buildInvitationExpiry', () => {
         const now = new Date('2026-05-08T12:00:00.000Z')
 
         expect(buildInvitationExpiry(now)).toEqual(
-            new Date(
-                now.getTime() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000
-            )
+            new Date(now.getTime() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000)
         )
     })
 })

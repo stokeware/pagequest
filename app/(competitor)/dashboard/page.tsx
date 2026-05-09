@@ -60,7 +60,9 @@ export default async function DashboardPage({
                     <CardHeader>
                         <CardTitle>Invitation accepted</CardTitle>
                         <CardDescription>
-                            Your account is now linked to the quest. Future phases will replace this placeholder dashboard with live onboarding guidance, stats, and progress tools.
+                            Your account is now linked to the quest. Future
+                            phases will replace this placeholder dashboard with
+                            live onboarding guidance, stats, and progress tools.
                         </CardDescription>
                     </CardHeader>
                 </Card>

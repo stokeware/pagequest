@@ -1,8 +1,5 @@
 import { getEmailDeliveryConfig } from '@/lib/email/config'
-import {
-    sendEmail,
-    type EmailDeliveryMessage,
-} from '@/lib/email/service'
+import { sendEmail, type EmailDeliveryMessage } from '@/lib/email/service'
 
 type InvitationEmailInput = {
     expiresAt: Date

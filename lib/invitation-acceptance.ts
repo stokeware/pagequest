@@ -1,6 +1,9 @@
 import type { QuestStatus, QuestVisibility } from '@prisma/client'
 
-import { getInvitationTokenState, normalizeInvitationEmail } from '@/lib/invitation-admin'
+import {
+    getInvitationTokenState,
+    normalizeInvitationEmail,
+} from '@/lib/invitation-admin'
 
 type InvitationAcceptanceQuestRecord = {
     name: string

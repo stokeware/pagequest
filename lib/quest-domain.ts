@@ -34,6 +34,11 @@ export interface QuestStatusInput {
     now?: Date
 }
 
+export interface QuestStatusSnapshot extends QuestStatusInput {
+    id: string
+    status: QuestStatus
+}
+
 const zeroDecimal = new Prisma.Decimal(0)
 
 export function calculateEntryPoints(
@@ -123,6 +128,40 @@ export function deriveQuestStatus(input: QuestStatusInput): QuestStatus {
     }
 
     return 'COMPLETED'
+}
+
+export function getDerivedQuestStatusUpdate(
+    snapshot: QuestStatusSnapshot,
+    now = new Date()
+) {
+    const derivedStatus = deriveQuestStatus({
+        archivedAt: snapshot.archivedAt,
+        endAt: snapshot.endAt,
+        now,
+        publishedAt: snapshot.publishedAt,
+        startAt: snapshot.startAt,
+    })
+
+    if (derivedStatus === snapshot.status) {
+        return null
+    }
+
+    return {
+        id: snapshot.id,
+        nextStatus: derivedStatus,
+        previousStatus: snapshot.status,
+    }
+}
+
+export function getDerivedQuestStatusUpdates(
+    snapshots: QuestStatusSnapshot[],
+    now = new Date()
+) {
+    return snapshots.flatMap((snapshot) => {
+        const update = getDerivedQuestStatusUpdate(snapshot, now)
+
+        return update ? [update] : []
+    })
 }
 
 function createEmptyParticipantScoreTotals(): ParticipantScoreTotals {

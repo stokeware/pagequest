@@ -20,7 +20,9 @@ describe('buildInvitationEmailMessage', () => {
         expect(message.content.plainText).toContain(
             'http://127.0.0.1:3000/accept-invitation?token=abc'
         )
-        expect(message.content.html).toContain('Open your secure invitation link')
+        expect(message.content.html).toContain(
+            'Open your secure invitation link'
+        )
         expect(message.recipients.to).toEqual([
             {
                 address: 'reader@example.com',

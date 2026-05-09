@@ -21,6 +21,7 @@ import {
     getEffectiveInvitationStatus,
 } from '@/lib/invitation-admin'
 import { prisma } from '@/lib/prisma'
+import { synchronizeDerivedQuestStatuses } from '@/lib/quest-status'
 
 import {
     createInvitationAction,
@@ -83,7 +84,8 @@ const errorDetailMessages: Record<string, string> = {
     'email-send-failed':
         'The invitation record was saved, but delivery failed. Check the local SMTP settings or Mailpit service, then resend the invitation.',
     'missing-email': 'Enter an email address before creating an invitation.',
-    'missing-invitation': 'Choose a valid invitation record before trying again.',
+    'missing-invitation':
+        'Choose a valid invitation record before trying again.',
     'missing-quest': 'Choose a quest before creating an invitation.',
     'quest-unavailable':
         'Only non-archived invite-only quests can receive new invitation activity.',
@@ -186,7 +188,7 @@ function getNotice(
     return {
         ...content,
         description: detail
-            ? errorDetailMessages[detail] ?? content.description
+            ? (errorDetailMessages[detail] ?? content.description)
             : content.description,
     }
 }
@@ -202,6 +204,7 @@ export default async function AdminInvitationsPage({
     )
     const notice = getNotice(outcome, detail)
     const now = new Date()
+    await synchronizeDerivedQuestStatuses(now)
     const [quests, invitations] = await Promise.all([
         prisma.quest.findMany({
             orderBy: [
@@ -302,7 +305,11 @@ export default async function AdminInvitationsPage({
                     </p>
                 </div>,
                 <div key='status' className='stack-sm'>
-                    <span className={getEffectiveStatusPillClass(invitation.effectiveStatus)}>
+                    <span
+                        className={getEffectiveStatusPillClass(
+                            invitation.effectiveStatus
+                        )}
+                    >
                         {invitationStatusLabels[invitation.effectiveStatus]}
                     </span>
                     <p className='type-muted text-xs'>
@@ -455,7 +462,10 @@ export default async function AdminInvitationsPage({
                     title='Create a new invitation'
                     description='Invite a reader into any current invite-only quest. Token generation, delivery, and acceptance tracking are active now.'
                 >
-                    <form action={createInvitationAction} className='ui-form-shell'>
+                    <form
+                        action={createInvitationAction}
+                        className='ui-form-shell'
+                    >
                         <FormField
                             label='Quest'
                             htmlFor='questId'
@@ -469,11 +479,14 @@ export default async function AdminInvitationsPage({
                                 disabled={quests.length === 0}
                             >
                                 {quests.length === 0 ? (
-                                    <option value=''>No eligible quests yet</option>
+                                    <option value=''>
+                                        No eligible quests yet
+                                    </option>
                                 ) : (
                                     quests.map((quest) => (
                                         <option key={quest.id} value={quest.id}>
-                                            {quest.name} ({quest.status.toLowerCase()})
+                                            {quest.name} (
+                                            {quest.status.toLowerCase()})
                                         </option>
                                     ))
                                 )}
@@ -516,26 +529,47 @@ export default async function AdminInvitationsPage({
                     <CardHeader>
                         <CardTitle>Status guide</CardTitle>
                         <CardDescription>
-                            Pending invitations can be resent or revoked. Accepted invitations stay read-only so historical joins remain trustworthy.
+                            Pending invitations can be resent or revoked.
+                            Accepted invitations stay read-only so historical
+                            joins remain trustworthy.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className='grid gap-3'>
                         <div className='pill-row'>
-                            <span className={getEffectiveStatusPillClass('PENDING')}>
+                            <span
+                                className={getEffectiveStatusPillClass(
+                                    'PENDING'
+                                )}
+                            >
                                 Pending
                             </span>
-                            <span className={getEffectiveStatusPillClass('ACCEPTED')}>
+                            <span
+                                className={getEffectiveStatusPillClass(
+                                    'ACCEPTED'
+                                )}
+                            >
                                 Accepted
                             </span>
-                            <span className={getEffectiveStatusPillClass('EXPIRED')}>
+                            <span
+                                className={getEffectiveStatusPillClass(
+                                    'EXPIRED'
+                                )}
+                            >
                                 Expired
                             </span>
-                            <span className={getEffectiveStatusPillClass('REVOKED')}>
+                            <span
+                                className={getEffectiveStatusPillClass(
+                                    'REVOKED'
+                                )}
+                            >
                                 Revoked
                             </span>
                         </div>
                         <p className='type-muted'>
-                            Expired rows are derived from the stored expiration timestamp even if their persisted status is still pending. Resend rotates the token window and moves the row back to pending.
+                            Expired rows are derived from the stored expiration
+                            timestamp even if their persisted status is still
+                            pending. Resend rotates the token window and moves
+                            the row back to pending.
                         </p>
                     </CardContent>
                 </Card>

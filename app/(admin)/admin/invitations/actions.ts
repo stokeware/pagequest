@@ -107,7 +107,9 @@ async function requireAdminActionUser() {
     }
 
     if (!viewer.userId) {
-        redirect(`/sign-in?callbackUrl=${encodeURIComponent(adminInvitationsPath)}`)
+        redirect(
+            `/sign-in?callbackUrl=${encodeURIComponent(adminInvitationsPath)}`
+        )
     }
 
     return {

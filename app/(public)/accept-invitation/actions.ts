@@ -5,7 +5,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { authOptions } from '@/lib/auth'
-import { buildInvitationAcceptPath, hashInvitationToken } from '@/lib/invitation-admin'
+import {
+    buildInvitationAcceptPath,
+    hashInvitationToken,
+} from '@/lib/invitation-admin'
 import { deriveInvitationAcceptanceProfile } from '@/lib/invitation-acceptance'
 import { recordInvitationAcceptance } from '@/lib/invitation-service'
 import { prisma } from '@/lib/prisma'

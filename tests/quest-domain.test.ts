@@ -5,6 +5,8 @@ import {
     calculateEntryPoints,
     calculateParticipantScoreTotals,
     deriveQuestStatus,
+    getDerivedQuestStatusUpdate,
+    getDerivedQuestStatusUpdates,
     type QuestScoringRules,
 } from '@/lib/quest-domain'
 
@@ -141,5 +143,86 @@ describe('deriveQuestStatus', () => {
                 publishedAt: new Date('2026-05-01T00:00:00.000Z'),
             })
         ).toThrow('Quest startAt must be on or before endAt.')
+    })
+
+    it('builds derived-status updates when stored quest statuses are stale', () => {
+        const now = new Date('2026-05-15T00:00:00.000Z')
+
+        expect(
+            getDerivedQuestStatusUpdate(
+                {
+                    id: 'quest-1',
+                    status: 'SCHEDULED',
+                    startAt: new Date('2026-05-10T00:00:00.000Z'),
+                    endAt: new Date('2026-05-20T00:00:00.000Z'),
+                    publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                    archivedAt: null,
+                },
+                now
+            )
+        ).toEqual({
+            id: 'quest-1',
+            nextStatus: 'ACTIVE',
+            previousStatus: 'SCHEDULED',
+        })
+
+        expect(
+            getDerivedQuestStatusUpdate(
+                {
+                    id: 'quest-2',
+                    status: 'ACTIVE',
+                    startAt: new Date('2026-05-10T00:00:00.000Z'),
+                    endAt: new Date('2026-05-20T00:00:00.000Z'),
+                    publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                    archivedAt: null,
+                },
+                now
+            )
+        ).toBeNull()
+    })
+
+    it('collects all stale derived-status updates for a batch of quests', () => {
+        const updates = getDerivedQuestStatusUpdates(
+            [
+                {
+                    id: 'quest-1',
+                    status: 'SCHEDULED',
+                    startAt: new Date('2026-05-10T00:00:00.000Z'),
+                    endAt: new Date('2026-05-20T00:00:00.000Z'),
+                    publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                    archivedAt: null,
+                },
+                {
+                    id: 'quest-2',
+                    status: 'ACTIVE',
+                    startAt: new Date('2026-05-01T00:00:00.000Z'),
+                    endAt: new Date('2026-05-05T00:00:00.000Z'),
+                    publishedAt: new Date('2026-04-28T00:00:00.000Z'),
+                    archivedAt: null,
+                },
+                {
+                    id: 'quest-3',
+                    status: 'ARCHIVED',
+                    startAt: new Date('2026-05-01T00:00:00.000Z'),
+                    endAt: new Date('2026-05-05T00:00:00.000Z'),
+                    publishedAt: new Date('2026-04-28T00:00:00.000Z'),
+                    archivedAt: new Date('2026-05-02T00:00:00.000Z'),
+                },
+            ],
+            new Date('2026-05-15T00:00:00.000Z')
+        )
+
+        expect(updates).toEqual([
+            {
+                id: 'quest-1',
+                nextStatus: 'ACTIVE',
+                previousStatus: 'SCHEDULED',
+            },
+            {
+                id: 'quest-2',
+                nextStatus: 'COMPLETED',
+                previousStatus: 'ACTIVE',
+            },
+        ])
     })
 })

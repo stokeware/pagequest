@@ -1,8 +1,6 @@
 type EnvSource = Partial<Record<string, string | undefined>>
 
-export type EmailDeliveryMode =
-    | 'azure-communication-services'
-    | 'smtp'
+export type EmailDeliveryMode = 'azure-communication-services' | 'smtp'
 
 export type EmailDeliveryConfig = {
     appUrl: string
@@ -57,9 +55,8 @@ function readIntegerEnv(name: string, env: EnvSource, fallback: number) {
 export function getEmailDeliveryMode(
     env: EnvSource = process.env
 ): EmailDeliveryMode {
-    const configuredMode = env.PAGEQUEST_EMAIL_DELIVERY_MODE
-        ?.trim()
-        .toLowerCase()
+    const configuredMode =
+        env.PAGEQUEST_EMAIL_DELIVERY_MODE?.trim().toLowerCase()
 
     return configuredMode === 'azure-communication-services'
         ? 'azure-communication-services'

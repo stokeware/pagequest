@@ -36,8 +36,7 @@ describe('email config', () => {
                 AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING:
                     'endpoint=https://example.communication.azure.com/;accesskey=secret',
                 EMAIL_FROM: 'Page Quest <noreply@pagequest.local>',
-                PAGEQUEST_EMAIL_DELIVERY_MODE:
-                    'azure-communication-services',
+                PAGEQUEST_EMAIL_DELIVERY_MODE: 'azure-communication-services',
             })
         ).toEqual({
             appUrl: 'http://127.0.0.1:3000',

@@ -9,7 +9,10 @@ import {
     Input,
 } from '@/components/ui'
 import { PublicShell } from '@/components/public/public-shell'
-import { buildInvitationAcceptPath, hashInvitationToken } from '@/lib/invitation-admin'
+import {
+    buildInvitationAcceptPath,
+    hashInvitationToken,
+} from '@/lib/invitation-admin'
 import { deriveInvitationAcceptanceProfile } from '@/lib/invitation-acceptance'
 import { getRoleAwareSession } from '@/lib/auth/session'
 import { getInvitationAccessProfile } from '@/lib/invitation-access'
@@ -107,7 +110,9 @@ function InvitationTokenCard({
                 </FormField>
 
                 <FormActions note='After sign-in, this same secure link will return here so you can finish accepting the invitation.'>
-                    <Button render={<Link href={getTokenAwareSignInPath(token)} />}>
+                    <Button
+                        render={<Link href={getTokenAwareSignInPath(token)} />}
+                    >
                         Sign in
                     </Button>
                 </FormActions>
