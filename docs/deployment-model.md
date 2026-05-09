@@ -118,8 +118,13 @@ unless a concrete platform limitation forces it.
 
 - GitHub stores source code and CI configuration.
 - Vercel stores runtime environment variables for deployed environments.
+- Vercel builds should use `pnpm build:vercel`, which validates the hosted env
+  contract before running `next build`.
 - GitHub Actions should not become the application deployment mechanism.
 - Azure should not receive new deployment automation during this retarget.
+- Deployed runtime behavior should remain stateless; background jobs should run
+  through one-off function invocations or external schedulers, not a resident
+  worker inside the web process.
 
 Older Azure assumptions may still exist in later implementation phases, but the
 deployment model itself is no longer Azure-first.

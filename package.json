@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "./scripts/dev",
         "build": "./scripts/build",
+        "build:vercel": "./scripts/build",
         "start": "./scripts/start",
         "env:validate": "./scripts/validate-env",
         "lint": "./scripts/lint",

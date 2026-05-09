@@ -28,6 +28,25 @@ GitHub remains the repository host and source of truth.
 
 GitHub Actions does not own application deployment in this target model.
 
+## Vercel Project Settings
+
+The repo does not check in a `vercel.json` file for this retarget.
+
+- The default Next.js framework detection is sufficient.
+- The Vercel project should point at the repository root.
+- The production branch should be `main`.
+- Preview deployments should stay enabled for pull requests.
+- The build command should be `pnpm build:vercel`.
+- The install command can stay on Vercel's pnpm default unless the project
+  settings need a stricter pinned install command later.
+
+Environment variables should be stored in Vercel, not in GitHub Actions.
+
+- Production must define the full hosted contract for Auth0, Neon, Resend SMTP,
+  and NextAuth.
+- Preview should define the same shape of variables, using preview-safe values
+  and callback URLs where available.
+
 ## Hosted Auth Choice
 
 Auth0 is the primary hosted authentication path for this retarget.
@@ -84,8 +103,8 @@ changes stay on separate Neon URLs.
 
 ## Build And Migration Commands
 
-Vercel should build the app through `pnpm build`, which resolves to
-`./scripts/build`. That wrapper:
+Vercel should build the app through `pnpm build:vercel`, which resolves to the
+same `./scripts/build` wrapper used by `pnpm build`. That wrapper:
 
 - validates the hosted production environment contract
 - runs `prisma generate`
@@ -99,6 +118,22 @@ pnpm db:migrate:deploy
 
 That command runs `./scripts/db-migrate-deploy`, requires `DIRECT_URL`, and
 executes `prisma migrate deploy` against the direct Neon connection string.
+
+## Runtime Assumptions On Vercel
+
+The deployed app should remain stateless across requests.
+
+- Do not assume writable local disk beyond short-lived request-scoped temp
+  files.
+- Do not assume a long-lived in-process worker alongside the web app.
+- Reminder and other operational jobs should run from an external scheduler or
+  one-off function entrypoint, not from a loop inside the Next.js server
+  process.
+
+The current repository job runner has a generic serverless function invocation
+shape plus local and scheduled execution paths. If future hosted jobs move onto
+Vercel, they should target one-off function invocations or an external cron
+trigger rather than a resident background worker.
 
 ## Summary
 

@@ -3,4 +3,4 @@
 source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
 
 run ./scripts/validate-env --target local
-run pnpm exec next dev "$@"
+exec ./node_modules/.bin/next dev "$@"

@@ -107,7 +107,7 @@ describe('createJobRunner', () => {
         expect(logger.error).not.toHaveBeenCalled()
     })
 
-    it('runs the same job through an Azure Functions invocation shape', async () => {
+    it('runs the same job through a serverless function invocation shape', async () => {
         const logger = createLoggerSpy()
         const runner = createJobRunner(
             [
@@ -115,16 +115,16 @@ describe('createJobRunner', () => {
                     description: 'Send scheduled reminders.',
                     handler: ({ context }) => ({
                         functionName:
-                            context.trigger.source === 'azure-function'
+                            context.trigger.source === 'serverless-function'
                                 ? context.trigger.functionName
                                 : null,
                         invocationId:
-                            context.trigger.source === 'azure-function'
+                            context.trigger.source === 'serverless-function'
                                 ? context.trigger.invocationId
                                 : null,
                         runtime: context.runtime,
                         scheduleKey:
-                            context.trigger.source === 'azure-function'
+                            context.trigger.source === 'serverless-function'
                                 ? context.trigger.scheduleKey
                                 : null,
                     }),
@@ -134,9 +134,9 @@ describe('createJobRunner', () => {
             { logger }
         )
 
-        const execution = await runner.runAzureFunction({
+        const execution = await runner.runServerlessFunction({
             functionName: 'SendReminderEmails',
-            invocationId: 'azure-invocation-42',
+            invocationId: 'function-invocation-42',
             jobName: 'notifications.send-reminders',
             now: new Date('2026-05-09T13:00:00.000Z'),
             payload: {
@@ -147,16 +147,16 @@ describe('createJobRunner', () => {
 
         expect(execution.result).toEqual({
             functionName: 'SendReminderEmails',
-            invocationId: 'azure-invocation-42',
-            runtime: 'azure-function',
+            invocationId: 'function-invocation-42',
+            runtime: 'serverless-function',
             scheduleKey: '0 0 14 * * *',
         })
         expect(execution.trigger).toEqual({
             functionName: 'SendReminderEmails',
-            invocationId: 'azure-invocation-42',
+            invocationId: 'function-invocation-42',
             scheduledFor: undefined,
             scheduleKey: '0 0 14 * * *',
-            source: 'azure-function',
+            source: 'serverless-function',
         })
         expect(logger.info).toHaveBeenCalledTimes(2)
     })

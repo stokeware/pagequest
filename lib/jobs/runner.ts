@@ -1,4 +1,4 @@
-type JobTriggerSource = 'azure-function' | 'local' | 'scheduled'
+type JobTriggerSource = 'serverless-function' | 'local' | 'scheduled'
 
 import {
     buildJobCompletedLogEntry,
@@ -19,16 +19,16 @@ export type ScheduledJobTrigger = {
     source: 'scheduled'
 }
 
-export type AzureFunctionJobTrigger = {
+export type ServerlessFunctionJobTrigger = {
     functionName: string
     invocationId?: string
     scheduledFor?: Date
     scheduleKey?: string
-    source: 'azure-function'
+    source: 'serverless-function'
 }
 
 export type JobTrigger =
-    | AzureFunctionJobTrigger
+    | ServerlessFunctionJobTrigger
     | LocalJobTrigger
     | ScheduledJobTrigger
 
@@ -74,7 +74,7 @@ export type JobRunner = {
         runId?: string
         trigger: JobTrigger
     }) => Promise<JobExecutionResult<TResult>>
-    runAzureFunction: <TPayload, TResult>(options: {
+    runServerlessFunction: <TPayload, TResult>(options: {
         functionName: string
         invocationId?: string
         jobName: string
@@ -221,7 +221,7 @@ export function createJobRunner(
                 .sort((left, right) => left.name.localeCompare(right.name))
         },
         run,
-        runAzureFunction<TPayload, TResult>(options: {
+        runServerlessFunction<TPayload, TResult>(options: {
             functionName: string
             invocationId?: string
             jobName: string
@@ -252,7 +252,7 @@ export function createJobRunner(
                     invocationId,
                     scheduledFor,
                     scheduleKey,
-                    source: 'azure-function',
+                    source: 'serverless-function',
                 },
             })
         },
