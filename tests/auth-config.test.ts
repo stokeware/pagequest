@@ -6,6 +6,10 @@ import {
     getEntraExternalIdConfig,
     getLocalAuthPassphrase,
 } from '@/lib/auth/config'
+import {
+    getDefaultProtectedPath,
+    getSignedInLandingPath,
+} from '@/lib/auth/access'
 
 describe('auth config', () => {
     it('defaults to local auth mode', () => {
@@ -52,5 +56,47 @@ describe('auth config', () => {
             issuer: 'https://login.example.com/tenant/v2.0',
             scope: 'openid profile email',
         })
+    })
+})
+
+describe('auth landing paths', () => {
+    it('returns the default protected path for each role set', () => {
+        expect(getDefaultProtectedPath(['ADMIN'])).toBe('/admin')
+        expect(getDefaultProtectedPath(['COMPETITOR'])).toBe('/dashboard')
+        expect(getDefaultProtectedPath([])).toBe('/')
+    })
+
+    it('prefers an explicit protected callback URL for signed-in users', () => {
+        expect(
+            getSignedInLandingPath({
+                callbackUrl: '/admin/reports?view=weekly',
+                grantedRoles: ['ADMIN'],
+            })
+        ).toBe('/admin/reports?view=weekly')
+    })
+
+    it('falls back to the role landing page when callback URL is public', () => {
+        expect(
+            getSignedInLandingPath({
+                callbackUrl: '/',
+                grantedRoles: ['COMPETITOR'],
+            })
+        ).toBe('/dashboard')
+
+        expect(
+            getSignedInLandingPath({
+                callbackUrl: '/sign-in?callbackUrl=%2Fdashboard',
+                grantedRoles: ['ADMIN'],
+            })
+        ).toBe('/admin')
+    })
+
+    it('stays on public routes when the signed-in user has no protected role', () => {
+        expect(
+            getSignedInLandingPath({
+                callbackUrl: '/',
+                grantedRoles: [],
+            })
+        ).toBeNull()
     })
 })

@@ -1,4 +1,9 @@
+import { getServerSession } from 'next-auth/next'
+import { redirect } from 'next/navigation'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { authOptions } from '@/lib/auth'
+import { getSignedInLandingPath } from '@/lib/auth/access'
 import { PublicShell } from '@/components/public/public-shell'
 
 const highlights = [
@@ -16,7 +21,18 @@ const highlights = [
     },
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+    const session = await getServerSession(authOptions)
+    const redirectPath = getSignedInLandingPath({
+        grantedRoles: Array.isArray(session?.user?.roles)
+            ? session.user.roles
+            : [],
+    })
+
+    if (redirectPath) {
+        redirect(redirectPath)
+    }
+
     return (
         <PublicShell
             eyebrow='Seasonal reading competition'

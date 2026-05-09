@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signIn } from 'next-auth/react'
+import { getSession, signIn } from 'next-auth/react'
 import { useState, useSyncExternalStore, useTransition } from 'react'
 
 import {
@@ -12,6 +12,7 @@ import {
     FormField,
     Input,
 } from '@/components/ui'
+import { getSignedInLandingPath } from '@/lib/auth/access'
 import type { AuthMode } from '@/lib/auth/config'
 
 type SignInFormProps = {
@@ -68,7 +69,15 @@ export function SignInForm({
             return
         }
 
-        router.push(result.url ?? callbackUrl)
+        const session = await getSession()
+        const redirectPath = getSignedInLandingPath({
+            callbackUrl: result.url ?? callbackUrl,
+            grantedRoles: Array.isArray(session?.user?.roles)
+                ? session.user.roles
+                : [],
+        })
+
+        router.push(redirectPath ?? callbackUrl)
         router.refresh()
     }
 

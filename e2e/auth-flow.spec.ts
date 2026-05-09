@@ -110,7 +110,12 @@ test.describe('local auth flow', () => {
             startPath: '/sign-in',
         })
 
-        await expect(page).toHaveURL(/\/$/)
+        await expect(page).toHaveURL(/\/dashboard$/)
+        await expect(
+            page.getByRole('heading', {
+                name: 'A focused reading hub for logging progress and checking the race.',
+            })
+        ).toBeVisible()
 
         await page.goto('/admin')
 
@@ -119,6 +124,26 @@ test.describe('local auth flow', () => {
             page.getByRole('heading', {
                 name: 'A focused reading hub for logging progress and checking the race.',
             })
+        ).toBeVisible()
+    })
+
+    test('lands an admin on the admin shell when signing in from the public sign-in page', async ({
+        page,
+    }) => {
+        await signInWithLocalCredentials({
+            email: 'admin@pagequest.local',
+            page,
+            startPath: '/sign-in',
+        })
+
+        await expect(page).toHaveURL(/\/admin$/)
+        await expect(
+            page.getByRole('heading', {
+                name: 'A control surface for running each campaign without losing the playful tone.',
+            })
+        ).toBeVisible()
+        await expect(
+            page.getByText('Signed in as: Morgan Questmaster')
         ).toBeVisible()
     })
 })

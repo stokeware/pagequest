@@ -4,6 +4,28 @@ export function dedupeRoles(roles: AppRole[]): AppRole[] {
     return Array.from(new Set(roles))
 }
 
+function normalizeAppPath(path: string | null | undefined) {
+    if (!path) {
+        return null
+    }
+
+    const normalizedPath = path.trim()
+
+    if (!normalizedPath) {
+        return null
+    }
+
+    const url = normalizedPath.startsWith('/')
+        ? new URL(normalizedPath, 'http://pagequest.local')
+        : new URL(normalizedPath)
+
+    return `${url.pathname}${url.search}${url.hash}`
+}
+
+function isDefaultPublicPath(path: string) {
+    return path === '/' || path.startsWith('/sign-in')
+}
+
 export function getDefaultProtectedPath(grantedRoles: AppRole[]) {
     if (grantedRoles.includes('ADMIN')) {
         return '/admin'
@@ -14,4 +36,22 @@ export function getDefaultProtectedPath(grantedRoles: AppRole[]) {
     }
 
     return '/'
+}
+
+export function getSignedInLandingPath({
+    callbackUrl,
+    grantedRoles,
+}: {
+    callbackUrl?: string | null
+    grantedRoles: AppRole[]
+}) {
+    const normalizedCallbackUrl = normalizeAppPath(callbackUrl)
+
+    if (normalizedCallbackUrl && !isDefaultPublicPath(normalizedCallbackUrl)) {
+        return normalizedCallbackUrl
+    }
+
+    const defaultProtectedPath = getDefaultProtectedPath(grantedRoles)
+
+    return defaultProtectedPath === '/' ? null : defaultProtectedPath
 }
