@@ -28,6 +28,24 @@ GitHub remains the repository host and source of truth.
 
 GitHub Actions does not own application deployment in this target model.
 
+## Deployment Checklist
+
+Use this checklist when wiring the repository to Vercel for the first hosted
+deployment:
+
+1. Connect the GitHub repository to Vercel through the Vercel GitHub app or the
+   Vercel import flow.
+2. Confirm the Vercel project root is the repository root.
+3. Confirm the production branch is `main`.
+4. Keep preview deployments enabled for pull requests.
+5. Set the build command to `pnpm build:vercel`.
+6. Add the required Vercel environment variables for Auth0, Neon, Resend SMTP,
+   and NextAuth.
+7. Run database migrations with `pnpm db:migrate:deploy` against the direct
+   Neon connection string before or during the first cutover.
+8. Verify that GitHub pull requests show both the CI result and the Vercel
+   deployment status.
+
 ## Vercel Project Settings
 
 The repo does not check in a `vercel.json` file for this retarget.
@@ -46,6 +64,10 @@ Environment variables should be stored in Vercel, not in GitHub Actions.
   and NextAuth.
 - Preview should define the same shape of variables, using preview-safe values
   and callback URLs where available.
+
+GitHub should store only CI-related secrets if the workflow later needs them.
+It should not become the source of runtime application configuration for the
+deployed environments.
 
 ## Hosted Auth Choice
 
@@ -70,6 +92,23 @@ Full hosted Auth0 sign-in is only guaranteed on a stable production or staging
 URL that has been registered as an allowed callback in Auth0. Vercel preview
 deployments remain useful for UI review, non-authenticated integration checks,
 and validating pages that do not require the hosted callback flow.
+
+If the Auth0 tenant policy does not allow wildcard or dynamic preview callback
+URLs, treat preview deployments as deployment previews first and reserve full
+hosted sign-in verification for the stable production URL or a dedicated staging
+domain.
+
+## Pull Request Status Visibility
+
+When the GitHub repository is connected through the Vercel integration, pull
+requests should show both:
+
+- the GitHub Actions CI result from `.github/workflows/ci.yml`
+- the Vercel preview deployment status
+
+If Vercel deployment checks are missing from pull requests, verify that the
+repository is connected through the GitHub integration and that deployment
+status reporting is enabled in the Vercel project settings.
 
 ## Production Email Variables
 

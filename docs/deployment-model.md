@@ -2,6 +2,35 @@
 
 This document describes the intended deployment approach for Page Quest.
 
+## Hosted Deployment
+
+Page Quest has one hosted deployment path for this retarget:
+
+- Vercel hosts the Next.js application.
+- Neon hosts PostgreSQL.
+- Resend delivers transactional email over SMTP.
+- Auth0 provides hosted authentication.
+
+GitHub remains the repository host and CI runner.
+
+- Pushes and pull requests run `.github/workflows/ci.yml`.
+- Pull requests also receive Vercel preview deployments.
+- Merges to `main` trigger the Vercel production deployment.
+
+GitHub Actions does not deploy the application in this model. Runtime
+environment variables belong in Vercel, while GitHub should hold only CI-facing
+secrets if the workflow later needs any.
+
+Hosted Auth0 sign-in is guaranteed only on stable callback domains configured in
+Auth0. Vercel preview deployments still matter for UI review and other
+non-authenticated validation, but they may need a dedicated staging domain if
+the tenant does not allow wildcard or dynamic callback URLs.
+
+See the deployment references for operator details:
+
+- [vercel-deployment.md](./vercel-deployment.md)
+- [local-workflow.md](./local-workflow.md)
+
 ## Production Platform
 
 Page Quest now targets a hosted production stack built around:
