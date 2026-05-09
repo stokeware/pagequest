@@ -25,8 +25,11 @@ describe('sendEmail', () => {
         sendMail.mockResolvedValue({
             messageId: 'smtp-message-id',
         })
+        vi.stubEnv('PAGEQUEST_EMAIL_DELIVERY_MODE', 'smtp')
         vi.stubEnv('EMAIL_FROM', 'Page Quest <noreply@pagequest.local>')
         vi.stubEnv('SMTP_HOST', '127.0.0.1')
+        vi.stubEnv('SMTP_USER', '')
+        vi.stubEnv('SMTP_PASSWORD', '')
         vi.stubEnv('SMTP_PORT', '1025')
         vi.stubEnv('SMTP_SECURE', 'false')
     })
