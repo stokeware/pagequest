@@ -10,6 +10,10 @@ import {
     StatCard,
 } from '@/components/ui'
 
+type DashboardPageProps = {
+    searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
 const dashboardCards = [
     {
         title: 'Current rank',
@@ -31,9 +35,37 @@ const dashboardCards = [
     },
 ]
 
-export default function DashboardPage() {
+function getFirstSearchParamValue(
+    value: string | string[] | undefined
+): string | null {
+    if (Array.isArray(value)) {
+        return value[0] ?? null
+    }
+
+    return value ?? null
+}
+
+export default async function DashboardPage({
+    searchParams,
+}: DashboardPageProps) {
+    const resolvedSearchParams = searchParams ? await searchParams : {}
+    const invitationAccepted =
+        getFirstSearchParamValue(resolvedSearchParams.invitationAccepted) ===
+        '1'
+
     return (
         <div className='auth-page-stack'>
+            {invitationAccepted ? (
+                <Card className='surface-tint'>
+                    <CardHeader>
+                        <CardTitle>Invitation accepted</CardTitle>
+                        <CardDescription>
+                            Your account is now linked to the quest. Future phases will replace this placeholder dashboard with live onboarding guidance, stats, and progress tools.
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
+            ) : null}
+
             <div className='auth-card-grid'>
                 {dashboardCards.map((card) => (
                     <StatCard

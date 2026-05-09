@@ -55,6 +55,8 @@ The default local service endpoints are:
 - Mailpit SMTP: `127.0.0.1:1025`
 - Mailpit UI: `http://127.0.0.1:8025`
 
+Invitation emails created from the admin invitation screen are sent through the local SMTP adapter and should appear in Mailpit.
+
 Useful service commands:
 
 ```bash
@@ -105,6 +107,14 @@ Combined local check:
 ```
 
 If `./scripts/check` fails on formatting alone, run `./scripts/format` and rerun the check.
+
+## Local invitation email testing
+
+After creating or resending an invitation from the admin screen:
+
+1. Open Mailpit at `http://127.0.0.1:8025`.
+2. Open the newest message for the invited recipient.
+3. Verify the secure join link matches the link preview shown in the admin UI.
 
 ## Production-style commands
 

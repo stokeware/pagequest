@@ -110,7 +110,7 @@ export function SignInForm({
     return (
         <FormCard
             title='Sign in'
-            description='Use one of the seeded local readers until invitation-driven account linking lands in later phases.'
+            description='Use one of the seeded local readers or an invited account before continuing into a private quest.'
         >
             <form onSubmit={handleSubmit} method='post' className='space-y-4'>
                 <FormField label='Email address' htmlFor='email'>
@@ -138,13 +138,13 @@ export function SignInForm({
                     />
                 </FormField>
 
-                <div className='rounded-[var(--radius-lg)] border border-border/70 bg-muted/40 p-3 text-sm text-muted-foreground'>
+                <div className='rounded-lg border border-border/70 bg-muted/40 p-3 text-sm text-muted-foreground'>
                     <p>Local demo emails: {localDemoEmails.join(', ')}</p>
                     <p>Shared passphrase: {localPassphraseHint}</p>
                 </div>
 
                 {errorMessage ? (
-                    <p className='text-sm font-medium text-[color:var(--destructive)]'>
+                    <p className='text-sm font-medium text-destructive'>
                         {errorMessage}
                     </p>
                 ) : null}

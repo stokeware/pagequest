@@ -20,10 +20,12 @@ Use [.env.example](../.env.example) as the single source of truth for local envi
 - `NEXTAUTH_SECRET`: Session and token signing secret for Auth.js.
 - `PAGEQUEST_AUTH_MODE`: Auth provider selection. Use `local` for routine development and `entra` when testing the hosted identity flow.
 - `LOCAL_AUTH_PASSPHRASE`: Shared password used by the local Auth.js credentials provider.
+- `PAGEQUEST_EMAIL_DELIVERY_MODE`: Email adapter selection. Use `smtp` locally and reserve `azure-communication-services` for hosted wiring.
 - `ENTRA_EXTERNAL_ID_CLIENT_ID`: App registration client ID for Microsoft Entra External ID.
 - `ENTRA_EXTERNAL_ID_CLIENT_SECRET`: Client secret for Microsoft Entra External ID.
 - `ENTRA_EXTERNAL_ID_ISSUER`: Issuer URL for the Microsoft Entra External ID OpenID Connect tenant or user flow.
 - `ENTRA_EXTERNAL_ID_SCOPE`: Optional override for requested OpenID Connect scopes.
+- `AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING`: Azure Communication Services Email connection string for the hosted adapter.
 - `MAILPIT_SMTP_PORT`: Host port mapped to Mailpit SMTP.
 - `MAILPIT_UI_PORT`: Host port mapped to the Mailpit web UI.
 - `SMTP_HOST`: SMTP host the app should use for local email delivery.
@@ -39,5 +41,6 @@ Use [.env.example](../.env.example) as the single source of truth for local envi
 - Mailpit SMTP listens on `127.0.0.1:1025`.
 - Mailpit UI is available at `http://127.0.0.1:8025`.
 - The app is expected to run at `http://127.0.0.1:3000`.
+- Local email delivery defaults to `smtp`, which routes invitation emails into Mailpit.
 - Local Auth.js mode expects one of the seeded emails and the shared passphrase from `LOCAL_AUTH_PASSPHRASE`.
 - Hosted identity testing switches `PAGEQUEST_AUTH_MODE` to `entra` and uses the Entra OpenID Connect values above.

@@ -52,9 +52,9 @@ function TableCard({
                         }}
                     >
                         {columns.map((column) => (
-                            <span key={column} role='columnheader'>
+                            <div key={column} role='columnheader'>
                                 {column}
-                            </span>
+                            </div>
                         ))}
                     </div>
 
@@ -68,12 +68,12 @@ function TableCard({
                             }}
                         >
                             {row.cells.map((cell, index) => (
-                                <span
+                                <div
                                     key={`${row.key}-${index + 1}`}
                                     role='cell'
                                 >
                                     {cell}
-                                </span>
+                                </div>
                             ))}
                         </div>
                     ))}
