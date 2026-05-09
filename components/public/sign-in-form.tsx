@@ -108,9 +108,9 @@ export function SignInForm({
         return (
             <FormCard
                 title='Sign in'
-                description={`Use the hosted identity flow configured for ${providerLabel}.`}
+                description={`Use the hosted Auth0 identity flow configured for this environment.`}
             >
-                <FormActions note='The local credentials form stays disabled whenever the app runs in hosted auth mode.'>
+                <FormActions note='The local credentials form stays disabled whenever the app runs in hosted auth mode, so preview deploys may still require a stable Auth0 callback URL for full sign-in validation.'>
                     <Button onClick={handleHostedSignIn} disabled={isPending}>
                         Continue with {providerLabel}
                     </Button>

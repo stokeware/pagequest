@@ -4,7 +4,6 @@ import {
     getAuth0Config,
     getAuthMode,
     getAuthUiConfig,
-    getEntraExternalIdConfig,
     getLocalAuthPassphrase,
 } from '@/lib/auth/config'
 import {
@@ -34,14 +33,6 @@ describe('auth config', () => {
         ).toBe('family-reading-club')
     })
 
-    it('returns the Entra provider label when entra mode is selected', () => {
-        expect(
-            getAuthUiConfig({
-                PAGEQUEST_AUTH_MODE: 'entra',
-            }).providerLabel
-        ).toBe('Microsoft Entra External ID')
-    })
-
     it('returns the Auth0 provider label when auth0 mode is selected', () => {
         expect(
             getAuthUiConfig({
@@ -50,29 +41,12 @@ describe('auth config', () => {
         ).toBe('Auth0')
     })
 
-    it('requires the Entra configuration in entra mode', () => {
+    it('rejects the legacy entra auth mode', () => {
         expect(() =>
-            getEntraExternalIdConfig({
+            getAuthMode({
                 PAGEQUEST_AUTH_MODE: 'entra',
             })
-        ).toThrow(/ENTRA_EXTERNAL_ID_CLIENT_ID/)
-    })
-
-    it('returns the configured Entra settings', () => {
-        expect(
-            getEntraExternalIdConfig({
-                ENTRA_EXTERNAL_ID_CLIENT_ID: 'client-id',
-                ENTRA_EXTERNAL_ID_CLIENT_SECRET: 'client-secret',
-                ENTRA_EXTERNAL_ID_ISSUER:
-                    'https://login.example.com/tenant/v2.0',
-                ENTRA_EXTERNAL_ID_SCOPE: 'openid profile email',
-            })
-        ).toEqual({
-            clientId: 'client-id',
-            clientSecret: 'client-secret',
-            issuer: 'https://login.example.com/tenant/v2.0',
-            scope: 'openid profile email',
-        })
+        ).toThrow(/PAGEQUEST_AUTH_MODE/)
     })
 
     it('requires the Auth0 configuration when requested', () => {
@@ -95,6 +69,12 @@ describe('auth config', () => {
             issuer: 'https://pagequest.us.auth0.com',
             scope: 'openid profile email',
         })
+    })
+
+    it('returns the local provider label when auth0 is not enabled', () => {
+        expect(getAuthUiConfig({}).providerLabel).toBe(
+            'Local development sign-in'
+        )
     })
 })
 

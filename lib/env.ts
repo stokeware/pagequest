@@ -1,6 +1,6 @@
 export type EnvSource = Partial<Record<string, string | undefined>>
 
-export type AuthMode = 'auth0' | 'entra' | 'local'
+export type AuthMode = 'auth0' | 'local'
 
 export type EmailDeliveryMode = 'azure-communication-services' | 'smtp'
 
@@ -242,7 +242,7 @@ export function validateEnvironment({
         authMode = readEnumEnv(
             'PAGEQUEST_AUTH_MODE',
             env,
-            ['auth0', 'local', 'entra'],
+            ['auth0', 'local'],
             'local'
         )
     } catch (error) {
@@ -266,16 +266,6 @@ export function validateEnvironment({
         readRequiredEnv('EMAIL_FROM', env)
     } catch (error) {
         collectError(errors, error)
-    }
-
-    if (authMode === 'entra') {
-        try {
-            readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_ID', env)
-            readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_SECRET', env)
-            validateRequiredHttpsUrl('ENTRA_EXTERNAL_ID_ISSUER', env)
-        } catch (error) {
-            collectError(errors, error)
-        }
     }
 
     if (authMode === 'auth0') {

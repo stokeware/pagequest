@@ -47,8 +47,10 @@ execution.
 - GitHub pull requests should show both CI status and Vercel deployment status.
 
 Preview environments are intended for UI review and integration validation.
-Hosted auth callback details will be finalized in the later Auth0 execution
-phase.
+Full hosted Auth0 sign-in is only guaranteed on a stable production or staging
+URL that has been registered as an allowed callback in Auth0. Vercel preview
+deployments remain useful for UI review, non-authenticated integration checks,
+and validating pages that do not require the hosted callback flow.
 
 ## Summary
 

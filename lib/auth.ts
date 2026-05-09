@@ -2,12 +2,10 @@ import type { AppRole } from '@prisma/client'
 import type { NextAuthOptions, Profile } from 'next-auth'
 import Auth0Provider from 'next-auth/providers/auth0'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import type { OAuthConfig } from 'next-auth/providers/oauth'
 
 import {
     getAuth0Config,
     getAuthMode,
-    getEntraExternalIdConfig,
     getLocalAuthPassphrase,
 } from '@/lib/auth/config'
 import { prisma } from '@/lib/prisma'
@@ -184,46 +182,6 @@ function createLocalCredentialsProvider() {
     })
 }
 
-function createEntraExternalIdProvider() {
-    const config = getEntraExternalIdConfig()
-
-    const provider: OAuthConfig<HostedIdentityProfile> = {
-        authorization: {
-            params: {
-                scope: config.scope,
-            },
-        },
-        checks: ['pkce', 'state', 'nonce'],
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        id: 'microsoft-entra-external-id',
-        idToken: true,
-        issuer: config.issuer,
-        name: 'Microsoft Entra External ID',
-        profile(profile) {
-            const email = getProfileEmail(profile)
-
-            if (!email) {
-                throw new Error(
-                    'Microsoft Entra External ID did not return an email address.'
-                )
-            }
-
-            return {
-                email,
-                id: profile.sub ?? email,
-                image: profile.picture ?? null,
-                name: profile.name ?? email,
-                roles: [],
-            }
-        },
-        type: 'oauth',
-        wellKnown: `${config.issuer}/.well-known/openid-configuration`,
-    }
-
-    return provider
-}
-
 function createAuth0Provider() {
     const config = getAuth0Config()
 
@@ -237,6 +195,21 @@ function createAuth0Provider() {
         clientId: config.clientId,
         clientSecret: config.clientSecret,
         issuer: config.issuer,
+        profile(profile) {
+            const email = getProfileEmail(profile as HostedIdentityProfile)
+
+            if (!email) {
+                throw new Error('Auth0 did not return an email address.')
+            }
+
+            return {
+                email,
+                id: profile.sub ?? email,
+                image: profile.picture ?? null,
+                name: profile.name ?? email,
+                roles: [],
+            }
+        },
     })
 }
 
@@ -245,10 +218,6 @@ function getAuthProviders() {
 
     if (mode === 'auth0') {
         return [createAuth0Provider()]
-    }
-
-    if (mode === 'entra') {
-        return [createEntraExternalIdProvider()]
     }
 
     return [createLocalCredentialsProvider()]

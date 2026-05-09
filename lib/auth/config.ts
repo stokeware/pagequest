@@ -10,14 +10,7 @@ export const localDemoEmails = [
     'future-reader@pagequest.local',
 ] as const
 
-export type AuthMode = 'auth0' | 'entra' | 'local'
-
-export type EntraExternalIdConfig = {
-    clientId: string
-    clientSecret: string
-    issuer: string
-    scope: string
-}
+export type AuthMode = 'auth0' | 'local'
 
 export type Auth0Config = {
     audience: string | null
@@ -28,33 +21,11 @@ export type Auth0Config = {
 }
 
 export function getAuthMode(env: EnvSource = process.env): AuthMode {
-    return readEnumEnv(
-        'PAGEQUEST_AUTH_MODE',
-        env,
-        ['auth0', 'local', 'entra'],
-        'local'
-    )
+    return readEnumEnv('PAGEQUEST_AUTH_MODE', env, ['auth0', 'local'], 'local')
 }
 
 export function getLocalAuthPassphrase(env: EnvSource = process.env): string {
     return env.LOCAL_AUTH_PASSPHRASE?.trim() || defaultLocalAuthPassphrase
-}
-
-export function getEntraExternalIdConfig(
-    env: EnvSource = process.env
-): EntraExternalIdConfig {
-    return {
-        clientId: readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_ID', env, 'auth'),
-        clientSecret: readRequiredEnv(
-            'ENTRA_EXTERNAL_ID_CLIENT_SECRET',
-            env,
-            'auth'
-        ),
-        issuer: readRequiredEnv('ENTRA_EXTERNAL_ID_ISSUER', env, 'auth'),
-        scope:
-            env.ENTRA_EXTERNAL_ID_SCOPE?.trim() ||
-            'openid profile email offline_access',
-    }
 }
 
 export function getAuth0Config(env: EnvSource = process.env): Auth0Config {
@@ -70,11 +41,7 @@ export function getAuth0Config(env: EnvSource = process.env): Auth0Config {
 export function getAuthUiConfig(env: EnvSource = process.env) {
     const mode = getAuthMode(env)
     const providerLabel =
-        mode === 'auth0'
-            ? 'Auth0'
-            : mode === 'entra'
-              ? 'Microsoft Entra External ID'
-              : 'Local development sign-in'
+        mode === 'auth0' ? 'Auth0' : 'Local development sign-in'
 
     return {
         localDemoEmails,
