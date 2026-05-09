@@ -46,6 +46,43 @@ Use this flow for normal development:
 
 The local app is expected to run at `http://127.0.0.1:3000`.
 
+## Complete reset
+
+Use this flow when you want to tear down the full local environment and start again from a clean database state.
+
+1. Stop the Next.js dev server if it is running by pressing `Ctrl+C` in the terminal running `./scripts/dev`.
+2. From the repository root, remove the Docker services and the PostgreSQL data volume:
+
+```bash
+./scripts/services-down --volumes --remove-orphans
+```
+
+3. If you also want to recreate local env files the same way as a first-time setup, remove `.env` and `.env.local`:
+
+```bash
+rm -f .env .env.local
+```
+
+4. Recreate the local environment bootstrap:
+
+```bash
+./scripts/bootstrap
+```
+
+5. Run the local startup workflow to apply migrations and seed data:
+
+```bash
+./scripts/local-startup
+```
+
+6. Start the app:
+
+```bash
+./scripts/dev
+```
+
+`./scripts/services-down` passes extra arguments through to `docker compose down`, so `--volumes` removes the local PostgreSQL volume and gives you a fresh database on the next startup.
+
 ## Local services
 
 The default local service endpoints are:
