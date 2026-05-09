@@ -128,7 +128,7 @@ test.describe('mobile core layouts', () => {
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fdashboard/)
     })
 
-    test('keeps competitor mobile navigation targets large enough', async ({
+    test('keeps competitor header navigation targets large enough', async ({
         page,
     }) => {
         await signInWithLocalCredentials({
@@ -141,9 +141,7 @@ test.describe('mobile core layouts', () => {
 
         await expectTouchTargets(
             page
-                .getByRole('navigation', {
-                    name: 'Competitor mobile navigation',
-                })
+                .getByRole('navigation', { name: 'Authenticated navigation' })
                 .getByRole('link')
         )
     })
@@ -159,7 +157,7 @@ test.describe('mobile core layouts', () => {
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fadmin/)
     })
 
-    test('keeps admin mobile quick navigation targets large enough', async ({
+    test('keeps admin header navigation targets large enough', async ({
         page,
     }) => {
         await signInWithLocalCredentials({
@@ -172,9 +170,7 @@ test.describe('mobile core layouts', () => {
 
         await expectTouchTargets(
             page
-                .getByRole('navigation', {
-                    name: 'Administrator quick navigation',
-                })
+                .getByRole('navigation', { name: 'Authenticated navigation' })
                 .getByRole('link')
         )
     })

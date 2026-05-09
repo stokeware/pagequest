@@ -11,11 +11,7 @@ type SessionActionProps = {
 
 export function SessionAction({ isAuthenticated }: SessionActionProps) {
     if (!isAuthenticated) {
-        return (
-            <Link href='/sign-in' className='auth-utility-link'>
-                Go to sign in
-            </Link>
-        )
+        return <Button render={<Link href='/sign-in' />}>Sign in</Button>
     }
 
     return (
@@ -23,7 +19,7 @@ export function SessionAction({ isAuthenticated }: SessionActionProps) {
             variant='outline'
             onClick={() => signOut({ callbackUrl: '/sign-in' })}
         >
-            Sign out
+            Log out
         </Button>
     )
 }

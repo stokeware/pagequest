@@ -60,15 +60,15 @@ test.describe('local auth flow', () => {
 
         await expect(page).toHaveURL(/\/dashboard$/)
         await expect(
-            page.getByRole('heading', {
-                name: 'A focused reading hub for logging progress and checking the race.',
-            })
+            page
+                .getByRole('navigation', { name: 'Authenticated navigation' })
+                .getByRole('link', { name: 'Dashboard' })
         ).toBeVisible()
         await expect(
-            page.getByText('Signed in as: Alice Redwood')
+            page.getByRole('button', { name: 'Log out' })
         ).toBeVisible()
 
-        await page.getByRole('button', { name: 'Sign out' }).click()
+        await page.getByRole('button', { name: 'Log out' }).click()
 
         await expect(page).toHaveURL(/\/sign-in$/)
         await expect(
@@ -91,13 +91,9 @@ test.describe('local auth flow', () => {
         })
 
         await expect(page).toHaveURL(/\/admin$/)
+        await expect(page.getByText('Planned admin entry points')).toBeVisible()
         await expect(
-            page.getByRole('heading', {
-                name: 'A control surface for running each campaign without losing the playful tone.',
-            })
-        ).toBeVisible()
-        await expect(
-            page.getByText('Signed in as: Morgan Questmaster')
+            page.getByRole('button', { name: 'Log out' })
         ).toBeVisible()
     })
 
@@ -112,18 +108,18 @@ test.describe('local auth flow', () => {
 
         await expect(page).toHaveURL(/\/dashboard$/)
         await expect(
-            page.getByRole('heading', {
-                name: 'A focused reading hub for logging progress and checking the race.',
-            })
+            page
+                .getByRole('navigation', { name: 'Authenticated navigation' })
+                .getByRole('link', { name: 'Dashboard' })
         ).toBeVisible()
 
         await page.goto('/admin')
 
         await expect(page).toHaveURL(/\/dashboard$/)
         await expect(
-            page.getByRole('heading', {
-                name: 'A focused reading hub for logging progress and checking the race.',
-            })
+            page
+                .getByRole('navigation', { name: 'Authenticated navigation' })
+                .getByRole('link', { name: 'Dashboard' })
         ).toBeVisible()
     })
 
@@ -137,13 +133,9 @@ test.describe('local auth flow', () => {
         })
 
         await expect(page).toHaveURL(/\/admin$/)
+        await expect(page.getByText('Planned admin entry points')).toBeVisible()
         await expect(
-            page.getByRole('heading', {
-                name: 'A control surface for running each campaign without losing the playful tone.',
-            })
-        ).toBeVisible()
-        await expect(
-            page.getByText('Signed in as: Morgan Questmaster')
+            page.getByRole('button', { name: 'Log out' })
         ).toBeVisible()
     })
 })
