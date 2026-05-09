@@ -67,6 +67,8 @@ const buttonVariants = cva(buttonBaseClass, {
 
 function Button({
     className,
+    nativeButton,
+    render,
     variant = 'default',
     size = 'default',
     style,
@@ -80,10 +82,14 @@ function Button({
               }
             : style
 
+    const resolvedNativeButton = render ? false : nativeButton
+
     return (
         <ButtonPrimitive
             data-slot='button'
             className={cn(buttonVariants({ variant, size, className }))}
+            nativeButton={resolvedNativeButton}
+            render={render}
             style={resolvedStyle}
             {...props}
         />

@@ -1,13 +1,18 @@
-import { AppShell } from '@/components/authenticated/app-shell'
+import {
+    AppShell,
+    type ShellMetric,
+    type ShellNavItem,
+} from '@/components/authenticated/app-shell'
+import { getRoleAwareSession, protectAdminRoute } from '@/lib/auth/session'
 
-const adminNavItems = [
+const adminNavItems: ShellNavItem[] = [
     { href: '/admin', label: 'Overview', icon: 'shield-check' },
     { href: '/admin/quests', label: 'Quests', icon: 'folder-kanban' },
     { href: '/admin/invitations', label: 'Invitations', icon: 'mail-plus' },
     { href: '/admin/reports', label: 'Reports', icon: 'table-properties' },
 ]
 
-const adminMetrics = [
+const adminMetrics: ShellMetric[] = [
     {
         label: 'Active quest',
         value: '1 scheduled',
@@ -25,11 +30,18 @@ const adminMetrics = [
     },
 ]
 
-export default function AdminLayout({
+export default async function AdminLayout({
     children,
 }: Readonly<{
     children: React.ReactNode
 }>) {
+    const viewer = await getRoleAwareSession('ADMIN')
+
+    protectAdminRoute({
+        callbackUrl: '/admin',
+        viewer,
+    })
+
     return (
         <AppShell
             shellVariant='admin'
@@ -38,6 +50,7 @@ export default function AdminLayout({
             description='This authenticated shell gives the admin experience a stable home before data-backed management flows are implemented.'
             navItems={adminNavItems}
             metrics={adminMetrics}
+            viewer={viewer}
         >
             {children}
         </AppShell>

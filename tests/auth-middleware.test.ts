@@ -1,0 +1,51 @@
+import type { JWT } from 'next-auth/jwt'
+import { describe, expect, it } from 'vitest'
+
+import { getAdminMiddlewareRedirectPath } from '@/lib/auth/middleware'
+
+function buildToken(
+    overrides: Partial<JWT> & {
+        roles?: Array<'ADMIN' | 'COMPETITOR'>
+    } = {}
+): JWT {
+    return {
+        email: 'reader@example.com',
+        roles: [],
+        sub: 'user-1',
+        userId: 'user-1',
+        ...overrides,
+    }
+}
+
+describe('getAdminMiddlewareRedirectPath', () => {
+    it('redirects signed-out admin requests to sign in with the full callback URL', () => {
+        expect(
+            getAdminMiddlewareRedirectPath({
+                callbackUrl: '/admin/reports?view=weekly',
+                token: null,
+            })
+        ).toBe('/sign-in?callbackUrl=%2Fadmin%2Freports%3Fview%3Dweekly')
+    })
+
+    it('redirects non-admin users to their best available route', () => {
+        expect(
+            getAdminMiddlewareRedirectPath({
+                callbackUrl: '/admin',
+                token: buildToken({
+                    roles: ['COMPETITOR'],
+                }),
+            })
+        ).toBe('/dashboard')
+    })
+
+    it('allows admin users through middleware', () => {
+        expect(
+            getAdminMiddlewareRedirectPath({
+                callbackUrl: '/admin',
+                token: buildToken({
+                    roles: ['ADMIN'],
+                }),
+            })
+        ).toBeNull()
+    })
+})

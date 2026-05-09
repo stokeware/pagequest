@@ -18,38 +18,30 @@ test.describe('desktop core layouts', () => {
         ).toBeVisible()
     })
 
-    test('shows the competitor sidebar and hides the mobile dock', async ({
+    test('redirects signed-out competitor routes back to sign in', async ({
         page,
     }) => {
         await page.goto('/dashboard')
 
         await expect(
-            page.getByRole('navigation', {
-                name: 'Competitor experience navigation',
+            page.getByRole('heading', {
+                name: 'Sign in before the next chapter begins.',
             })
         ).toBeVisible()
-        await expect(
-            page.getByRole('navigation', {
-                name: 'Competitor mobile navigation',
-            })
-        ).toBeHidden()
+        await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fdashboard/)
     })
 
-    test('shows the admin rail and hides the compact mobile header nav', async ({
+    test('redirects signed-out admin routes back to sign in', async ({
         page,
     }) => {
         await page.goto('/admin')
 
         await expect(
-            page.getByRole('navigation', {
-                name: 'Administrator experience navigation',
+            page.getByRole('heading', {
+                name: 'Sign in before the next chapter begins.',
             })
         ).toBeVisible()
-        await expect(
-            page.getByRole('navigation', {
-                name: 'Administrator quick navigation',
-            })
-        ).toBeHidden()
+        await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fadmin/)
     })
 })
 
@@ -75,37 +67,27 @@ test.describe('mobile core layouts', () => {
         ).toBeVisible()
     })
 
-    test('switches competitor routes to the bottom navigation pattern', async ({
+    test('redirects signed-out competitor routes on mobile', async ({
         page,
     }) => {
         await page.goto('/dashboard')
 
         await expect(
-            page.getByRole('navigation', {
-                name: 'Competitor mobile navigation',
+            page.getByRole('heading', {
+                name: 'Sign in before the next chapter begins.',
             })
         ).toBeVisible()
-        await expect(
-            page.getByRole('navigation', {
-                name: 'Competitor experience navigation',
-            })
-        ).toBeHidden()
+        await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fdashboard/)
     })
 
-    test('switches admin routes to the compact header navigation pattern', async ({
-        page,
-    }) => {
+    test('redirects signed-out admin routes on mobile', async ({ page }) => {
         await page.goto('/admin')
 
         await expect(
-            page.getByRole('navigation', {
-                name: 'Administrator quick navigation',
+            page.getByRole('heading', {
+                name: 'Sign in before the next chapter begins.',
             })
         ).toBeVisible()
-        await expect(
-            page.getByRole('navigation', {
-                name: 'Administrator experience navigation',
-            })
-        ).toBeHidden()
+        await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fadmin/)
     })
 })

@@ -21,15 +21,17 @@ import {
     CardTitle,
     StatCard,
 } from '@/components/ui'
+import { SessionAction } from '@/components/authenticated/session-action'
+import type { RoleAwareSession } from '@/lib/auth/session'
 import { cn } from '@/lib/utils'
 
-type ShellNavItem = {
+export type ShellNavItem = {
     href: string
     label: string
     icon: ShellNavIcon
 }
 
-type ShellNavIcon =
+export type ShellNavIcon =
     | 'book-marked'
     | 'clipboard-pen-line'
     | 'folder-kanban'
@@ -39,7 +41,7 @@ type ShellNavIcon =
     | 'table-properties'
     | 'trophy'
 
-type ShellMetric = {
+export type ShellMetric = {
     label: string
     value: string
     detail: string
@@ -52,6 +54,7 @@ type AppShellProps = {
     description: string
     navItems: ShellNavItem[]
     metrics: ShellMetric[]
+    viewer: RoleAwareSession
     children: React.ReactNode
 }
 
@@ -73,6 +76,7 @@ export function AppShell({
     description,
     navItems,
     metrics,
+    viewer,
     children,
 }: AppShellProps) {
     const pathname = usePathname()
@@ -86,6 +90,13 @@ export function AppShell({
         shellVariant === 'competitor'
             ? 'Mobile-first competitor shell prototype'
             : 'Admin shell with rail and compact header navigation'
+
+    const accessBadgeLabel =
+        viewer.accessState === 'allowed'
+            ? 'Role matched'
+            : viewer.accessState === 'signed-out'
+              ? 'Signed out'
+              : 'Role mismatch'
 
     return (
         <div className={cn('auth-shell', `auth-shell-${shellVariant}`)}>
@@ -103,6 +114,7 @@ export function AppShell({
                 <div className='auth-topbar-copy'>
                     <p className='auth-kicker'>{audienceLabel}</p>
                     <p className='auth-topbar-note'>{shellNote}</p>
+                    <p className='auth-session-note'>{viewer.summary}</p>
                 </div>
 
                 <div className='auth-topbar-actions'>
@@ -111,9 +123,10 @@ export function AppShell({
                             Current section: {activeNavItem.label}
                         </p>
                     ) : null}
-                    <Link href='/sign-in' className='auth-utility-link'>
-                        Return to sign in
-                    </Link>
+                    <p className='auth-active-section'>
+                        Signed in as: {viewer.userLabel}
+                    </p>
+                    <SessionAction isAuthenticated={viewer.isAuthenticated} />
                 </div>
             </header>
 
@@ -203,12 +216,17 @@ export function AppShell({
 
                     <div className='auth-sidebar-panel auth-sidebar-stats'>
                         <CardHeader>
-                            <CardTitle>Season snapshot</CardTitle>
-                            <CardDescription>
-                                Static placeholder context until auth, live
-                                data, and server-side guards are wired.
-                            </CardDescription>
+                            <CardTitle>Session status</CardTitle>
+                            <CardDescription>{viewer.summary}</CardDescription>
                         </CardHeader>
+                        <div className='auth-role-chip-row'>
+                            <span className='auth-role-chip'>
+                                Expected role: {viewer.expectedRoleLabel}
+                            </span>
+                            <span className='auth-role-chip'>
+                                {accessBadgeLabel}
+                            </span>
+                        </div>
                         <div className='auth-metric-grid'>
                             {metrics.map((metric) => (
                                 <StatCard
@@ -228,6 +246,15 @@ export function AppShell({
                         <p className='eyebrow'>{audienceLabel}</p>
                         <h1>{title}</h1>
                         <p className='auth-description'>{description}</p>
+                        <div className='auth-pill-row'>
+                            <span className='auth-pill'>
+                                Signed in as {viewer.userLabel}
+                            </span>
+                            <span className='auth-pill'>
+                                {viewer.expectedRoleLabel} shell:{' '}
+                                {accessBadgeLabel}
+                            </span>
+                        </div>
                     </section>
 
                     <section className='auth-content surface-panel'>

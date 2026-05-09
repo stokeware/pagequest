@@ -41,6 +41,12 @@ const competitorUsers = [
     },
 ]
 
+const pendingInviteUser = {
+    email: 'future-reader@pagequest.local',
+    name: 'Future Reader',
+    timezone: 'America/Chicago',
+}
+
 const questWindow = {
     startAt: new Date('2026-05-01T05:00:00.000Z'),
     endAt: new Date('2026-06-01T04:59:59.000Z'),
@@ -271,6 +277,16 @@ async function seed() {
         competitors.push(competitor)
     }
 
+    const pendingCompetitor = await prisma.user.create({
+        data: {
+            ...pendingInviteUser,
+            emailVerified: new Date('2026-05-08T14:05:00.000Z'),
+            roleAssignments: {
+                create: [{ role: 'COMPETITOR' }],
+            },
+        },
+    })
+
     const quest = await prisma.quest.create({
         data: {
             name: 'Spring Story Sprint 2026',
@@ -422,9 +438,9 @@ async function seed() {
     await prisma.invitation.create({
         data: {
             questId: quest.id,
-            email: 'future-reader@pagequest.local',
+            email: pendingCompetitor.email,
             status: 'PENDING',
-            tokenHash: 'seed-token-future-reader@pagequest.local',
+            tokenHash: `seed-token-${pendingCompetitor.email}`,
             expiresAt: new Date('2026-05-15T05:00:00.000Z'),
             lastSentAt: new Date('2026-05-08T14:00:00.000Z'),
             invitedByUserId: admin.id,
@@ -432,7 +448,7 @@ async function seed() {
     })
 
     console.log(
-        'Seeded Page Quest demo data: 1 admin, 1 active quest, 3 competitors.'
+        'Seeded Page Quest demo data: 1 admin, 1 active quest, 3 joined competitors, and 1 pending invite user.'
     )
 }
 

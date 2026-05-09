@@ -1,6 +1,19 @@
-import { AppShell } from '@/components/authenticated/app-shell'
+import {
+    AppShell,
+    type ShellMetric,
+    type ShellNavItem,
+} from '@/components/authenticated/app-shell'
+import {
+    getInvitationAccessProfile,
+    shouldRedirectCompetitorAccess,
+} from '@/lib/invitation-access'
+import {
+    getRoleAwareSession,
+    protectAuthenticatedRoute,
+} from '@/lib/auth/session'
+import { redirect } from 'next/navigation'
 
-const competitorNavItems = [
+const competitorNavItems: ShellNavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: 'book-marked' },
     {
         href: '/log-progress',
@@ -11,7 +24,7 @@ const competitorNavItems = [
     { href: '/history', label: 'My history', icon: 'history' },
 ]
 
-const competitorMetrics = [
+const competitorMetrics: ShellMetric[] = [
     {
         label: 'Active quest',
         value: 'Spring Story Sprint',
@@ -29,11 +42,30 @@ const competitorMetrics = [
     },
 ]
 
-export default function CompetitorLayout({
+export default async function CompetitorLayout({
     children,
 }: Readonly<{
     children: React.ReactNode
 }>) {
+    const viewer = await getRoleAwareSession('COMPETITOR')
+
+    protectAuthenticatedRoute({
+        callbackUrl: '/dashboard',
+        viewer,
+    })
+
+    const invitationAccess = await getInvitationAccessProfile({
+        userEmail: viewer.userEmail,
+        userId: viewer.userId,
+    })
+
+    const invitationRedirectPath =
+        shouldRedirectCompetitorAccess(invitationAccess)
+
+    if (invitationRedirectPath) {
+        redirect(invitationRedirectPath)
+    }
+
     return (
         <AppShell
             shellVariant='competitor'
@@ -42,6 +74,7 @@ export default function CompetitorLayout({
             description='This authenticated shell establishes the future competitor route family without depending on live auth or quest data yet.'
             navItems={competitorNavItems}
             metrics={competitorMetrics}
+            viewer={viewer}
         >
             {children}
         </AppShell>
