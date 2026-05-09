@@ -142,13 +142,11 @@ function getEffectiveStatusPillClass(status: InvitationStatus) {
 function getStatusDetail({
     acceptedAt,
     expiresAt,
-    lastSentAt,
     revokedAt,
     status,
 }: {
     acceptedAt: Date | null
     expiresAt: Date
-    lastSentAt: Date | null
     revokedAt: Date | null
     status: InvitationStatus
 }) {
@@ -260,7 +258,10 @@ export default async function AdminInvitationsPage({
     ])
 
     const invitationRows = invitations.map((invitation) => {
-        const effectiveStatus = getEffectiveInvitationStatus(invitation, now)
+        const effectiveStatus: InvitationStatus = getEffectiveInvitationStatus(
+            invitation,
+            now
+        )
 
         return {
             ...invitation,
@@ -316,7 +317,6 @@ export default async function AdminInvitationsPage({
                         {getStatusDetail({
                             acceptedAt: invitation.acceptedAt,
                             expiresAt: invitation.expiresAt,
-                            lastSentAt: invitation.lastSentAt,
                             revokedAt: invitation.revokedAt,
                             status: invitation.effectiveStatus,
                         })}

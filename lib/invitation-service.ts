@@ -79,7 +79,7 @@ type InvitationAcceptanceTransaction = {
                 role: 'COMPETITOR'
                 userId: string
             }
-            update: {}
+            update: Record<string, never>
             where: {
                 userId_role: {
                     role: 'COMPETITOR'
