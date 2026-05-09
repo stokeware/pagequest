@@ -5,9 +5,12 @@ import { redirect } from 'next/navigation'
 
 import { requireAdminActionUser } from '@/lib/auth/session'
 import {
+    assertQuestChallengeNotAssigned,
     assertSingleActiveQuest,
     QuestAdminError,
+    parseQuestChallengeAssignmentFormValues,
     parseQuestFormValues,
+    prepareQuestChallengeAssignmentValues,
     prepareQuestArchiveValues,
     prepareQuestCreateValues,
     prepareQuestDuplicateValues,
@@ -487,6 +490,121 @@ export async function duplicateQuestAction(formData: FormData) {
         finishAction({
             outcome: 'duplicated',
             selectedQuestId: duplicatedQuest.id,
+        })
+    } catch (error) {
+        if (isRedirectSignal(error)) {
+            throw error
+        }
+
+        finishAction({
+            detail: resolveQuestErrorCode(error),
+            outcome: 'error',
+            selectedQuestId: quest.id,
+        })
+    }
+}
+
+export async function assignQuestChallengeAction(formData: FormData) {
+    const actor = await requireAdminActionUser()
+    const questId = getStringField(formData, 'questId')
+
+    if (!questId) {
+        finishAction({
+            detail: 'missing-quest',
+            outcome: 'error',
+        })
+    }
+
+    const quest = await prisma.quest.findUnique({
+        select: {
+            archivedAt: true,
+            id: true,
+            questChallenges: {
+                select: {
+                    challengeId: true,
+                },
+            },
+        },
+        where: {
+            id: questId,
+        },
+    })
+
+    if (!quest) {
+        finishAction({
+            detail: 'quest-not-found',
+            outcome: 'error',
+        })
+    }
+
+    if (quest.archivedAt) {
+        finishAction({
+            detail: 'quest-not-editable',
+            outcome: 'error',
+            selectedQuestId: quest.id,
+        })
+    }
+
+    try {
+        const formValues = parseQuestChallengeAssignmentFormValues(formData)
+        const values = prepareQuestChallengeAssignmentValues(formValues)
+        const challenge = await prisma.challenge.findUnique({
+            select: {
+                id: true,
+                title: true,
+            },
+            where: {
+                id: values.challengeId,
+            },
+        })
+
+        if (!challenge) {
+            throw new QuestAdminError(
+                'challenge-not-found',
+                'That challenge record is no longer available.'
+            )
+        }
+
+        assertQuestChallengeNotAssigned({
+            challengeId: values.challengeId,
+            existingChallengeIds: quest.questChallenges.map(
+                (assignment) => assignment.challengeId
+            ),
+        })
+
+        await prisma.$transaction(async (transaction) => {
+            const assignment = await transaction.questChallenge.create({
+                data: {
+                    ...values,
+                    questId: quest.id,
+                },
+                select: {
+                    id: true,
+                },
+            })
+
+            await transaction.auditLog.create({
+                data: {
+                    action: 'quest.challenge-assigned',
+                    actorUserId: actor.id,
+                    challengeId: challenge.id,
+                    entityId: assignment.id,
+                    entityType: 'QuestChallenge',
+                    metadata: {
+                        challengeTitle: challenge.title,
+                        pointValueOverride:
+                            values.pointValueOverride?.toString() ?? null,
+                        sortOrder: values.sortOrder,
+                    },
+                    questId: quest.id,
+                },
+            })
+        })
+
+        revalidatePath('/admin/challenges')
+        finishAction({
+            outcome: 'challenge-assigned',
+            selectedQuestId: quest.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {

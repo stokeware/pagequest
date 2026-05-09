@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
     assertSingleActiveQuest,
+    assertQuestChallengeNotAssigned,
     buildQuestScoringPreviewItems,
     describeQuestLifecycle,
     getQuestStatusLabel,
     getQuestVisibilityLabel,
+    parseQuestChallengeAssignmentFormValues,
+    prepareQuestChallengeAssignmentValues,
     QuestAdminError,
     parseQuestFormValues,
     prepareQuestArchiveValues,
@@ -31,6 +34,24 @@ function buildQuestFormData(overrides?: Record<string, string>) {
         startAt: '2026-05-01T08:00',
         timezone: 'America/Chicago',
         visibility: 'INVITE_ONLY',
+        ...overrides,
+    }
+
+    Object.entries(fields).forEach(([key, value]) => {
+        formData.set(key, value)
+    })
+
+    return formData
+}
+
+function buildQuestChallengeAssignmentFormData(
+    overrides?: Record<string, string>
+) {
+    const formData = new FormData()
+    const fields = {
+        challengeId: 'challenge-1',
+        pointValueOverride: '15',
+        sortOrder: '3',
         ...overrides,
     }
 
@@ -225,6 +246,73 @@ describe('quest admin helpers', () => {
                 },
                 nextStatus: 'ACTIVE',
                 questId: 'quest-1',
+            })
+        ).not.toThrow()
+    })
+
+    it('parses quest challenge assignment values and allows blank overrides', () => {
+        const values = parseQuestChallengeAssignmentFormValues(
+            buildQuestChallengeAssignmentFormData({
+                pointValueOverride: '',
+                sortOrder: '5',
+            })
+        )
+
+        expect(values).toEqual({
+            challengeId: 'challenge-1',
+            pointValueOverride: null,
+            sortOrder: 5,
+        })
+        expect(prepareQuestChallengeAssignmentValues(values)).toEqual({
+            challengeId: 'challenge-1',
+            isActive: true,
+            pointValueOverride: null,
+            sortOrder: 5,
+        })
+    })
+
+    it('rejects invalid quest challenge assignment fields', () => {
+        expect(() =>
+            parseQuestChallengeAssignmentFormValues(
+                buildQuestChallengeAssignmentFormData({
+                    sortOrder: '-1',
+                })
+            )
+        ).toThrowError(
+            expect.objectContaining<Partial<QuestAdminError>>({
+                code: 'invalid-challenge-sort-order',
+            })
+        )
+
+        expect(() =>
+            parseQuestChallengeAssignmentFormValues(
+                buildQuestChallengeAssignmentFormData({
+                    pointValueOverride: '-2',
+                })
+            )
+        ).toThrowError(
+            expect.objectContaining<Partial<QuestAdminError>>({
+                code: 'invalid-challenge-point-override',
+            })
+        )
+    })
+
+    it('blocks duplicate challenge assignments on the same quest', () => {
+        expect(() =>
+            assertQuestChallengeNotAssigned({
+                challengeId: 'challenge-1',
+                existingChallengeIds: ['challenge-1', 'challenge-2'],
+            })
+        ).toThrowError(
+            expect.objectContaining<Partial<QuestAdminError>>({
+                code: 'duplicate-quest-challenge',
+            })
+        )
+
+        expect(() =>
+            assertQuestChallengeNotAssigned({
+                challengeId: 'challenge-3',
+                existingChallengeIds: ['challenge-1', 'challenge-2'],
             })
         ).not.toThrow()
     })

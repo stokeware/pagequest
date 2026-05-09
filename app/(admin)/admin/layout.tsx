@@ -8,6 +8,11 @@ import { getRoleAwareSession, protectAdminRoute } from '@/lib/auth/session'
 const adminNavItems: ShellNavItem[] = [
     { href: '/admin', label: 'Overview', icon: 'shield-check' },
     { href: '/admin/quests', label: 'Quests', icon: 'folder-kanban' },
+    {
+        href: '/admin/challenges',
+        label: 'Challenges',
+        icon: 'clipboard-pen-line',
+    },
     { href: '/admin/invitations', label: 'Invitations', icon: 'mail-plus' },
     { href: '/admin/reports', label: 'Reports', icon: 'table-properties' },
 ]
@@ -47,7 +52,7 @@ export default async function AdminLayout({
             shellVariant='admin'
             audienceLabel='Administrator experience'
             title='A control surface for running each quest without losing the playful tone.'
-            description='This authenticated shell gives the admin experience a stable home before data-backed management flows are implemented.'
+            description='This authenticated shell now anchors live quest, challenge, and invitation management while leaving room for reporting and moderation tools.'
             navItems={adminNavItems}
             metrics={adminMetrics}
             viewer={viewer}

@@ -24,6 +24,12 @@ const overviewCards = [
             'Invitation workflows and acceptance status will anchor the private-quest model here.',
     },
     {
+        title: 'Challenge catalog',
+        value: 'Reusable prompts',
+        description:
+            'Challenge definitions, repeatability rules, and review expectations now live in a dedicated admin surface.',
+    },
+    {
         title: 'Reporting and moderation',
         value: 'Audits and exports',
         description:
@@ -51,12 +57,18 @@ export default function AdminOverviewPage() {
                     <CardTitle>Planned admin entry points</CardTitle>
                     <CardDescription>
                         The routes below are now stable targets for quest
-                        management, invitations, and reports.
+                        management, challenges, invitations, and reports.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='auth-inline-actions'>
                     <Button render={<Link href='/admin/quests' />}>
                         Open quests
+                    </Button>
+                    <Button
+                        variant='secondary'
+                        render={<Link href='/admin/challenges' />}
+                    >
+                        Open challenges
                     </Button>
                     <Button
                         variant='outline'

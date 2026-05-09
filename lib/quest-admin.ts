@@ -71,6 +71,16 @@ export type QuestLifecycleSnapshot = {
     status: QuestStatus
 }
 
+export type QuestChallengeAssignmentFormValues = {
+    challengeId: string
+    pointValueOverride: Prisma.Decimal | null
+    sortOrder: number
+}
+
+export type QuestChallengeWriteValues = QuestChallengeAssignmentFormValues & {
+    isActive: boolean
+}
+
 const inviteOnlyVisibility = 'INVITE_ONLY' satisfies QuestVisibility
 
 const questStatusLabels: Record<QuestStatus, string> = {
@@ -314,6 +324,52 @@ export function buildQuestScoringPreviewItems(
     ]
 }
 
+export function parseQuestChallengeAssignmentFormValues(
+    formData: FormData
+): QuestChallengeAssignmentFormValues {
+    return {
+        challengeId: getRequiredString(
+            formData,
+            'challengeId',
+            'missing-challenge'
+        ),
+        pointValueOverride: getOptionalDecimal(
+            formData,
+            'pointValueOverride',
+            'invalid-challenge-point-override'
+        ),
+        sortOrder: getRequiredInteger(
+            formData,
+            'sortOrder',
+            'invalid-challenge-sort-order'
+        ),
+    }
+}
+
+export function prepareQuestChallengeAssignmentValues(
+    formValues: QuestChallengeAssignmentFormValues
+): QuestChallengeWriteValues {
+    return {
+        ...formValues,
+        isActive: true,
+    }
+}
+
+export function assertQuestChallengeNotAssigned({
+    challengeId,
+    existingChallengeIds,
+}: {
+    challengeId: string
+    existingChallengeIds: string[]
+}) {
+    if (existingChallengeIds.includes(challengeId)) {
+        throw new QuestAdminError(
+            'duplicate-quest-challenge',
+            'That challenge is already assigned to this quest.'
+        )
+    }
+}
+
 export function assertSingleActiveQuest({
     activeQuest,
     nextStatus,
@@ -480,6 +536,43 @@ function getOptionalInteger(
     }
 
     return parsedValue
+}
+
+function getRequiredInteger(
+    formData: FormData,
+    fieldName: string,
+    errorCode: string
+) {
+    const value = getOptionalInteger(formData, fieldName, errorCode)
+
+    if (value === null) {
+        throw new QuestAdminError(errorCode, `${fieldName} is required.`)
+    }
+
+    return value
+}
+
+function getOptionalDecimal(
+    formData: FormData,
+    fieldName: string,
+    errorCode: string
+) {
+    const value = getOptionalString(formData, fieldName)
+
+    if (!value) {
+        return null
+    }
+
+    const decimalValue = toDecimal(value, errorCode)
+
+    if (decimalValue.isNegative()) {
+        throw new QuestAdminError(
+            errorCode,
+            `${fieldName} must be zero or greater.`
+        )
+    }
+
+    return decimalValue
 }
 
 function assertValidQuestWindow(startAt: Date, endAt: Date) {

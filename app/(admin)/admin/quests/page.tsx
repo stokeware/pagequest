@@ -30,11 +30,13 @@ import {
 
 import {
     archiveQuestAction,
+    assignQuestChallengeAction,
     createQuestAction,
     duplicateQuestAction,
     publishQuestAction,
     updateQuestAction,
 } from './actions'
+import { QuestChallengeAssignmentsPanel } from './quest-challenge-assignment-panel'
 
 type QuestsPageProps = {
     searchParams?: Promise<Record<string, string | string[] | undefined>>
@@ -91,6 +93,12 @@ const noticeContent = {
         title: 'Quest created.',
         tone: 'success',
     },
+    'challenge-assigned': {
+        description:
+            'The selected catalog challenge is now attached to this quest with its quest-specific sort order and optional point override.',
+        title: 'Challenge assigned.',
+        tone: 'success',
+    },
     duplicated: {
         description:
             'A new draft copy was created with the same core configuration but without participants, invitations, or history.',
@@ -120,6 +128,13 @@ const noticeContent = {
 const errorDetailMessages: Record<string, string> = {
     'active-quest-conflict':
         'Only one quest can be active at a time. Archive or let the current live quest complete before activating another one.',
+    'challenge-not-found': 'That challenge record is no longer available.',
+    'duplicate-quest-challenge':
+        'That challenge is already attached to this quest. Adjust its quest-specific settings from the current assignment list instead of adding it again.',
+    'invalid-challenge-point-override':
+        'Quest challenge point overrides must be a valid number that is zero or greater, or left blank to use the quest default.',
+    'invalid-challenge-sort-order':
+        'Quest challenge sort order must be a whole number that is zero or greater.',
     'invalid-entry-delete-window':
         'Entry delete window must be a whole number of minutes or left blank.',
     'invalid-entry-edit-window':
@@ -136,6 +151,7 @@ const errorDetailMessages: Record<string, string> = {
     'invalid-visibility':
         'Only invite-only quests are available in the current MVP.',
     'missing-end-at': 'Choose an end date and time for the quest.',
+    'missing-challenge': 'Choose a catalog challenge before adding it.',
     'missing-name': 'Enter a quest name before saving.',
     'missing-quest': 'Choose a valid quest before running that action.',
     'missing-start-at': 'Choose a start date and time for the quest.',
@@ -754,21 +770,55 @@ export default async function AdminQuestsPage({
     )
     const notice = getNotice(outcome, detail)
     await synchronizeDerivedQuestStatuses()
-    const quests = await prisma.quest.findMany({
-        include: {
-            _count: {
-                select: {
-                    invitations: true,
-                    participants: true,
+    const [quests, challenges] = await Promise.all([
+        prisma.quest.findMany({
+            include: {
+                _count: {
+                    select: {
+                        invitations: true,
+                        participants: true,
+                        questChallenges: true,
+                    },
+                },
+                questChallenges: {
+                    include: {
+                        challenge: {
+                            select: {
+                                availability: true,
+                                category: true,
+                                requiresReview: true,
+                                title: true,
+                            },
+                        },
+                    },
+                    orderBy: [
+                        {
+                            sortOrder: 'asc',
+                        },
+                        {
+                            createdAt: 'asc',
+                        },
+                    ],
                 },
             },
-        },
-        orderBy: [
-            {
-                createdAt: 'desc',
+            orderBy: [
+                {
+                    createdAt: 'desc',
+                },
+            ],
+        }),
+        prisma.challenge.findMany({
+            orderBy: [
+                {
+                    title: 'asc',
+                },
+            ],
+            select: {
+                id: true,
+                title: true,
             },
-        ],
-    })
+        }),
+    ])
 
     const selectedQuest =
         quests.find((quest) => quest.id === selectedQuestId) ??
@@ -826,7 +876,8 @@ export default async function AdminQuestsPage({
                     </p>
                     <p className='type-muted text-xs'>
                         {quest._count.participants} participants |{' '}
-                        {quest._count.invitations} invitations
+                        {quest._count.invitations} invitations |{' '}
+                        {quest._count.questChallenges} challenges
                     </p>
                 </div>,
                 <div key='actions' className='flex flex-wrap gap-2'>
@@ -997,6 +1048,22 @@ export default async function AdminQuestsPage({
                                             selectedQuest.archivedAt
                                         )}
                                     </p>
+                                    <QuestChallengeAssignmentsPanel
+                                        action={assignQuestChallengeAction}
+                                        availableChallenges={challenges.filter(
+                                            (challenge) =>
+                                                !selectedQuest.questChallenges.some(
+                                                    (assignment) =>
+                                                        assignment.challengeId ===
+                                                        challenge.id
+                                                )
+                                        )}
+                                        assignments={
+                                            selectedQuest.questChallenges
+                                        }
+                                        canEdit={false}
+                                        questId={selectedQuest.id}
+                                    />
                                     <form action={duplicateQuestAction}>
                                         <input
                                             type='hidden'
@@ -1035,6 +1102,20 @@ export default async function AdminQuestsPage({
                                 questId={selectedQuest.id}
                                 submitLabel='Save quest changes'
                                 title={`Edit ${selectedQuest.name}`}
+                            />
+                            <QuestChallengeAssignmentsPanel
+                                action={assignQuestChallengeAction}
+                                availableChallenges={challenges.filter(
+                                    (challenge) =>
+                                        !selectedQuest.questChallenges.some(
+                                            (assignment) =>
+                                                assignment.challengeId ===
+                                                challenge.id
+                                        )
+                                )}
+                                assignments={selectedQuest.questChallenges}
+                                canEdit={true}
+                                questId={selectedQuest.id}
                             />
                         </div>
                     )
