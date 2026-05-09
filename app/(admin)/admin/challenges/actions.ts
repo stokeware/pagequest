@@ -85,7 +85,7 @@ async function loadChallenge(challengeId: string) {
             _count: {
                 select: {
                     challengeCompletions: true,
-                    questChallenges: true,
+                    campaignChallenges: true,
                 },
             },
             availability: true,
@@ -265,7 +265,7 @@ export async function deleteChallengeAction(formData: FormData) {
     try {
         assertChallengeCanDelete({
             challengeCompletions: challenge._count.challengeCompletions,
-            questChallenges: challenge._count.questChallenges,
+            campaignChallenges: challenge._count.campaignChallenges,
         })
 
         await prisma.$transaction(async (transaction) => {
@@ -321,15 +321,15 @@ export async function reviewChallengeCompletionAction(formData: FormData) {
                     },
                 },
                 id: true,
-                questChallenge: {
+                campaignChallenge: {
                     select: {
                         pointValueOverride: true,
                     },
                 },
-                questParticipant: {
+                campaignParticipant: {
                     select: {
                         id: true,
-                        quest: {
+                        campaign: {
                             select: {
                                 id: true,
                                 pointsPerChallengeCompletion: true,
@@ -360,10 +360,11 @@ export async function reviewChallengeCompletionAction(formData: FormData) {
 
         const defaultAwardedPoints = resolveChallengeCompletionDefaultPoints({
             challengePointValue: completion.challenge.pointValue,
-            questChallengePointValueOverride:
-                completion.questChallenge?.pointValueOverride ?? null,
-            questPointsPerChallengeCompletion:
-                completion.questParticipant.quest.pointsPerChallengeCompletion,
+            campaignChallengePointValueOverride:
+                completion.campaignChallenge?.pointValueOverride ?? null,
+            campaignPointsPerChallengeCompletion:
+                completion.campaignParticipant.campaign
+                    .pointsPerChallengeCompletion,
         })
         const decisionValues = prepareChallengeReviewDecisionValues({
             decision: reviewValues.decision,
@@ -398,8 +399,8 @@ export async function reviewChallengeCompletionAction(formData: FormData) {
                         reviewNotes: decisionValues.reviewNotes,
                         reviewState: decisionValues.reviewState,
                     },
-                    questId: completion.questParticipant.quest.id,
-                    questParticipantId: completion.questParticipant.id,
+                    campaignId: completion.campaignParticipant.campaign.id,
+                    campaignParticipantId: completion.campaignParticipant.id,
                 },
             })
         })

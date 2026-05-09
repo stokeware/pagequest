@@ -1,3 +1,4 @@
+import { type Prisma } from '@prisma/client'
 import type {
     ChallengeAvailability,
     ChallengeReviewState,
@@ -13,21 +14,21 @@ import {
 import {
     normalizeReadingEntryMetadata,
     type LogProgressFormValues,
-    type LogProgressQuestPolicy,
+    type LogProgressCampaignPolicy,
     validateLogProgressFormValues,
 } from '@/lib/log-progress'
 import {
     calculateParticipantScoreTotals,
     type ParticipantScoreTotals,
-    type QuestScoringRules,
+    type CampaignScoringRules,
     type ScoringEntry,
-} from '@/lib/quest-domain'
+} from '@/lib/campaign-domain'
 
 type ParticipantSnapshot = {
     id: string
     removedAt: Date | null
     userId: string
-    quest: {
+    campaign: {
         entryDeleteWindowMinutes: number | null
         entryEditWindowMinutes: number | null
         endAt: Date
@@ -36,7 +37,7 @@ type ParticipantSnapshot = {
         pointsPerBook: { toString(): string }
         pointsPerChallengeCompletion: { toString(): string }
         pointsPerPage: { toString(): string }
-        questChallenges: Array<{
+        campaignChallenges: Array<{
             challenge: {
                 availability: ChallengeAvailability
                 pointValue: { toString(): string } | null
@@ -70,7 +71,7 @@ type EditableReadingEntrySnapshot = {
     deletedAt: Date | null
     id: string
     notes: string | null
-    questParticipant: ParticipantSnapshot
+    campaignParticipant: ParticipantSnapshot
     type: ReadingEntryType
     value: number
 }
@@ -85,9 +86,9 @@ type LogProgressTransaction = {
                 challengeId?: string
                 entityId: string
                 entityType: string
-                metadata: Record<string, unknown>
-                questId: string
-                questParticipantId: string
+                metadata: Prisma.InputJsonValue
+                campaignId: string
+                campaignParticipantId: string
                 readingEntryId?: string
             }
         }) => Promise<unknown>
@@ -95,11 +96,16 @@ type LogProgressTransaction = {
     challengeCompletion: {
         create: (args: {
             data: {
-                awardedPoints?: { toString(): string } | number | string
+                awardedPoints?:
+                    | Prisma.Decimal
+                    | Prisma.DecimalJsLike
+                    | number
+                    | string
+                    | null
                 challengeId: string
                 evidenceText: string | null
-                questChallengeId: string
-                questParticipantId: string
+                campaignChallengeId: string
+                campaignParticipantId: string
                 readingEntryId: string
                 reviewNotes?: string | null
                 reviewState: ChallengeReviewState
@@ -118,7 +124,7 @@ type LogProgressTransaction = {
             }
             where: {
                 challengeId: string
-                questParticipantId: string
+                campaignParticipantId: string
                 readingEntry: {
                     deletedAt: null
                 }
@@ -129,13 +135,13 @@ type LogProgressTransaction = {
             }>
         >
     }
-    questParticipant: {
+    campaignParticipant: {
         findUnique: (args: {
             select: {
                 id: true
                 removedAt: true
                 userId: true
-                quest: {
+                campaign: {
                     select: {
                         entryDeleteWindowMinutes: true
                         entryEditWindowMinutes: true
@@ -145,7 +151,7 @@ type LogProgressTransaction = {
                         pointsPerBook: true
                         pointsPerChallengeCompletion: true
                         pointsPerPage: true
-                        questChallenges: {
+                        campaignChallenges: {
                             where: {
                                 isActive: true
                             }
@@ -179,7 +185,12 @@ type LogProgressTransaction = {
                 totalBooks: number
                 totalChallenges: number
                 totalPages: number
-                totalPoints: { toString(): string } | number | string
+                totalPoints:
+                    | Prisma.Decimal
+                    | Prisma.DecimalJsLike
+                    | Prisma.DecimalFieldUpdateOperationsInput
+                    | number
+                    | string
             }
             where: {
                 id: string
@@ -194,7 +205,7 @@ type LogProgressTransaction = {
                 bookTitle: string | null
                 createdByUserId: string
                 notes: string | null
-                questParticipantId: string
+                campaignParticipantId: string
                 type: ReadingEntryType
                 updatedByUserId: string
                 value: number
@@ -214,12 +225,12 @@ type LogProgressTransaction = {
                 deletedAt: true
                 id: true
                 notes: true
-                questParticipant: {
+                campaignParticipant: {
                     select: {
                         id: true
                         removedAt: true
                         userId: true
-                        quest: {
+                        campaign: {
                             select: {
                                 entryDeleteWindowMinutes: true
                                 entryEditWindowMinutes: true
@@ -229,7 +240,7 @@ type LogProgressTransaction = {
                                 pointsPerBook: true
                                 pointsPerChallengeCompletion: true
                                 pointsPerPage: true
-                                questChallenges: {
+                                campaignChallenges: {
                                     where: {
                                         isActive: true
                                     }
@@ -277,7 +288,7 @@ type LogProgressTransaction = {
             }
             where: {
                 deletedAt: null
-                questParticipantId: string
+                campaignParticipantId: string
             }
         }) => Promise<PersistedReadingEntry[]>
         update: (args: {
@@ -311,13 +322,13 @@ export type RecordLogProgressInput = {
     actorUserId: string
     formValues: LogProgressFormValues
     now: Date
-    questParticipantId: string
+    campaignParticipantId: string
 }
 
 export type RecordLogProgressResult = {
     challengeCompletionId: string | null
-    questId: string
-    questParticipantId: string
+    campaignId: string
+    campaignParticipantId: string
     readingEntryId: string
     totals: ParticipantScoreTotals
 }
@@ -330,8 +341,8 @@ export type AdminUpdateReadingEntryInput = {
 }
 
 export type AdminUpdateReadingEntryResult = {
-    questId: string
-    questParticipantId: string
+    campaignId: string
+    campaignParticipantId: string
     readingEntryId: string
     totals: ParticipantScoreTotals
 }
@@ -340,12 +351,12 @@ export async function recordLogProgressEntry(
     transaction: LogProgressTransaction,
     input: RecordLogProgressInput
 ): Promise<RecordLogProgressResult> {
-    const participant = await transaction.questParticipant.findUnique({
+    const participant = await transaction.campaignParticipant.findUnique({
         select: {
             id: true,
             removedAt: true,
             userId: true,
-            quest: {
+            campaign: {
                 select: {
                     entryDeleteWindowMinutes: true,
                     entryEditWindowMinutes: true,
@@ -355,7 +366,7 @@ export async function recordLogProgressEntry(
                     pointsPerBook: true,
                     pointsPerChallengeCompletion: true,
                     pointsPerPage: true,
-                    questChallenges: {
+                    campaignChallenges: {
                         select: {
                             challenge: {
                                 select: {
@@ -379,36 +390,36 @@ export async function recordLogProgressEntry(
             },
         },
         where: {
-            id: input.questParticipantId,
+            id: input.campaignParticipantId,
         },
     })
 
     if (!participant) {
         throw new LogProgressMutationError(
             'participant-not-found',
-            'The selected quest participant record is no longer available.'
+            'The selected campaign participant record is no longer available.'
         )
     }
 
     if (participant.userId !== input.actorUserId) {
         throw new LogProgressMutationError(
             'participant-access-denied',
-            'You can only log progress for your own quest profile.'
+            'You can only log progress for your own campaign profile.'
         )
     }
 
     if (participant.removedAt) {
         throw new LogProgressMutationError(
             'participant-removed',
-            'This quest profile is no longer active.'
+            'This campaign profile is no longer active.'
         )
     }
 
     const validationResult = validateLogProgressFormValues(input.formValues, {
-        availableChallengeIds: participant.quest.questChallenges.map(
+        availableChallengeIds: participant.campaign.campaignChallenges.map(
             (challenge) => challenge.id
         ),
-        questPolicy: toQuestPolicy(participant.quest),
+        campaignPolicy: toCampaignPolicy(participant.campaign),
     })
 
     if (!validationResult.success) {
@@ -441,7 +452,7 @@ export async function recordLogProgressEntry(
                     : metadata.bookTitle,
             createdByUserId: input.actorUserId,
             notes,
-            questParticipantId: participant.id,
+            campaignParticipantId: participant.id,
             type: input.formValues.type,
             updatedByUserId: input.actorUserId,
             value: entryValue,
@@ -465,8 +476,8 @@ export async function recordLogProgressEntry(
                 type: input.formValues.type,
                 value: entryValue,
             },
-            questId: participant.quest.id,
-            questParticipantId: participant.id,
+            campaignId: participant.campaign.id,
+            campaignParticipantId: participant.id,
             readingEntryId: readingEntry.id,
         },
     })
@@ -474,14 +485,15 @@ export async function recordLogProgressEntry(
     let challengeCompletionId: string | null = null
 
     if (input.formValues.type === 'CHALLENGE_COMPLETION') {
-        const selectedQuestChallenge = participant.quest.questChallenges.find(
-            (challenge) => challenge.id === input.formValues.challengeId
-        )
+        const selectedCampaignChallenge =
+            participant.campaign.campaignChallenges.find(
+                (challenge) => challenge.id === input.formValues.challengeId
+            )
 
-        if (!selectedQuestChallenge) {
+        if (!selectedCampaignChallenge) {
             throw new LogProgressMutationError(
-                'quest-challenge-not-found',
-                'Choose an active quest challenge for this completion.'
+                'campaign-challenge-not-found',
+                'Choose an active campaign challenge for this completion.'
             )
         }
 
@@ -491,8 +503,8 @@ export async function recordLogProgressEntry(
                     reviewState: true,
                 },
                 where: {
-                    challengeId: selectedQuestChallenge.challengeId,
-                    questParticipantId: participant.id,
+                    challengeId: selectedCampaignChallenge.challengeId,
+                    campaignParticipantId: participant.id,
                     readingEntry: {
                         deletedAt: null,
                     },
@@ -500,20 +512,20 @@ export async function recordLogProgressEntry(
             })
 
         assertChallengeCompletionAllowed({
-            availability: selectedQuestChallenge.challenge.availability,
+            availability: selectedCampaignChallenge.challenge.availability,
             existingReviewStates: existingCompletions.map(
                 (completion) => completion.reviewState
             ),
         })
 
-        if (selectedQuestChallenge.challenge.requiresReview) {
+        if (selectedCampaignChallenge.challenge.requiresReview) {
             const challengeCompletion =
                 await transaction.challengeCompletion.create({
                     data: {
-                        challengeId: selectedQuestChallenge.challengeId,
+                        challengeId: selectedCampaignChallenge.challengeId,
                         evidenceText: notes,
-                        questChallengeId: selectedQuestChallenge.id,
-                        questParticipantId: participant.id,
+                        campaignChallengeId: selectedCampaignChallenge.id,
+                        campaignParticipantId: participant.id,
                         readingEntryId: readingEntry.id,
                         reviewState: 'PENDING',
                     },
@@ -529,16 +541,17 @@ export async function recordLogProgressEntry(
                     action: 'challenge-completion.submitted',
                     actorUserId: input.actorUserId,
                     challengeCompletionId,
-                    challengeId: selectedQuestChallenge.challengeId,
+                    challengeId: selectedCampaignChallenge.challengeId,
                     entityId: challengeCompletion.id,
                     entityType: 'ChallengeCompletion',
                     metadata: {
-                        challengeTitle: selectedQuestChallenge.challenge.title,
+                        challengeTitle:
+                            selectedCampaignChallenge.challenge.title,
                         reviewState: 'PENDING',
                         value: 1,
                     },
-                    questId: participant.quest.id,
-                    questParticipantId: participant.id,
+                    campaignId: participant.campaign.id,
+                    campaignParticipantId: participant.id,
                     readingEntryId: readingEntry.id,
                 },
             })
@@ -547,13 +560,13 @@ export async function recordLogProgressEntry(
                 prepareAutoApprovedChallengeCompletionValues({
                     awardedPoints: resolveChallengeCompletionDefaultPoints({
                         challengePointValue:
-                            selectedQuestChallenge.challenge.pointValue?.toString() ??
+                            selectedCampaignChallenge.challenge.pointValue?.toString() ??
                             null,
-                        questChallengePointValueOverride:
-                            selectedQuestChallenge.pointValueOverride?.toString() ??
+                        campaignChallengePointValueOverride:
+                            selectedCampaignChallenge.pointValueOverride?.toString() ??
                             null,
-                        questPointsPerChallengeCompletion:
-                            participant.quest.pointsPerChallengeCompletion.toString(),
+                        campaignPointsPerChallengeCompletion:
+                            participant.campaign.pointsPerChallengeCompletion.toString(),
                     }),
                     now: input.now,
                 })
@@ -562,10 +575,10 @@ export async function recordLogProgressEntry(
                 await transaction.challengeCompletion.create({
                     data: {
                         ...autoApprovedValues,
-                        challengeId: selectedQuestChallenge.challengeId,
+                        challengeId: selectedCampaignChallenge.challengeId,
                         evidenceText: notes,
-                        questChallengeId: selectedQuestChallenge.id,
-                        questParticipantId: participant.id,
+                        campaignChallengeId: selectedCampaignChallenge.id,
+                        campaignParticipantId: participant.id,
                         readingEntryId: readingEntry.id,
                     },
                     select: {
@@ -580,18 +593,19 @@ export async function recordLogProgressEntry(
                     action: 'challenge-completion.submitted',
                     actorUserId: input.actorUserId,
                     challengeCompletionId,
-                    challengeId: selectedQuestChallenge.challengeId,
+                    challengeId: selectedCampaignChallenge.challengeId,
                     entityId: challengeCompletion.id,
                     entityType: 'ChallengeCompletion',
                     metadata: {
                         awardedPoints:
                             autoApprovedValues.awardedPoints.toString(),
-                        challengeTitle: selectedQuestChallenge.challenge.title,
+                        challengeTitle:
+                            selectedCampaignChallenge.challenge.title,
                         reviewState: autoApprovedValues.reviewState,
                         value: 1,
                     },
-                    questId: participant.quest.id,
-                    questParticipantId: participant.id,
+                    campaignId: participant.campaign.id,
+                    campaignParticipantId: participant.id,
                     readingEntryId: readingEntry.id,
                 },
             })
@@ -602,8 +616,8 @@ export async function recordLogProgressEntry(
 
     return {
         challengeCompletionId,
-        questId: participant.quest.id,
-        questParticipantId: participant.id,
+        campaignId: participant.campaign.id,
+        campaignParticipantId: participant.id,
         readingEntryId: readingEntry.id,
         totals,
     }
@@ -622,12 +636,12 @@ export async function updateReadingEntryAsAdmin(
             deletedAt: true,
             id: true,
             notes: true,
-            questParticipant: {
+            campaignParticipant: {
                 select: {
                     id: true,
                     removedAt: true,
                     userId: true,
-                    quest: {
+                    campaign: {
                         select: {
                             entryDeleteWindowMinutes: true,
                             entryEditWindowMinutes: true,
@@ -637,7 +651,7 @@ export async function updateReadingEntryAsAdmin(
                             pointsPerBook: true,
                             pointsPerChallengeCompletion: true,
                             pointsPerPage: true,
-                            questChallenges: {
+                            campaignChallenges: {
                                 select: {
                                     challenge: {
                                         select: {
@@ -676,10 +690,10 @@ export async function updateReadingEntryAsAdmin(
         )
     }
 
-    if (readingEntry.questParticipant.removedAt) {
+    if (readingEntry.campaignParticipant.removedAt) {
         throw new LogProgressMutationError(
             'participant-removed',
-            'This quest profile is no longer active.'
+            'This campaign profile is no longer active.'
         )
     }
 
@@ -693,12 +707,12 @@ export async function updateReadingEntryAsAdmin(
         )
     }
 
-    const participant = readingEntry.questParticipant
+    const participant = readingEntry.campaignParticipant
     const validationResult = validateLogProgressFormValues(input.formValues, {
-        availableChallengeIds: participant.quest.questChallenges.map(
+        availableChallengeIds: participant.campaign.campaignChallenges.map(
             (challenge) => challenge.id
         ),
-        questPolicy: toQuestPolicy(participant.quest),
+        campaignPolicy: toCampaignPolicy(participant.campaign),
     })
 
     if (!validationResult.success) {
@@ -754,8 +768,8 @@ export async function updateReadingEntryAsAdmin(
                     value: entryValue,
                 },
             },
-            questId: participant.quest.id,
-            questParticipantId: participant.id,
+            campaignId: participant.campaign.id,
+            campaignParticipantId: participant.id,
             readingEntryId: readingEntry.id,
         },
     })
@@ -763,8 +777,8 @@ export async function updateReadingEntryAsAdmin(
     const totals = await recalculateParticipantTotals(transaction, participant)
 
     return {
-        questId: participant.quest.id,
-        questParticipantId: participant.id,
+        campaignId: participant.campaign.id,
+        campaignParticipantId: participant.id,
         readingEntryId: readingEntry.id,
         totals,
     }
@@ -803,16 +817,16 @@ async function recalculateParticipantTotals(
         },
         where: {
             deletedAt: null,
-            questParticipantId: participant.id,
+            campaignParticipantId: participant.id,
         },
     })
 
     const totals = calculateParticipantScoreTotals(
         toScoringEntries(persistedEntries),
-        toQuestScoringRules(participant.quest)
+        toCampaignScoringRules(participant.campaign)
     )
 
-    await transaction.questParticipant.update({
+    await transaction.campaignParticipant.update({
         data: {
             lastActivityAt: totals.lastActivityAt,
             totalAudiobookMinutes: totals.totalAudiobookMinutes,
@@ -829,32 +843,32 @@ async function recalculateParticipantTotals(
     return totals
 }
 
-function toQuestPolicy(
-    quest: ParticipantSnapshot['quest']
-): LogProgressQuestPolicy {
+function toCampaignPolicy(
+    campaign: ParticipantSnapshot['campaign']
+): LogProgressCampaignPolicy {
     return {
-        entryDeleteWindowMinutes: quest.entryDeleteWindowMinutes,
-        entryEditWindowMinutes: quest.entryEditWindowMinutes,
-        questEndAt: quest.endAt.toISOString(),
-        questStartAt: quest.startAt.toISOString(),
-        timezone: quest.timezone,
+        entryDeleteWindowMinutes: campaign.entryDeleteWindowMinutes,
+        entryEditWindowMinutes: campaign.entryEditWindowMinutes,
+        campaignEndAt: campaign.endAt.toISOString(),
+        campaignStartAt: campaign.startAt.toISOString(),
+        timezone: campaign.timezone,
     }
 }
 
-function toQuestScoringRules(
-    quest: ParticipantSnapshot['quest']
-): QuestScoringRules {
+function toCampaignScoringRules(
+    campaign: ParticipantSnapshot['campaign']
+): CampaignScoringRules {
     return {
-        pointsPerAudiobookMinute: quest.pointsPerAudiobookMinute.toString(),
-        pointsPerBook: quest.pointsPerBook.toString(),
+        pointsPerAudiobookMinute: campaign.pointsPerAudiobookMinute.toString(),
+        pointsPerBook: campaign.pointsPerBook.toString(),
         pointsPerChallengeCompletion:
-            quest.pointsPerChallengeCompletion.toString(),
-        pointsPerPage: quest.pointsPerPage.toString(),
+            campaign.pointsPerChallengeCompletion.toString(),
+        pointsPerPage: campaign.pointsPerPage.toString(),
     }
 }
 
 function toScoringEntries(entries: PersistedReadingEntry[]): ScoringEntry[] {
-    return entries.flatMap((entry) => {
+    return entries.flatMap<ScoringEntry>((entry) => {
         if (entry.type !== 'CHALLENGE_COMPLETION') {
             return [
                 {

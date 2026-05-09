@@ -67,7 +67,7 @@ test.describe('local auth flow', () => {
         await expect(page).toHaveURL(/\/admin$/)
         await expect(
             page.getByRole('heading', {
-                name: 'A control surface for running each quest without losing the playful tone.',
+                name: 'A control surface for running each campaign without losing the playful tone.',
             })
         ).toBeVisible()
         await expect(

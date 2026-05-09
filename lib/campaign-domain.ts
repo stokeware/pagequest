@@ -1,9 +1,9 @@
 import { Prisma } from '@prisma/client'
-import type { QuestStatus, ReadingEntryType } from '@prisma/client'
+import type { CampaignStatus, ReadingEntryType } from '@prisma/client'
 
 type DecimalValue = Prisma.Decimal | number | string
 
-export interface QuestScoringRules {
+export interface CampaignScoringRules {
     pointsPerBook: DecimalValue
     pointsPerPage: DecimalValue
     pointsPerAudiobookMinute: DecimalValue
@@ -26,7 +26,7 @@ export interface ParticipantScoreTotals {
     lastActivityAt: Date | null
 }
 
-export interface QuestStatusInput {
+export interface CampaignStatusInput {
     startAt: Date
     endAt: Date
     publishedAt?: Date | null
@@ -34,16 +34,16 @@ export interface QuestStatusInput {
     now?: Date
 }
 
-export interface QuestStatusSnapshot extends QuestStatusInput {
+export interface CampaignStatusSnapshot extends CampaignStatusInput {
     id: string
-    status: QuestStatus
+    status: CampaignStatus
 }
 
 const zeroDecimal = new Prisma.Decimal(0)
 
 export function calculateEntryPoints(
     entry: ScoringEntry,
-    scoringRules: QuestScoringRules
+    scoringRules: CampaignScoringRules
 ): Prisma.Decimal {
     if (entry.value < 0) {
         throw new Error('Entry value must be zero or greater.')
@@ -71,7 +71,7 @@ export function calculateEntryPoints(
 
 export function calculateParticipantScoreTotals(
     entries: ScoringEntry[],
-    scoringRules: QuestScoringRules
+    scoringRules: CampaignScoringRules
 ): ParticipantScoreTotals {
     return entries.reduce<ParticipantScoreTotals>((totals, entry) => {
         if (
@@ -106,8 +106,10 @@ export function calculateParticipantScoreTotals(
     }, createEmptyParticipantScoreTotals())
 }
 
-export function deriveQuestStatus(input: QuestStatusInput): QuestStatus {
-    assertValidQuestWindow(input.startAt, input.endAt)
+export function deriveCampaignStatus(
+    input: CampaignStatusInput
+): CampaignStatus {
+    assertValidCampaignWindow(input.startAt, input.endAt)
 
     if (input.archivedAt) {
         return 'ARCHIVED'
@@ -130,11 +132,11 @@ export function deriveQuestStatus(input: QuestStatusInput): QuestStatus {
     return 'COMPLETED'
 }
 
-export function getDerivedQuestStatusUpdate(
-    snapshot: QuestStatusSnapshot,
+export function getDerivedCampaignStatusUpdate(
+    snapshot: CampaignStatusSnapshot,
     now = new Date()
 ) {
-    const derivedStatus = deriveQuestStatus({
+    const derivedStatus = deriveCampaignStatus({
         archivedAt: snapshot.archivedAt,
         endAt: snapshot.endAt,
         now,
@@ -153,12 +155,12 @@ export function getDerivedQuestStatusUpdate(
     }
 }
 
-export function getDerivedQuestStatusUpdates(
-    snapshots: QuestStatusSnapshot[],
+export function getDerivedCampaignStatusUpdates(
+    snapshots: CampaignStatusSnapshot[],
     now = new Date()
 ) {
     return snapshots.flatMap((snapshot) => {
-        const update = getDerivedQuestStatusUpdate(snapshot, now)
+        const update = getDerivedCampaignStatusUpdate(snapshot, now)
 
         return update ? [update] : []
     })
@@ -188,9 +190,9 @@ function shouldReplaceLastActivity(
     )
 }
 
-function assertValidQuestWindow(startAt: Date, endAt: Date) {
+function assertValidCampaignWindow(startAt: Date, endAt: Date) {
     if (startAt > endAt) {
-        throw new Error('Quest startAt must be on or before endAt.')
+        throw new Error('Campaign startAt must be on or before endAt.')
     }
 }
 

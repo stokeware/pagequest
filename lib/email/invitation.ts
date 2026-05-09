@@ -4,7 +4,7 @@ import { sendEmail, type EmailDeliveryMessage } from '@/lib/email/service'
 type InvitationEmailInput = {
     expiresAt: Date
     invitationUrl: string
-    questName: string
+    campaignName: string
     recipientEmail: string
 }
 
@@ -18,14 +18,14 @@ function formatExpiryDate(value: Date) {
 export function buildInvitationEmailMessage({
     expiresAt,
     invitationUrl,
-    questName,
+    campaignName,
     recipientEmail,
 }: InvitationEmailInput): EmailDeliveryMessage {
     const config = getEmailDeliveryConfig()
     const formattedExpiry = formatExpiryDate(expiresAt)
-    const subject = `You're invited to join ${questName} on Page Quest`
+    const subject = `You're invited to join ${campaignName} on Page Quest`
     const plainText = [
-        `You've been invited to join ${questName} on Page Quest.`,
+        `You've been invited to join ${campaignName} on Page Quest.`,
         '',
         `Use this secure link to sign in and accept your invitation: ${invitationUrl}`,
         '',
@@ -34,7 +34,7 @@ export function buildInvitationEmailMessage({
         'If you were not expecting this invitation, you can ignore this email.',
     ].join('\n')
     const html = [
-        `<p>You've been invited to join <strong>${questName}</strong> on Page Quest.</p>`,
+        `<p>You've been invited to join <strong>${campaignName}</strong> on Page Quest.</p>`,
         `<p><a href="${invitationUrl}">Open your secure invitation link</a></p>`,
         `<p>This link is reserved for <strong>${recipientEmail}</strong> and expires on ${formattedExpiry}.</p>`,
         '<p>If you were not expecting this invitation, you can ignore this email.</p>',

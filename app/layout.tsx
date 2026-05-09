@@ -19,7 +19,8 @@ const bodyFont = Source_Sans_3({
 
 export const metadata: Metadata = {
     title: 'Page Quest',
-    description: 'A local-first reading competition app for seasonal quests.',
+    description:
+        'A local-first reading competition app for seasonal campaigns.',
 }
 
 export default function RootLayout({

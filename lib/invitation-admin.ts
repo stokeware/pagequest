@@ -11,13 +11,13 @@ type InvitationLifecycleRecord = {
     status: InvitationStatus
 }
 
-type InvitationTokenQuestRecord = {
+type InvitationTokenCampaignRecord = {
     name: string
 }
 
 export type InvitationTokenRecord = InvitationLifecycleRecord & {
     email: string
-    quest: InvitationTokenQuestRecord
+    campaign: InvitationTokenCampaignRecord
 }
 
 export type InvitationTokenState =
@@ -129,7 +129,7 @@ export function deriveInvitationTokenSummary({
     if (!invitation) {
         return {
             invitationEmail: null,
-            questName: null,
+            campaignName: null,
             state,
             summary:
                 'This invitation link is not recognized. Ask an administrator for a fresh invite.',
@@ -139,35 +139,35 @@ export function deriveInvitationTokenSummary({
     if (state === 'accepted') {
         return {
             invitationEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state,
-            summary: `This invitation for ${invitation.quest.name} has already been used. Sign in with the accepted account to continue.`,
+            summary: `This invitation for ${invitation.campaign.name} has already been used. Sign in with the accepted account to continue.`,
         }
     }
 
     if (state === 'revoked') {
         return {
             invitationEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state,
-            summary: `This invitation for ${invitation.quest.name} has been revoked. Ask an administrator to resend it if you should still join.`,
+            summary: `This invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to resend it if you should still join.`,
         }
     }
 
     if (state === 'expired') {
         return {
             invitationEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state,
-            summary: `This invitation for ${invitation.quest.name} has expired. An administrator will need to resend it before you can join.`,
+            summary: `This invitation for ${invitation.campaign.name} has expired. An administrator will need to resend it before you can join.`,
         }
     }
 
     return {
         invitationEmail: invitation.email,
-        questName: invitation.quest.name,
+        campaignName: invitation.campaign.name,
         state,
-        summary: `This secure invite link is valid for ${invitation.quest.name}. Sign in with ${invitation.email} to continue.`,
+        summary: `This secure invite link is valid for ${invitation.campaign.name}. Sign in with ${invitation.email} to continue.`,
     }
 }
 

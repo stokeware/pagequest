@@ -10,10 +10,10 @@ type InvitationAcceptanceTransaction = {
                 metadata: {
                     acceptedAt: string
                     email: string
-                    questName: string
+                    campaignName: string
                 }
-                questId: string
-                questParticipantId: string
+                campaignId: string
+                campaignParticipantId: string
             }
         }) => Promise<unknown>
     }
@@ -30,11 +30,11 @@ type InvitationAcceptanceTransaction = {
             }
         }) => Promise<unknown>
     }
-    questParticipant: {
+    campaignParticipant: {
         create: (args: {
             data: {
                 joinedAt: Date
-                questId: string
+                campaignId: string
                 userId: string
             }
             select: {
@@ -49,8 +49,8 @@ type InvitationAcceptanceTransaction = {
                 joinedAt: true
             }
             where: {
-                questId_userId: {
-                    questId: string
+                campaignId_userId: {
+                    campaignId: string
                     userId: string
                 }
             }
@@ -94,7 +94,7 @@ export type InvitationAcceptanceWriteInput = {
     invitation: {
         email: string
         id: string
-        quest: {
+        campaign: {
             id: string
             name: string
         }
@@ -121,21 +121,22 @@ export async function recordInvitationAcceptance(
         },
     })
 
-    const existingParticipant = await transaction.questParticipant.findUnique({
-        select: {
-            id: true,
-            joinedAt: true,
-        },
-        where: {
-            questId_userId: {
-                questId: invitation.quest.id,
-                userId,
+    const existingParticipant =
+        await transaction.campaignParticipant.findUnique({
+            select: {
+                id: true,
+                joinedAt: true,
             },
-        },
-    })
+            where: {
+                campaignId_userId: {
+                    campaignId: invitation.campaign.id,
+                    userId,
+                },
+            },
+        })
 
     const participant = existingParticipant
-        ? await transaction.questParticipant.update({
+        ? await transaction.campaignParticipant.update({
               data: {
                   joinedAt: existingParticipant.joinedAt ?? now,
                   removedAt: null,
@@ -147,10 +148,10 @@ export async function recordInvitationAcceptance(
                   id: existingParticipant.id,
               },
           })
-        : await transaction.questParticipant.create({
+        : await transaction.campaignParticipant.create({
               data: {
                   joinedAt: now,
-                  questId: invitation.quest.id,
+                  campaignId: invitation.campaign.id,
                   userId,
               },
               select: {
@@ -180,10 +181,10 @@ export async function recordInvitationAcceptance(
             metadata: {
                 acceptedAt: now.toISOString(),
                 email: invitation.email,
-                questName: invitation.quest.name,
+                campaignName: invitation.campaign.name,
             },
-            questId: invitation.quest.id,
-            questParticipantId: participant.id,
+            campaignId: invitation.campaign.id,
+            campaignParticipantId: participant.id,
         },
     })
 

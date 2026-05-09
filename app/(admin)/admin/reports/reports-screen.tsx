@@ -48,22 +48,23 @@ function AdminReportsScreen({
     updateReadingEntryAction,
     viewModel,
 }: AdminReportsScreenProps) {
-    const selectedQuestId =
-        viewModel.questOptions.find((option) => option.isSelected)?.id ?? null
-    const exportHref = selectedQuestId
-        ? `/admin/reports/export?questId=${encodeURIComponent(selectedQuestId)}`
+    const selectedCampaignId =
+        viewModel.campaignOptions.find((option) => option.isSelected)?.id ??
+        null
+    const exportHref = selectedCampaignId
+        ? `/admin/reports/export?campaignId=${encodeURIComponent(selectedCampaignId)}`
         : '/admin/reports/export'
 
     if (!viewModel.hasQuest) {
         return (
             <EmptyState
                 eyebrow='Reports'
-                title='Quest reports will appear here once a quest is ready.'
-                description={viewModel.questDescription}
+                title='Campaign reports will appear here once a campaign is ready.'
+                description={viewModel.campaignDescription}
                 action={
                     <div className='auth-inline-actions'>
-                        <Button render={<Link href='/admin/quests' />}>
-                            Open quests
+                        <Button render={<Link href='/admin/campaigns' />}>
+                            Open campaigns
                         </Button>
                         <Button
                             variant='outline'
@@ -96,17 +97,17 @@ function AdminReportsScreen({
 
             <Card className='surface-card'>
                 <CardHeader>
-                    <CardTitle>{viewModel.questName}</CardTitle>
+                    <CardTitle>{viewModel.campaignName}</CardTitle>
                     <CardDescription>
-                        {viewModel.questStatusLabel}.{' '}
-                        {viewModel.questWindowLabel}.{' '}
-                        {viewModel.questDescription}
+                        {viewModel.campaignStatusLabel}.{' '}
+                        {viewModel.campaignWindowLabel}.{' '}
+                        {viewModel.campaignDescription}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>
                     <div className='auth-inline-actions'>
-                        <Button render={<Link href='/admin/quests' />}>
-                            Open quests
+                        <Button render={<Link href='/admin/campaigns' />}>
+                            Open campaigns
                         </Button>
                         <Button
                             variant='outline'
@@ -122,9 +123,9 @@ function AdminReportsScreen({
                         </Button>
                     </div>
 
-                    {viewModel.questOptions.length > 1 ? (
+                    {viewModel.campaignOptions.length > 1 ? (
                         <div className='flex flex-wrap gap-2'>
-                            {viewModel.questOptions.map((option) => (
+                            {viewModel.campaignOptions.map((option) => (
                                 <Button
                                     key={option.id}
                                     size='sm'
@@ -156,7 +157,7 @@ function AdminReportsScreen({
                 {viewModel.summaryCards.map((card) => (
                     <StatCard
                         key={card.label}
-                        eyebrow='Quest report'
+                        eyebrow='Campaign report'
                         title={card.label}
                         value={card.value}
                         description={card.detail}
@@ -166,9 +167,9 @@ function AdminReportsScreen({
 
             <TableCard
                 title='Participation by activity type'
-                description='Each row summarizes how readers are contributing to the quest totals.'
+                description='Each row summarizes how readers are contributing to the campaign totals.'
                 columns={['Activity', 'Entries', 'Total logged', 'Share']}
-                ariaLabel='Quest activity breakdown'
+                ariaLabel='Campaign activity breakdown'
                 rows={viewModel.entryBreakdownRows.map((row) => ({
                     cells: [
                         row.label,
@@ -185,7 +186,7 @@ function AdminReportsScreen({
                     title='Participant snapshot'
                     description='Tie-aware ranking mirrors the competitor leaderboard while keeping raw totals visible for admin review.'
                     columns={['Rank', 'Reader', 'Activity', 'Totals', 'Points']}
-                    ariaLabel='Quest participant summary'
+                    ariaLabel='Campaign participant summary'
                     rows={viewModel.participantRows.map((row) => ({
                         cells: [
                             row.rankLabel,
@@ -202,7 +203,7 @@ function AdminReportsScreen({
                     <CardHeader>
                         <CardTitle>Participant snapshot</CardTitle>
                         <CardDescription>
-                            No readers are linked to this quest yet.
+                            No readers are linked to this campaign yet.
                         </CardDescription>
                     </CardHeader>
                 </Card>
@@ -210,9 +211,9 @@ function AdminReportsScreen({
 
             <TableCard
                 title='Recent audit trail'
-                description='Sensitive admin changes, invitation actions, and challenge reviews are recorded here for the selected quest.'
+                description='Sensitive admin changes, invitation actions, and challenge reviews are recorded here for the selected campaign.'
                 columns={['When', 'Action', 'Actor', 'Detail']}
-                ariaLabel='Quest audit trail'
+                ariaLabel='Campaign audit trail'
                 rows={
                     viewModel.auditRows.length > 0
                         ? viewModel.auditRows.map((row) => ({
@@ -230,7 +231,7 @@ function AdminReportsScreen({
                                       'No recent events',
                                       'Audit trail empty',
                                       'System',
-                                      'Sensitive quest activity will appear here once admins begin making changes.',
+                                      'Sensitive campaign activity will appear here once admins begin making changes.',
                                   ],
                                   key: 'audit-empty',
                               },
@@ -326,7 +327,7 @@ function AdminReportsScreen({
                         ) : (
                             <p className='text-sm text-muted-foreground'>
                                 No entries are available for moderation in this
-                                quest yet.
+                                campaign yet.
                             </p>
                         )}
                     </CardContent>
@@ -344,9 +345,9 @@ function AdminReportsScreen({
                             >
                                 <input
                                     type='hidden'
-                                    name='questId'
+                                    name='campaignId'
                                     value={
-                                        viewModel.questOptions.find(
+                                        viewModel.campaignOptions.find(
                                             (option) => option.isSelected
                                         )?.id ?? ''
                                     }
@@ -371,7 +372,7 @@ function AdminReportsScreen({
                                     <FormField
                                         label='Activity date'
                                         htmlFor='moderation-activityDate'
-                                        hint='Keep the correction inside the quest window.'
+                                        hint='Keep the correction inside the campaign window.'
                                     >
                                         <Input
                                             id='moderation-activityDate'

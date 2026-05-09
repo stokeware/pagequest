@@ -54,7 +54,7 @@ Use the latest stable patch releases available at implementation time within the
 ## 4. Execution rules for the coding agent
 
 - Do not scaffold every feature at once. Finish each phase with a working, validated checkpoint.
-- Prefer server-side domain functions for scoring, invitation validation, quest status transitions, and authorization checks.
+- Prefer server-side domain functions for scoring, invitation validation, campaign status transitions, and authorization checks.
 - Keep all external integrations behind application interfaces so local and Azure implementations can share call sites.
 - Add tests with each business rule and high-risk flow instead of postponing test coverage.
 - Use feature flags only when a production integration cannot be completed in the same phase.
@@ -108,24 +108,24 @@ Create the MVP data model and migration flow.
 
 ### Tasks
 
-1. Define the Prisma schema for User, Role or role assignment, Quest, QuestParticipant, Invitation, Challenge, ChallengeCompletion, ReadingEntry, BookReference if retained, and AuditLog.
-2. Model quest statuses, invitation statuses, entry types, and challenge review states as enums.
+1. Define the Prisma schema for User, Role or role assignment, Campaign, CampaignParticipant, Invitation, Challenge, ChallengeCompletion, ReadingEntry, BookReference if retained, and AuditLog.
+2. Model campaign statuses, invitation statuses, entry types, and challenge review states as enums.
 3. Add indexes for leaderboard and history queries.
 4. Create initial Prisma migrations.
-5. Add seed data for one admin user, one sample quest, several sample participants, scoring rules, and representative reading entries.
-6. Add typed domain helpers for scoring calculations and quest status derivation.
+5. Add seed data for one admin user, one sample campaign, several sample participants, scoring rules, and representative reading entries.
+6. Add typed domain helpers for scoring calculations and campaign status derivation.
 
 ### Deliverables
 
 - Prisma schema and migration history.
 - Seed script that supports local demo and test data.
-- Shared domain functions for points and quest state.
+- Shared domain functions for points and campaign state.
 
 ### Validation
 
 - Apply migrations to the local PostgreSQL container.
 - Run the seed script.
-- Execute unit tests for scoring and quest status helpers.
+- Execute unit tests for scoring and campaign status helpers.
 
 ## Phase 2: App shell, design system, and route map
 
@@ -164,7 +164,7 @@ Enable secure local and production-ready sign-in paths.
 1. Integrate Auth.js with a local development mode and a production-oriented Microsoft Entra External ID configuration.
 2. Define role-aware session handling for administrator and competitor experiences.
 3. Protect authenticated routes and server actions.
-4. Implement invitation acceptance flow prerequisites so only invited users can join a private quest.
+4. Implement invitation acceptance flow prerequisites so only invited users can join a private campaign.
 5. Add middleware or server-side guards for admin-only pages and mutations.
 
 ### Deliverables
@@ -183,7 +183,7 @@ Enable secure local and production-ready sign-in paths.
 
 ### Goal
 
-Implement the private quest onboarding path.
+Implement the private campaign onboarding path.
 
 ### Tasks
 
@@ -191,7 +191,7 @@ Implement the private quest onboarding path.
 2. Generate secure invitation tokens with expiration.
 3. Build the invitation acceptance screen and account-linking flow.
 4. Add local email delivery through Mailpit and keep the email sending interface compatible with Azure Communication Services.
-5. Record invitation acceptance and create quest participation records.
+5. Record invitation acceptance and create campaign participation records.
 
 ### Deliverables
 
@@ -205,7 +205,7 @@ Implement the private quest onboarding path.
 - Accept a valid invite and reject expired or revoked invites.
 - Cover token validation and join flow with tests.
 
-## Phase 5: Quest administration
+## Phase 5: Campaign administration
 
 ### Goal
 
@@ -213,42 +213,42 @@ Give the administrator enough control to run a competition.
 
 ### Tasks
 
-1. Build quest list, create, edit, publish, archive, and duplicate flows.
-2. Add quest configuration for name, description, dates, timezone, status, and visibility.
+1. Build campaign list, create, edit, publish, archive, and duplicate flows.
+2. Add campaign configuration for name, description, dates, timezone, status, and visibility.
 3. Add scoring rule configuration for pages, audiobook minutes, books, and challenges.
-4. Enforce the MVP rule that only one quest can be active at a time.
-5. Add automatic or derived quest status transitions based on dates.
+4. Enforce the MVP rule that only one campaign can be active at a time.
+5. Add automatic or derived campaign status transitions based on dates.
 
 ### Deliverables
 
-- Admin quest management UI and server actions.
+- Admin campaign management UI and server actions.
 - Validated scoring configuration storage.
-- Business logic preventing invalid quest state combinations.
+- Business logic preventing invalid campaign state combinations.
 
 ### Validation
 
-- Test quest creation and editing locally.
-- Add unit tests for active-quest constraints and status transitions.
-- Confirm duplicate quest flow copies expected fields without copying historical entries.
+- Test campaign creation and editing locally.
+- Add unit tests for active-campaign constraints and status transitions.
+- Confirm duplicate campaign flow copies expected fields without copying historical entries.
 
 ## Phase 6: Challenge management
 
 ### Goal
 
-Support quest challenges and optional review workflows.
+Support campaign challenges and optional review workflows.
 
 ### Tasks
 
 1. Build challenge catalog CRUD under admin tools.
 2. Support challenge fields: title, description, category, point rule, repeatability, and review requirement.
-3. Associate challenges with a quest.
+3. Associate challenges with a campaign.
 4. Build pending challenge review screens for admins.
 5. Add challenge completion state handling for approved, rejected, or auto-approved submissions.
 
 ### Deliverables
 
 - Admin challenge management.
-- Challenge-to-quest associations.
+- Challenge-to-campaign associations.
 - Review workflow support for future moderation complexity.
 
 ### Validation
@@ -267,7 +267,7 @@ Make logging fast and reliable on mobile and desktop.
 
 1. Build the Log Progress screen with entry types for books, pages, audiobook minutes, and challenge completions.
 2. Use React Hook Form and Zod for validation.
-3. Enforce quest-date validation and configurable edit or delete windows.
+3. Enforce campaign-date validation and configurable edit or delete windows.
 4. Support optional book title and author metadata.
 5. Recalculate participant totals and leaderboard data after entry mutations.
 6. Record audit events for admin changes and user deletions where relevant.
@@ -275,7 +275,7 @@ Make logging fast and reliable on mobile and desktop.
 ### Deliverables
 
 - Working entry forms and mutation handlers.
-- Validation aligned with quest rules.
+- Validation aligned with campaign rules.
 - Reliable post-submit refresh behavior.
 
 ### Validation
@@ -295,15 +295,15 @@ Deliver the primary competitor experience.
 1. Build the competitor dashboard with current rank, time remaining, summary stats, and recent activity.
 2. Build the leaderboard with both points and raw metrics.
 3. Keep the leaderboard summary-focused and link each participant row to a participant detail page.
-4. Build participant detail pages showing full reading history for the selected quest.
-5. Build My History and Past Quests views.
+4. Build participant detail pages showing full reading history for the selected campaign.
+5. Build My History and Past Campaigns views.
 6. Add efficient queries or database views for standings and history retrieval.
 
 ### Deliverables
 
 - Core competitor experience.
 - Readable standings and personal progress tracking.
-- Historical quest browsing.
+- Historical campaign browsing.
 
 ### Validation
 
@@ -319,10 +319,10 @@ Finish the admin control surface needed for launch.
 
 ### Tasks
 
-1. Build reports and summaries for quest-wide participation.
+1. Build reports and summaries for campaign-wide participation.
 2. Add admin editing for incorrect entries.
 3. Persist audit log records for admin modifications, invitation actions, and challenge reviews.
-4. Add export capability for quest results in a simple format such as CSV.
+4. Add export capability for campaign results in a simple format such as CSV.
 
 ### Deliverables
 
@@ -344,9 +344,9 @@ Implement reminder and lifecycle automation without overcomplicating MVP.
 
 ### Tasks
 
-1. Build email templates for invitations, quest start reminders, and inactivity nudges.
+1. Build email templates for invitations, campaign start reminders, and inactivity nudges.
 2. Create a job runner abstraction that can execute locally and later via Azure Functions or scheduled triggers.
-3. Implement quest lifecycle jobs, reminder selection logic, and idempotency protections.
+3. Implement campaign lifecycle jobs, reminder selection logic, and idempotency protections.
 4. Add operational logging for background jobs.
 
 ### Deliverables
@@ -386,7 +386,7 @@ Prepare the application for real use.
 
 - Run full lint, test, and Playwright suites.
 - Execute a manual release checklist in local and pre-production environments.
-- Verify all critical flows using a seeded quest and multiple participants.
+- Verify all critical flows using a seeded campaign and multiple participants.
 
 ## Phase 12: Azure deployment and CI/CD
 
@@ -421,7 +421,7 @@ Promote the local-first application into a maintainable hosted system.
 
 - `app/` for routes and layouts.
 - `components/` for reusable UI.
-- `features/` for domain-oriented modules such as quests, invitations, leaderboard, and entries.
+- `features/` for domain-oriented modules such as campaigns, invitations, leaderboard, and entries.
 - `lib/` for shared utilities, env parsing, auth helpers, and service adapters.
 - `prisma/` for schema, migrations, and seed scripts.
 - `emails/` for email templates.
@@ -431,7 +431,7 @@ Promote the local-first application into a maintainable hosted system.
 
 - `authService`
 - `invitationService`
-- `questService`
+- `campaignService`
 - `scoringService`
 - `leaderboardService`
 - `notificationService`
@@ -474,7 +474,7 @@ Promote the local-first application into a maintainable hosted system.
 
 The MVP is complete when all conditions below are true:
 
-- An administrator can create and configure a quest, invite participants, manage challenges, and view reports.
+- An administrator can create and configure a campaign, invite participants, manage challenges, and view reports.
 - A competitor can accept an invitation, sign in, log progress, view standings, and inspect participant history pages.
 - Local development requires no Azure dependency for routine implementation and testing.
 - Production deployment to Azure is documented and exercised through CI/CD.
@@ -488,7 +488,7 @@ If the coding agent needs a concrete starting sequence, use this order:
 1. Complete Phase 0 and Phase 1.
 2. Add a seeded admin and sample competitor flow.
 3. Implement local sign-in from Phase 3.
-4. Build quest administration basics from Phase 5.
+4. Build campaign administration basics from Phase 5.
 5. Build logging and leaderboard basics from Phases 7 and 8.
 6. Add invitation flow, challenge management, and reports.
 7. Finish notifications, hardening, and Azure deployment work.

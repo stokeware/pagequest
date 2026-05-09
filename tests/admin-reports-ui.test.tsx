@@ -39,7 +39,7 @@ function buildViewModel(): AdminReportsViewModel {
             {
                 activityLabel: 'May 8, 2026',
                 editHref:
-                    '/admin/reports?questId=quest-active&selectedReadingEntryId=entry-1',
+                    '/admin/reports?campaignId=campaign-active&selectedReadingEntryId=entry-1',
                 isEditable: true,
                 isSelected: true,
                 key: 'entry-1',
@@ -70,27 +70,27 @@ function buildViewModel(): AdminReportsViewModel {
                 totalsLabel: '350 pages • 120 minutes • 4 books • 2 challenges',
             },
         ],
-        questDescription:
-            '3 readers are on this quest roster. 2 have logged progress so far. 4 entries feed this summary.',
-        questName: 'Spring Story Sprint',
-        questOptions: [
+        campaignDescription:
+            '3 readers are on this campaign roster. 2 have logged progress so far. 4 entries feed this summary.',
+        campaignName: 'Spring Story Sprint',
+        campaignOptions: [
             {
-                href: '/admin/reports?questId=quest-active',
-                id: 'quest-active',
+                href: '/admin/reports?campaignId=campaign-active',
+                id: 'campaign-active',
                 isSelected: true,
                 label: 'Spring Story Sprint',
                 statusLabel: 'Active',
             },
             {
-                href: '/admin/reports?questId=quest-archived',
-                id: 'quest-archived',
+                href: '/admin/reports?campaignId=campaign-archived',
+                id: 'campaign-archived',
                 isSelected: false,
                 label: 'Winter Reading Rally',
                 statusLabel: 'Archived',
             },
         ],
-        questStatusLabel: 'Active',
-        questWindowLabel: 'Apr 20, 2026 to May 20, 2026 in UTC',
+        campaignStatusLabel: 'Active',
+        campaignWindowLabel: 'Apr 20, 2026 to May 20, 2026 in UTC',
         selectedModerationEntry: {
             activityDate: '2026-05-08',
             bookAuthor: 'Lois Lowry',
@@ -110,7 +110,7 @@ function buildViewModel(): AdminReportsViewModel {
         summaryCards: [
             {
                 detail: 'Apr 20, 2026 to May 20, 2026 in UTC',
-                label: 'Quest status',
+                label: 'Campaign status',
                 value: 'Active',
             },
             {
@@ -123,7 +123,7 @@ function buildViewModel(): AdminReportsViewModel {
 }
 
 describe('admin reports screen', () => {
-    it('renders quest-wide summary cards and tables', () => {
+    it('renders campaign-wide summary cards and tables', () => {
         const html = renderToStaticMarkup(
             <AdminReportsScreen
                 notice={null}
@@ -133,7 +133,7 @@ describe('admin reports screen', () => {
         )
 
         expect(html).toContain('Spring Story Sprint')
-        expect(html).toContain('Quest status')
+        expect(html).toContain('Campaign status')
         expect(html).toContain('Accepted invites')
         expect(html).toContain('Participation by activity type')
         expect(html).toContain('Participant snapshot')
@@ -141,7 +141,7 @@ describe('admin reports screen', () => {
         expect(html).toContain('Invitation created')
         expect(html).toContain('Morgan correction saved for 24 pages.')
         expect(html).toContain('Morgan')
-        expect(html).toContain('Open quests')
+        expect(html).toContain('Open campaigns')
         expect(html).toContain('Export CSV')
         expect(html).toContain('Winter Reading Rally')
         expect(html).toContain('Recent entries to moderate')
@@ -150,7 +150,7 @@ describe('admin reports screen', () => {
         expect(html).toContain('Review queue only')
     })
 
-    it('renders the empty state when no quest is reportable', () => {
+    it('renders the empty state when no campaign is reportable', () => {
         const html = renderToStaticMarkup(
             <AdminReportsScreen
                 notice={null}
@@ -160,9 +160,9 @@ describe('admin reports screen', () => {
         )
 
         expect(html).toContain(
-            'Quest reports will appear here once a quest is ready.'
+            'Campaign reports will appear here once a campaign is ready.'
         )
-        expect(html).toContain('Open quests')
+        expect(html).toContain('Open campaigns')
         expect(html).toContain('Review invitations')
     })
 })

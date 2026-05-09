@@ -25,7 +25,7 @@ describe('shared UI patterns', () => {
                 <EmptyState
                     eyebrow='Reports'
                     title='No reports yet'
-                    description='Summaries appear once a quest has entries.'
+                    description='Summaries appear once a campaign has entries.'
                 />
                 <TableCard
                     title='Leaderboard'
@@ -54,7 +54,7 @@ describe('shared UI patterns', () => {
                     </FormActions>
                 </FormCard>
                 <ConfirmationDialog
-                    triggerLabel='Archive quest'
+                    triggerLabel='Archive campaign'
                     title='Archive Spring Story Sprint?'
                     description='This action can be confirmed from a shared dialog.'
                     tone='destructive'
@@ -64,6 +64,6 @@ describe('shared UI patterns', () => {
 
         expect(html).toContain('Email address')
         expect(html).toContain('Auth arrives later')
-        expect(html).toContain('Archive quest')
+        expect(html).toContain('Archive campaign')
     })
 })

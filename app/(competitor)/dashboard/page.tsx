@@ -49,7 +49,7 @@ export default async function DashboardPage({
                     <CardHeader>
                         <CardTitle>Invitation accepted</CardTitle>
                         <CardDescription>
-                            Your account is now linked to the quest. This
+                            Your account is now linked to the campaign. This
                             dashboard is ready to show your standing, countdown,
                             and recent progress as soon as entries are
                             available.
@@ -62,9 +62,9 @@ export default async function DashboardPage({
                 <>
                     <Card className='surface-card'>
                         <CardHeader>
-                            <CardTitle>{viewModel.questName}</CardTitle>
+                            <CardTitle>{viewModel.campaignName}</CardTitle>
                             <CardDescription>
-                                {viewModel.questStatusLabel}.{' '}
+                                {viewModel.campaignStatusLabel}.{' '}
                                 {viewModel.participantSummary}
                             </CardDescription>
                         </CardHeader>
@@ -97,7 +97,7 @@ export default async function DashboardPage({
                         <CardHeader>
                             <CardTitle>Summary stats</CardTitle>
                             <CardDescription>
-                                Totals for your selected quest profile.
+                                Totals for your selected campaign profile.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -120,7 +120,7 @@ export default async function DashboardPage({
                             <CardTitle>Recent activity</CardTitle>
                             <CardDescription>
                                 Your latest reading and challenge entries for
-                                this quest.
+                                this campaign.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className='space-y-4'>
@@ -150,7 +150,7 @@ export default async function DashboardPage({
             ) : (
                 <EmptyState
                     eyebrow='Competitor dashboard'
-                    title='Your dashboard is waiting for a quest.'
+                    title='Your dashboard is waiting for a campaign.'
                     description={viewModel.participantSummary}
                     action={
                         <div className='auth-inline-actions'>

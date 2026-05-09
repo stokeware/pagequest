@@ -6,7 +6,7 @@ import {
     deriveRoleAwareSession,
     getAdminRouteRedirectPath,
 } from '@/lib/auth/session'
-import { getAdminQuestResultsCsv } from '@/lib/admin-reports'
+import { getAdminCampaignResultsCsv } from '@/lib/admin-reports'
 
 export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions)
@@ -24,11 +24,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL(redirectPath, request.url))
     }
 
-    const questId = request.nextUrl.searchParams.get('questId')
-    const exportBundle = await getAdminQuestResultsCsv(questId)
+    const campaignId = request.nextUrl.searchParams.get('campaignId')
+    const exportBundle = await getAdminCampaignResultsCsv(campaignId)
 
     if (!exportBundle) {
-        return new NextResponse('No quest is available for export.', {
+        return new NextResponse('No campaign is available for export.', {
             status: 404,
         })
     }

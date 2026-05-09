@@ -52,7 +52,7 @@ test.describe('log progress mobile flow', () => {
             },
             where: {
                 notes,
-                questParticipantId: before.id,
+                campaignParticipantId: before.id,
                 type: 'BOOK_COMPLETION',
             },
         })
@@ -109,7 +109,7 @@ test.describe('log progress mobile flow', () => {
             },
             where: {
                 notes,
-                questParticipantId: before.id,
+                campaignParticipantId: before.id,
                 type: 'PAGES_READ',
             },
         })
@@ -165,7 +165,7 @@ test.describe('log progress mobile flow', () => {
             },
             where: {
                 notes,
-                questParticipantId: before.id,
+                campaignParticipantId: before.id,
                 type: 'AUDIOBOOK_MINUTES',
             },
         })
@@ -226,7 +226,7 @@ test.describe('log progress mobile flow', () => {
             },
             where: {
                 notes,
-                questParticipantId: before.id,
+                campaignParticipantId: before.id,
                 type: 'CHALLENGE_COMPLETION',
             },
         })
@@ -260,11 +260,11 @@ async function signInToLogProgress(page: Page) {
     await signInForm.getByRole('button', { name: 'Sign in' }).click()
 
     await expect(page).toHaveURL(/\/log-progress$/)
-    await expect(page.getByText('Quest context')).toBeVisible()
+    await expect(page.getByText('Campaign context')).toBeVisible()
 }
 
 async function loadParticipantState(email: string) {
-    const participant = await prisma.questParticipant.findFirst({
+    const participant = await prisma.campaignParticipant.findFirst({
         orderBy: {
             createdAt: 'desc',
         },
@@ -277,7 +277,7 @@ async function loadParticipantState(email: string) {
             totalPoints: true,
         },
         where: {
-            quest: {
+            campaign: {
                 status: 'ACTIVE',
             },
             removedAt: null,

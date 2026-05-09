@@ -27,9 +27,9 @@ import {
     getEntryWindowPolicyLabel,
     getReadingEntryMetadataSummary,
     getReadingMetadataFieldCopy,
-    getQuestDateWindowHint,
-    getQuestDateWindowLabel,
-    type LogProgressQuestPolicy,
+    getCampaignDateWindowHint,
+    getCampaignDateWindowLabel,
+    type LogProgressCampaignPolicy,
     normalizeReadingEntryMetadata,
     validateLogProgressFormValues,
     type LogProgressFormValues,
@@ -52,9 +52,9 @@ export type LogProgressViewModel = {
     challengeOptions: LogProgressChallengeOption[]
     hasLiveQuest: boolean
     participantSummary: string
-    questParticipantId: string | null
-    questPolicy: LogProgressQuestPolicy | null
-    questName: string
+    campaignParticipantId: string | null
+    campaignPolicy: LogProgressCampaignPolicy | null
+    campaignName: string
     scoringSummary: {
         audiobookMinutes: string
         bookCompletion: string
@@ -113,7 +113,8 @@ const entryTypeDefinitions: EntryTypeDefinition[] = [
         type: 'AUDIOBOOK_MINUTES',
     },
     {
-        description: 'Select a quest challenge and record the supporting note.',
+        description:
+            'Select a campaign challenge and record the supporting note.',
         icon: Sparkles,
         label: 'Challenge completion',
         quantityHint: 'Challenge completions are logged one at a time.',
@@ -141,14 +142,14 @@ function getErrorMessage(error: FieldError | undefined) {
 
 function createLogProgressResolver(
     challengeOptions: LogProgressChallengeOption[],
-    questPolicy: LogProgressQuestPolicy | null
+    campaignPolicy: LogProgressCampaignPolicy | null
 ): Resolver<LogProgressFormValues> {
     return async (values) => {
         const result = validateLogProgressFormValues(values, {
             availableChallengeIds: challengeOptions.map(
                 (challenge) => challenge.id
             ),
-            questPolicy,
+            campaignPolicy,
         })
 
         if (result.success) {
@@ -203,9 +204,9 @@ export function LogProgressScreen({
     challengeOptions,
     hasLiveQuest,
     participantSummary,
-    questParticipantId,
-    questPolicy,
-    questName,
+    campaignParticipantId,
+    campaignPolicy,
+    campaignName,
     scoringSummary,
 }: LogProgressViewModel) {
     const [validationMessage, setValidationMessage] = useState<string | null>(
@@ -228,7 +229,7 @@ export function LogProgressScreen({
         defaultValues: getLogProgressFormDefaults(
             challengeOptions[0]?.id ?? ''
         ),
-        resolver: createLogProgressResolver(challengeOptions, questPolicy),
+        resolver: createLogProgressResolver(challengeOptions, campaignPolicy),
     })
 
     const selectedType = useWatch({
@@ -266,7 +267,7 @@ export function LogProgressScreen({
         ) ??
         challengeOptions[0] ??
         null
-    const questDateWindowHint = getQuestDateWindowHint(questPolicy)
+    const campaignDateWindowHint = getCampaignDateWindowHint(campaignPolicy)
     const metadataFieldCopy = getReadingMetadataFieldCopy(selectedType)
 
     if (!activeDefinition) {
@@ -289,7 +290,7 @@ export function LogProgressScreen({
 
         startTransition(async () => {
             const result = await submitLogProgressAction({
-                questParticipantId,
+                campaignParticipantId,
                 values,
             })
 
@@ -304,7 +305,7 @@ export function LogProgressScreen({
             )
             const prefix =
                 values.type === 'CHALLENGE_COMPLETION'
-                    ? `Challenge completion for ${selectedChallenge?.title ?? 'the selected quest challenge'} saved.`
+                    ? `Challenge completion for ${selectedChallenge?.title ?? 'the selected campaign challenge'} saved.`
                     : `${activeDefinition.label} for ${values.activityDate} saved${metadataSummary ? ` with ${metadataSummary}.` : '.'}`
 
             reset(defaultFormValues)
@@ -316,7 +317,7 @@ export function LogProgressScreen({
         <div className='progress-layout'>
             <FormCard
                 title='Quick entry form'
-                description={`Track progress for ${questName} from one focused screen.`}
+                description={`Track progress for ${campaignName} from one focused screen.`}
             >
                 <div
                     className={cn(
@@ -324,8 +325,8 @@ export function LogProgressScreen({
                         hasLiveQuest ? 'surface-muted' : 'surface-warm'
                     )}
                 >
-                    <p className='progress-status-label'>Quest context</p>
-                    <p className='progress-status-title'>{questName}</p>
+                    <p className='progress-status-label'>Campaign context</p>
+                    <p className='progress-status-title'>{campaignName}</p>
                     <p className='progress-status-copy'>{participantSummary}</p>
                 </div>
 
@@ -455,8 +456,8 @@ export function LogProgressScreen({
                                     htmlFor='challengeId'
                                     hint={
                                         challengeOptions.length > 0
-                                            ? 'Pick the quest challenge you completed.'
-                                            : 'No active challenges are attached to this quest yet.'
+                                            ? 'Pick the campaign challenge you completed.'
+                                            : 'No active challenges are attached to this campaign yet.'
                                     }
                                 >
                                     <select
@@ -498,7 +499,7 @@ export function LogProgressScreen({
                                 <FormField
                                     label='Completion date'
                                     htmlFor='activityDate'
-                                    hint={`Use the date you completed the challenge. ${questDateWindowHint}`}
+                                    hint={`Use the date you completed the challenge. ${campaignDateWindowHint}`}
                                 >
                                     <Input
                                         id='activityDate'
@@ -507,16 +508,16 @@ export function LogProgressScreen({
                                             activityDateError ? true : undefined
                                         }
                                         min={
-                                            questPolicy
-                                                ? getQuestDateWindowLabel(
-                                                      questPolicy
+                                            campaignPolicy
+                                                ? getCampaignDateWindowLabel(
+                                                      campaignPolicy
                                                   ).split(' through ')[0]
                                                 : undefined
                                         }
                                         max={
-                                            questPolicy
-                                                ? getQuestDateWindowLabel(
-                                                      questPolicy
+                                            campaignPolicy
+                                                ? getCampaignDateWindowLabel(
+                                                      campaignPolicy
                                                   ).split(' through ')[1]
                                                 : undefined
                                         }
@@ -556,7 +557,7 @@ export function LogProgressScreen({
                                 <FormField
                                     label='Activity date'
                                     htmlFor='activityDate'
-                                    hint={`Record the date for this reading session. ${questDateWindowHint}`}
+                                    hint={`Record the date for this reading session. ${campaignDateWindowHint}`}
                                 >
                                     <Input
                                         id='activityDate'
@@ -565,16 +566,16 @@ export function LogProgressScreen({
                                             activityDateError ? true : undefined
                                         }
                                         min={
-                                            questPolicy
-                                                ? getQuestDateWindowLabel(
-                                                      questPolicy
+                                            campaignPolicy
+                                                ? getCampaignDateWindowLabel(
+                                                      campaignPolicy
                                                   ).split(' through ')[0]
                                                 : undefined
                                         }
                                         max={
-                                            questPolicy
-                                                ? getQuestDateWindowLabel(
-                                                      questPolicy
+                                            campaignPolicy
+                                                ? getCampaignDateWindowLabel(
+                                                      campaignPolicy
                                                   ).split(' through ')[1]
                                                 : undefined
                                         }
@@ -672,7 +673,7 @@ export function LogProgressScreen({
                         <FormActions note='React Hook Form and Zod validate each entry before the server saves it and refreshes participant totals.'>
                             <Button
                                 type='submit'
-                                disabled={isPending || !questParticipantId}
+                                disabled={isPending || !campaignParticipantId}
                             >
                                 {isPending ? 'Saving entry...' : 'Save entry'}
                             </Button>
@@ -693,44 +694,46 @@ export function LogProgressScreen({
                     <CardHeader>
                         <CardTitle>Entry policy</CardTitle>
                         <CardDescription>
-                            Quest dates and mutation windows stay visible while
-                            you log progress.
+                            Campaign dates and mutation windows stay visible
+                            while you log progress.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className='progress-rule-list'>
                         <div className='progress-rule-item'>
-                            <p className='progress-rule-label'>Quest dates</p>
+                            <p className='progress-rule-label'>
+                                Campaign dates
+                            </p>
                             <p className='progress-rule-value'>
-                                {questPolicy
-                                    ? getQuestDateWindowLabel(questPolicy)
-                                    : 'Quest dates unavailable'}
+                                {campaignPolicy
+                                    ? getCampaignDateWindowLabel(campaignPolicy)
+                                    : 'Campaign dates unavailable'}
                             </p>
                             <p className='progress-challenge-text'>
-                                {questDateWindowHint}
+                                {campaignDateWindowHint}
                             </p>
                         </div>
                         <div className='progress-rule-item'>
                             <p className='progress-rule-label'>Edit window</p>
                             <p className='progress-challenge-text'>
-                                {questPolicy
+                                {campaignPolicy
                                     ? getEntryWindowPolicyLabel({
                                           action: 'edit',
                                           windowMinutes:
-                                              questPolicy.entryEditWindowMinutes,
+                                              campaignPolicy.entryEditWindowMinutes,
                                       })
-                                    : 'Edit rules appear when a quest is assigned.'}
+                                    : 'Edit rules appear when a campaign is assigned.'}
                             </p>
                         </div>
                         <div className='progress-rule-item'>
                             <p className='progress-rule-label'>Delete window</p>
                             <p className='progress-challenge-text'>
-                                {questPolicy
+                                {campaignPolicy
                                     ? getEntryWindowPolicyLabel({
                                           action: 'delete',
                                           windowMinutes:
-                                              questPolicy.entryDeleteWindowMinutes,
+                                              campaignPolicy.entryDeleteWindowMinutes,
                                       })
-                                    : 'Delete rules appear when a quest is assigned.'}
+                                    : 'Delete rules appear when a campaign is assigned.'}
                             </p>
                         </div>
                     </CardContent>
@@ -740,8 +743,8 @@ export function LogProgressScreen({
                     <CardHeader>
                         <CardTitle>Scoring at a glance</CardTitle>
                         <CardDescription>
-                            Keep the active quest rules visible while you log a
-                            new entry.
+                            Keep the active campaign rules visible while you log
+                            a new entry.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className='progress-rule-list'>
@@ -782,16 +785,16 @@ export function LogProgressScreen({
                     <CardHeader>
                         <CardTitle>Challenge prompts</CardTitle>
                         <CardDescription>
-                            Review the quest challenge catalog before you log a
-                            completion.
+                            Review the campaign challenge catalog before you log
+                            a completion.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         {challengeOptions.length === 0 ? (
                             <p className='progress-empty-note'>
-                                No active challenges are attached to this quest
-                                yet. Reading entries are still ready to log from
-                                this screen.
+                                No active challenges are attached to this
+                                campaign yet. Reading entries are still ready to
+                                log from this screen.
                             </p>
                         ) : (
                             <div className='progress-challenge-list'>

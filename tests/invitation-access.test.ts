@@ -5,8 +5,8 @@ import {
     shouldRedirectCompetitorAccess,
 } from '@/lib/invitation-access'
 
-const quest = {
-    id: 'quest-1',
+const campaign = {
+    id: 'campaign-1',
     name: 'Spring Story Sprint 2026',
     status: 'ACTIVE' as const,
 }
@@ -19,7 +19,7 @@ describe('deriveInvitationAccessProfile', () => {
             now: new Date('2026-05-08T12:00:00.000Z'),
             participant: {
                 joinedAt: new Date('2026-05-01T12:00:00.000Z'),
-                quest,
+                campaign,
             },
         })
 
@@ -34,7 +34,7 @@ describe('deriveInvitationAccessProfile', () => {
             invitation: {
                 email: 'reader@example.com',
                 expiresAt: new Date('2026-05-15T05:00:00.000Z'),
-                quest,
+                campaign,
                 status: 'PENDING',
             },
             now: new Date('2026-05-08T12:00:00.000Z'),
@@ -54,7 +54,7 @@ describe('deriveInvitationAccessProfile', () => {
             invitation: {
                 email: 'reader@example.com',
                 expiresAt: new Date('2026-05-01T05:00:00.000Z'),
-                quest,
+                campaign,
                 status: 'PENDING',
             },
             now: new Date('2026-05-08T12:00:00.000Z'),

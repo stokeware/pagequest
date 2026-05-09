@@ -15,9 +15,9 @@ describe('competitor dashboard view model', () => {
                     id: 'participant-2',
                     joinedAt: new Date('2026-04-01T12:00:00Z'),
                     lastActivityAt: new Date('2026-05-06T12:00:00Z'),
-                    quest: {
+                    campaign: {
                         endAt: new Date('2026-05-20T23:00:00Z'),
-                        id: 'quest-1',
+                        id: 'campaign-1',
                         name: 'Spring Story Sprint',
                         startAt: new Date('2026-04-20T12:00:00Z'),
                         status: 'ACTIVE',
@@ -89,7 +89,7 @@ describe('competitor dashboard view model', () => {
         )
 
         expect(viewModel.hasQuest).toBe(true)
-        expect(viewModel.questName).toBe('Spring Story Sprint')
+        expect(viewModel.campaignName).toBe('Spring Story Sprint')
         expect(viewModel.snapshotCards[0]).toMatchObject({
             title: 'Current rank',
             value: '#2',
@@ -100,7 +100,7 @@ describe('competitor dashboard view model', () => {
             value: '13 days',
         })
         expect(viewModel.summaryMetrics).toContainEqual({
-            detail: 'Page totals logged toward this quest.',
+            detail: 'Page totals logged toward this campaign.',
             label: 'Pages read',
             value: '320',
         })

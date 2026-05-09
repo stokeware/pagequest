@@ -98,7 +98,7 @@ describe('challenge admin helpers', () => {
         expect(() =>
             assertChallengeCanDelete({
                 challengeCompletions: 0,
-                questChallenges: 1,
+                campaignChallenges: 1,
             })
         ).toThrowError(
             expect.objectContaining<Partial<ChallengeAdminError>>({
@@ -109,7 +109,7 @@ describe('challenge admin helpers', () => {
         expect(() =>
             assertChallengeCanDelete({
                 challengeCompletions: 0,
-                questChallenges: 0,
+                campaignChallenges: 0,
             })
         ).not.toThrow()
     })

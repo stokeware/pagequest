@@ -10,7 +10,7 @@ const localDatabaseUrl =
 const adapter = new PrismaPg(process.env.DATABASE_URL ?? localDatabaseUrl)
 const prisma = new PrismaClient({ adapter })
 
-const questScoring = {
+const campaignScoring = {
     pointsPerBook: new Prisma.Decimal(25),
     pointsPerPage: new Prisma.Decimal(1),
     pointsPerAudiobookMinute: new Prisma.Decimal('0.75'),
@@ -47,7 +47,7 @@ const pendingInviteUser = {
     timezone: 'America/Chicago',
 }
 
-const questWindow = {
+const campaignWindow = {
     startAt: new Date('2026-05-01T05:00:00.000Z'),
     endAt: new Date('2026-06-01T04:59:59.000Z'),
 }
@@ -56,7 +56,7 @@ const challengeDefinitions = [
     {
         key: 'biography',
         title: 'Read a Biography',
-        description: 'Finish a biography or memoir during the quest.',
+        description: 'Finish a biography or memoir during the campaign.',
         category: 'genre',
         availability: 'ONE_TIME',
         requiresReview: false,
@@ -203,21 +203,21 @@ function calculateParticipantTotals(entries) {
         if (entry.type === 'BOOK_COMPLETION') {
             totals.totalBooks += entry.value
             totals.totalPoints = totals.totalPoints.plus(
-                questScoring.pointsPerBook.mul(entry.value)
+                campaignScoring.pointsPerBook.mul(entry.value)
             )
         }
 
         if (entry.type === 'PAGES_READ') {
             totals.totalPages += entry.value
             totals.totalPoints = totals.totalPoints.plus(
-                questScoring.pointsPerPage.mul(entry.value)
+                campaignScoring.pointsPerPage.mul(entry.value)
             )
         }
 
         if (entry.type === 'AUDIOBOOK_MINUTES') {
             totals.totalAudiobookMinutes += entry.value
             totals.totalPoints = totals.totalPoints.plus(
-                questScoring.pointsPerAudiobookMinute.mul(entry.value)
+                campaignScoring.pointsPerAudiobookMinute.mul(entry.value)
             )
         }
 
@@ -225,7 +225,9 @@ function calculateParticipantTotals(entries) {
             totals.totalChallenges += entry.value
             totals.totalPoints = totals.totalPoints.plus(
                 entry.awardedPoints ??
-                    questScoring.pointsPerChallengeCompletion.mul(entry.value)
+                    campaignScoring.pointsPerChallengeCompletion.mul(
+                        entry.value
+                    )
             )
         }
     }
@@ -237,12 +239,12 @@ async function resetDatabase() {
     await prisma.auditLog.deleteMany()
     await prisma.challengeCompletion.deleteMany()
     await prisma.readingEntry.deleteMany()
-    await prisma.questChallenge.deleteMany()
+    await prisma.campaignChallenge.deleteMany()
     await prisma.invitation.deleteMany()
-    await prisma.questParticipant.deleteMany()
+    await prisma.campaignParticipant.deleteMany()
     await prisma.challenge.deleteMany()
     await prisma.roleAssignment.deleteMany()
-    await prisma.quest.deleteMany()
+    await prisma.campaign.deleteMany()
     await prisma.user.deleteMany()
 }
 
@@ -287,21 +289,21 @@ async function seed() {
         },
     })
 
-    const quest = await prisma.quest.create({
+    const campaign = await prisma.campaign.create({
         data: {
             name: 'Spring Story Sprint 2026',
             description:
-                'A month-long family reading quest with books, pages, audiobook minutes, and bonus challenges.',
+                'A month-long family reading campaign with books, pages, audiobook minutes, and bonus challenges.',
             timezone: 'America/Chicago',
-            startAt: questWindow.startAt,
-            endAt: questWindow.endAt,
+            startAt: campaignWindow.startAt,
+            endAt: campaignWindow.endAt,
             status: 'ACTIVE',
             visibility: 'INVITE_ONLY',
-            pointsPerBook: questScoring.pointsPerBook,
-            pointsPerPage: questScoring.pointsPerPage,
-            pointsPerAudiobookMinute: questScoring.pointsPerAudiobookMinute,
+            pointsPerBook: campaignScoring.pointsPerBook,
+            pointsPerPage: campaignScoring.pointsPerPage,
+            pointsPerAudiobookMinute: campaignScoring.pointsPerAudiobookMinute,
             pointsPerChallengeCompletion:
-                questScoring.pointsPerChallengeCompletion,
+                campaignScoring.pointsPerChallengeCompletion,
             challengeCategoryBonuses: {
                 community: 1.25,
             },
@@ -325,22 +327,22 @@ async function seed() {
                 requiresReview: definition.requiresReview,
                 evidencePrompt: definition.evidencePrompt,
                 createdByUserId: admin.id,
-                questChallenges: {
+                campaignChallenges: {
                     create: {
-                        questId: quest.id,
+                        campaignId: campaign.id,
                         sortOrder: definition.sortOrder,
                         pointValueOverride: definition.pointValue,
                     },
                 },
             },
             include: {
-                questChallenges: true,
+                campaignChallenges: true,
             },
         })
 
         challengesByKey[definition.key] = {
             challenge,
-            questChallenge: challenge.questChallenges[0],
+            campaignChallenge: challenge.campaignChallenges[0],
         }
     }
 
@@ -348,9 +350,9 @@ async function seed() {
         const config = participantSeed[competitor.email]
         const totals = calculateParticipantTotals(config.entries)
 
-        const participant = await prisma.questParticipant.create({
+        const participant = await prisma.campaignParticipant.create({
             data: {
-                questId: quest.id,
+                campaignId: campaign.id,
                 userId: competitor.id,
                 joinedAt: config.joinedAt,
                 totalBooks: totals.totalBooks,
@@ -364,7 +366,7 @@ async function seed() {
 
         const invitation = await prisma.invitation.create({
             data: {
-                questId: quest.id,
+                campaignId: campaign.id,
                 email: competitor.email,
                 status: config.invitationStatus,
                 tokenHash: `seed-token-${competitor.email}`,
@@ -380,7 +382,7 @@ async function seed() {
         await prisma.auditLog.create({
             data: {
                 actorUserId: admin.id,
-                questId: quest.id,
+                campaignId: campaign.id,
                 invitationId: invitation.id,
                 entityType: 'Invitation',
                 entityId: invitation.id,
@@ -395,7 +397,7 @@ async function seed() {
         for (const entryConfig of config.entries) {
             const readingEntry = await prisma.readingEntry.create({
                 data: {
-                    questParticipantId: participant.id,
+                    campaignParticipantId: participant.id,
                     type: entryConfig.type,
                     value: entryConfig.value,
                     activityDate: entryConfig.activityDate,
@@ -413,9 +415,9 @@ async function seed() {
                 await prisma.challengeCompletion.create({
                     data: {
                         readingEntryId: readingEntry.id,
-                        questParticipantId: participant.id,
+                        campaignParticipantId: participant.id,
                         challengeId: challengeRef.challenge.id,
-                        questChallengeId: challengeRef.questChallenge.id,
+                        campaignChallengeId: challengeRef.campaignChallenge.id,
                         reviewState: entryConfig.challengeReviewState,
                         evidenceText: entryConfig.evidenceText,
                         reviewNotes: entryConfig.reviewNotes,
@@ -437,7 +439,7 @@ async function seed() {
 
     await prisma.invitation.create({
         data: {
-            questId: quest.id,
+            campaignId: campaign.id,
             email: pendingCompetitor.email,
             status: 'PENDING',
             tokenHash: `seed-token-${pendingCompetitor.email}`,
@@ -448,7 +450,7 @@ async function seed() {
     })
 
     console.log(
-        'Seeded Page Quest demo data: 1 admin, 1 active quest, 3 joined competitors, and 1 pending invite user.'
+        'Seeded Page Quest demo data: 1 admin, 1 active campaign, 3 joined competitors, and 1 pending invite user.'
     )
 }
 

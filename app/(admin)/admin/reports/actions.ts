@@ -16,12 +16,12 @@ const adminReportsPath = '/admin/reports'
 function buildRedirectUrl({
     detail,
     outcome,
-    questId,
+    campaignId,
     selectedReadingEntryId,
 }: {
     detail?: string
     outcome: string
-    questId?: string
+    campaignId?: string
     selectedReadingEntryId?: string
 }) {
     const params = new URLSearchParams({ outcome })
@@ -30,8 +30,8 @@ function buildRedirectUrl({
         params.set('detail', detail)
     }
 
-    if (questId) {
-        params.set('questId', questId)
+    if (campaignId) {
+        params.set('campaignId', campaignId)
     }
 
     if (selectedReadingEntryId) {
@@ -44,12 +44,12 @@ function buildRedirectUrl({
 function finishAction({
     detail,
     outcome,
-    questId,
+    campaignId,
     selectedReadingEntryId,
 }: {
     detail?: string
     outcome: string
-    questId?: string
+    campaignId?: string
     selectedReadingEntryId?: string
 }): never {
     revalidatePath(adminReportsPath)
@@ -62,7 +62,7 @@ function finishAction({
         buildRedirectUrl({
             detail,
             outcome,
-            questId,
+            campaignId,
             selectedReadingEntryId,
         })
     )
@@ -90,12 +90,12 @@ function parseAdminReadingEntryFormValues(
 
 export async function updateAdminReadingEntryAction(formData: FormData) {
     const actor = await requireAdminActionUser()
-    const questId = getStringField(formData, 'questId')
+    const campaignId = getStringField(formData, 'campaignId')
     const readingEntryId = getStringField(formData, 'readingEntryId')
 
-    if (!questId) {
+    if (!campaignId) {
         finishAction({
-            detail: 'missing-quest',
+            detail: 'missing-campaign',
             outcome: 'error',
         })
     }
@@ -104,7 +104,7 @@ export async function updateAdminReadingEntryAction(formData: FormData) {
         finishAction({
             detail: 'reading-entry-not-found',
             outcome: 'error',
-            questId,
+            campaignId,
         })
     }
 
@@ -121,14 +121,14 @@ export async function updateAdminReadingEntryAction(formData: FormData) {
 
         finishAction({
             outcome: 'entry-updated',
-            questId: result.questId,
+            campaignId: result.campaignId,
             selectedReadingEntryId: result.readingEntryId,
         })
     } catch (error) {
         finishAction({
             detail: resolveLogProgressMutationErrorCode(error),
             outcome: 'error',
-            questId,
+            campaignId,
             selectedReadingEntryId: readingEntryId,
         })
     }

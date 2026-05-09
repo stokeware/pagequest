@@ -17,7 +17,7 @@ function buildTransaction({
         invitation: {
             update: vi.fn(async () => undefined),
         },
-        questParticipant: {
+        campaignParticipant: {
             create: vi.fn(async () => ({ id: 'participant-new' })),
             findUnique: vi.fn(async () => existingParticipant),
             update: vi.fn(async () => ({
@@ -34,8 +34,8 @@ const baseInput = {
     invitation: {
         email: 'reader@example.com',
         id: 'invite-1',
-        quest: {
-            id: 'quest-1',
+        campaign: {
+            id: 'campaign-1',
             name: 'Spring Story Sprint 2026',
         },
     },
@@ -44,23 +44,23 @@ const baseInput = {
 }
 
 describe('recordInvitationAcceptance', () => {
-    it('creates a participant when the user is new to the quest', async () => {
+    it('creates a participant when the user is new to the campaign', async () => {
         const transaction = buildTransaction({})
 
         const result = await recordInvitationAcceptance(transaction, baseInput)
 
         expect(transaction.roleAssignment.upsert).toHaveBeenCalledOnce()
-        expect(transaction.questParticipant.create).toHaveBeenCalledWith({
+        expect(transaction.campaignParticipant.create).toHaveBeenCalledWith({
             data: {
                 joinedAt: baseInput.now,
-                questId: 'quest-1',
+                campaignId: 'campaign-1',
                 userId: 'user-1',
             },
             select: {
                 id: true,
             },
         })
-        expect(transaction.questParticipant.update).not.toHaveBeenCalled()
+        expect(transaction.campaignParticipant.update).not.toHaveBeenCalled()
         expect(transaction.invitation.update).toHaveBeenCalledWith({
             data: {
                 acceptedAt: baseInput.now,
@@ -89,8 +89,8 @@ describe('recordInvitationAcceptance', () => {
 
         const result = await recordInvitationAcceptance(transaction, baseInput)
 
-        expect(transaction.questParticipant.create).not.toHaveBeenCalled()
-        expect(transaction.questParticipant.update).toHaveBeenCalledWith({
+        expect(transaction.campaignParticipant.create).not.toHaveBeenCalled()
+        expect(transaction.campaignParticipant.update).toHaveBeenCalledWith({
             data: {
                 joinedAt: originalJoinedAt,
                 removedAt: null,

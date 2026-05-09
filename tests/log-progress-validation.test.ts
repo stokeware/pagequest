@@ -9,11 +9,11 @@ import {
     validateLogProgressFormValues,
 } from '@/lib/log-progress'
 
-const activeQuestPolicy = {
+const activeCampaignPolicy = {
     entryDeleteWindowMinutes: 60,
     entryEditWindowMinutes: 180,
-    questEndAt: '2026-05-31T23:59:59.000Z',
-    questStartAt: '2026-05-01T00:00:00.000Z',
+    campaignEndAt: '2026-05-31T23:59:59.000Z',
+    campaignStartAt: '2026-05-01T00:00:00.000Z',
     timezone: 'America/Chicago',
 } as const
 
@@ -29,7 +29,7 @@ describe('log progress validation', () => {
             },
             {
                 availableChallengeIds: [],
-                questPolicy: activeQuestPolicy,
+                campaignPolicy: activeCampaignPolicy,
             }
         )
 
@@ -50,7 +50,7 @@ describe('log progress validation', () => {
             },
             {
                 availableChallengeIds: [],
-                questPolicy: activeQuestPolicy,
+                campaignPolicy: activeCampaignPolicy,
             }
         )
 
@@ -63,7 +63,7 @@ describe('log progress validation', () => {
         }
     })
 
-    it('rejects challenge completions that do not match an active quest challenge', () => {
+    it('rejects challenge completions that do not match an active campaign challenge', () => {
         const result = validateLogProgressFormValues(
             {
                 ...getLogProgressFormDefaults(),
@@ -73,7 +73,7 @@ describe('log progress validation', () => {
             },
             {
                 availableChallengeIds: ['challenge-1'],
-                questPolicy: activeQuestPolicy,
+                campaignPolicy: activeCampaignPolicy,
             }
         )
 
@@ -81,12 +81,12 @@ describe('log progress validation', () => {
 
         if (!result.success) {
             expect(result.error.flatten().fieldErrors.challengeId).toEqual([
-                'Choose a challenge from this quest.',
+                'Choose a challenge from this campaign.',
             ])
         }
     })
 
-    it('rejects activity dates outside the quest window', () => {
+    it('rejects activity dates outside the campaign window', () => {
         const result = validateLogProgressFormValues(
             {
                 ...getLogProgressFormDefaults(),
@@ -96,7 +96,7 @@ describe('log progress validation', () => {
             },
             {
                 availableChallengeIds: [],
-                questPolicy: activeQuestPolicy,
+                campaignPolicy: activeCampaignPolicy,
             }
         )
 
@@ -104,7 +104,7 @@ describe('log progress validation', () => {
 
         if (!result.success) {
             expect(result.error.flatten().fieldErrors.activityDate).toEqual([
-                'Choose a date from 2026-05-01 through 2026-05-31 for this quest.',
+                'Choose a date from 2026-05-01 through 2026-05-31 for this campaign.',
             ])
         }
     })
@@ -114,14 +114,14 @@ describe('log progress validation', () => {
             action: 'edit',
             createdAt: '2026-05-08T12:00:00.000Z',
             now: '2026-05-08T14:30:00.000Z',
-            windowMinutes: activeQuestPolicy.entryEditWindowMinutes,
+            windowMinutes: activeCampaignPolicy.entryEditWindowMinutes,
         })
 
         const deleteAccess = resolveReadingEntryWindowAccess({
             action: 'delete',
             createdAt: '2026-05-08T12:00:00.000Z',
             now: '2026-05-08T13:30:01.000Z',
-            windowMinutes: activeQuestPolicy.entryDeleteWindowMinutes,
+            windowMinutes: activeCampaignPolicy.entryDeleteWindowMinutes,
         })
 
         expect(editAccess.isAllowed).toBe(true)

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    buildAdminQuestResultsCsv,
+    buildAdminCampaignResultsCsv,
     buildAdminReportsViewModel,
     defaultAdminReportsViewModel,
 } from '@/lib/admin-reports'
 
 describe('admin reports view model', () => {
-    it('builds a participation summary for the primary reportable quest', () => {
+    it('builds a participation summary for the primary reportable campaign', () => {
         const viewModel = buildAdminReportsViewModel({
             auditLogs: [
                 {
@@ -26,7 +26,7 @@ describe('admin reports view model', () => {
                     metadata: {
                         email: 'reader@example.com',
                     },
-                    questParticipant: null,
+                    campaignParticipant: null,
                 },
                 {
                     action: 'reading-entry.admin-updated',
@@ -45,7 +45,7 @@ describe('admin reports view model', () => {
                             value: 24,
                         },
                     },
-                    questParticipant: {
+                    campaignParticipant: {
                         user: {
                             email: 'leader@example.com',
                             name: 'Morgan',
@@ -57,7 +57,7 @@ describe('admin reports view model', () => {
                 {
                     createdAt: new Date('2026-03-01T12:00:00Z'),
                     endAt: new Date('2026-04-20T23:00:00Z'),
-                    id: 'quest-archived',
+                    id: 'campaign-archived',
                     name: 'Winter Reading Rally',
                     startAt: new Date('2026-03-20T12:00:00Z'),
                     status: 'ARCHIVED',
@@ -66,7 +66,7 @@ describe('admin reports view model', () => {
                 {
                     createdAt: new Date('2026-04-01T12:00:00Z'),
                     endAt: new Date('2026-05-20T23:00:00Z'),
-                    id: 'quest-active',
+                    id: 'campaign-active',
                     name: 'Spring Story Sprint',
                     startAt: new Date('2026-04-20T12:00:00Z'),
                     status: 'ACTIVE',
@@ -126,7 +126,7 @@ describe('admin reports view model', () => {
                     createdAt: new Date('2026-05-08T12:05:00Z'),
                     id: 'entry-1',
                     notes: 'Original note',
-                    questParticipant: {
+                    campaignParticipant: {
                         user: {
                             email: 'leader@example.com',
                             name: 'Morgan',
@@ -147,7 +147,7 @@ describe('admin reports view model', () => {
                     createdAt: new Date('2026-05-07T12:05:00Z'),
                     id: 'entry-2',
                     notes: 'Needs review',
-                    questParticipant: {
+                    campaignParticipant: {
                         user: {
                             email: 'reader@example.com',
                             name: 'Avery',
@@ -206,14 +206,14 @@ describe('admin reports view model', () => {
                 },
             ],
             selectedReadingEntryId: null,
-            selectedQuestId: null,
+            selectedCampaignId: null,
         })
 
         expect(viewModel.hasQuest).toBe(true)
-        expect(viewModel.questName).toBe('Spring Story Sprint')
-        expect(viewModel.questStatusLabel).toBe('Active')
-        expect(viewModel.questOptions[0]).toMatchObject({
-            id: 'quest-active',
+        expect(viewModel.campaignName).toBe('Spring Story Sprint')
+        expect(viewModel.campaignStatusLabel).toBe('Active')
+        expect(viewModel.campaignOptions[0]).toMatchObject({
+            id: 'campaign-active',
             isSelected: true,
             statusLabel: 'Active',
         })
@@ -290,7 +290,7 @@ describe('admin reports view model', () => {
         })
     })
 
-    it('returns the empty model when no quests exist', () => {
+    it('returns the empty model when no campaigns exist', () => {
         const viewModel = buildAdminReportsViewModel({
             auditLogs: [],
             availableQuests: [],
@@ -300,7 +300,7 @@ describe('admin reports view model', () => {
             now: new Date('2026-05-08T12:00:00Z'),
             participants: [],
             selectedReadingEntryId: null,
-            selectedQuestId: null,
+            selectedCampaignId: null,
         })
 
         expect(viewModel).toEqual(defaultAdminReportsViewModel)
@@ -309,7 +309,7 @@ describe('admin reports view model', () => {
 
 describe('admin reports csv export', () => {
     it('builds a csv export with tie-aware ranks and escaped values', () => {
-        const csv = buildAdminQuestResultsCsv({
+        const csv = buildAdminCampaignResultsCsv({
             participants: [
                 {
                     createdAt: new Date('2026-04-01T12:00:00Z'),
@@ -342,10 +342,10 @@ describe('admin reports csv export', () => {
                     },
                 },
             ],
-            quest: {
+            campaign: {
                 createdAt: new Date('2026-04-01T12:00:00Z'),
                 endAt: new Date('2026-05-20T23:00:00Z'),
-                id: 'quest-active',
+                id: 'campaign-active',
                 name: 'Spring Story Sprint',
                 startAt: new Date('2026-04-20T12:00:00Z'),
                 status: 'ACTIVE',
@@ -354,7 +354,7 @@ describe('admin reports csv export', () => {
         })
 
         expect(csv.split('\n')[0]).toBe(
-            'quest_name,quest_status,quest_timezone,quest_start_at,quest_end_at,rank,reader_name,reader_email,total_points,total_pages,total_audiobook_minutes,total_books,total_challenges,joined_at,last_activity_at'
+            'campaign_name,campaign_status,campaign_timezone,campaign_start_at,campaign_end_at,rank,reader_name,reader_email,total_points,total_pages,total_audiobook_minutes,total_books,total_challenges,joined_at,last_activity_at'
         )
         expect(csv).toContain(
             'Spring Story Sprint,Active,UTC,2026-04-20T12:00:00.000Z,2026-05-20T23:00:00.000Z,1,"Morgan, Reader",leader@example.com,450,350,120,4,2,2026-04-01T12:00:00.000Z,2026-05-07T12:00:00.000Z'

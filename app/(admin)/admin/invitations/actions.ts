@@ -1,6 +1,6 @@
 'use server'
 
-import { type QuestStatus } from '@prisma/client'
+import { type CampaignStatus } from '@prisma/client'
 import { getServerSession } from 'next-auth/next'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -55,7 +55,7 @@ function finishAction({
     outcome: string
     detail?: string
     invitationLink?: string
-}) {
+}): never {
     revalidatePath(adminInvitationsPath)
     redirect(
         buildRedirectUrl({
@@ -69,18 +69,18 @@ function finishAction({
 async function sendInvitationNotification({
     expiresAt,
     invitationLink,
-    questName,
+    campaignName,
     recipientEmail,
 }: {
     expiresAt: Date
     invitationLink: string
-    questName: string
+    campaignName: string
     recipientEmail: string
 }) {
     return sendInvitationEmail({
         expiresAt,
         invitationUrl: invitationLink,
-        questName,
+        campaignName,
         recipientEmail,
     })
 }
@@ -118,17 +118,17 @@ async function requireAdminActionUser() {
     }
 }
 
-async function loadTargetQuest(questId: string) {
-    return prisma.quest.findFirst({
+async function loadTargetQuest(campaignId: string) {
+    return prisma.campaign.findFirst({
         select: {
             id: true,
             name: true,
             status: true,
         },
         where: {
-            id: questId,
+            id: campaignId,
             status: {
-                not: 'ARCHIVED' satisfies QuestStatus,
+                not: 'ARCHIVED' satisfies CampaignStatus,
             },
             visibility: 'INVITE_ONLY',
         },
@@ -137,13 +137,13 @@ async function loadTargetQuest(questId: string) {
 
 export async function createInvitationAction(formData: FormData) {
     const actor = await requireAdminActionUser()
-    const questId = getStringField(formData, 'questId')
+    const campaignId = getStringField(formData, 'campaignId')
     const emailInput = getStringField(formData, 'email')
 
-    if (!questId) {
+    if (!campaignId) {
         finishAction({
             outcome: 'error',
-            detail: 'missing-quest',
+            detail: 'missing-campaign',
         })
     }
 
@@ -155,12 +155,12 @@ export async function createInvitationAction(formData: FormData) {
     }
 
     const email = normalizeInvitationEmail(emailInput)
-    const quest = await loadTargetQuest(questId)
+    const campaign = await loadTargetQuest(campaignId)
 
-    if (!quest) {
+    if (!campaign) {
         finishAction({
             outcome: 'error',
-            detail: 'quest-unavailable',
+            detail: 'campaign-unavailable',
         })
     }
 
@@ -171,9 +171,9 @@ export async function createInvitationAction(formData: FormData) {
             status: true,
         },
         where: {
-            questId_email: {
+            campaignId_email: {
                 email,
-                questId,
+                campaignId,
             },
         },
     })
@@ -203,7 +203,7 @@ export async function createInvitationAction(formData: FormData) {
                 expiresAt: values.expiresAt,
                 invitedByUserId: actor.id,
                 lastSentAt: values.lastSentAt,
-                questId,
+                campaignId,
                 status: values.status,
                 tokenHash: values.tokenHash,
             },
@@ -222,9 +222,9 @@ export async function createInvitationAction(formData: FormData) {
                 metadata: {
                     email,
                     expiresAt: values.expiresAt.toISOString(),
-                    questName: quest.name,
+                    campaignName: campaign.name,
                 },
-                questId,
+                campaignId,
             },
         })
     })
@@ -233,7 +233,7 @@ export async function createInvitationAction(formData: FormData) {
         await sendInvitationNotification({
             expiresAt: values.expiresAt,
             invitationLink,
-            questName: quest.name,
+            campaignName: campaign.name,
             recipientEmail: email,
         })
     } catch {
@@ -267,7 +267,7 @@ export async function resendInvitationAction(formData: FormData) {
             email: true,
             expiresAt: true,
             id: true,
-            quest: {
+            campaign: {
                 select: {
                     id: true,
                     name: true,
@@ -291,12 +291,12 @@ export async function resendInvitationAction(formData: FormData) {
     }
 
     if (
-        invitation.quest.status === 'ARCHIVED' ||
-        invitation.quest.visibility !== 'INVITE_ONLY'
+        invitation.campaign.status === 'ARCHIVED' ||
+        invitation.campaign.visibility !== 'INVITE_ONLY'
     ) {
         finishAction({
             outcome: 'error',
-            detail: 'quest-unavailable',
+            detail: 'campaign-unavailable',
         })
     }
 
@@ -340,9 +340,9 @@ export async function resendInvitationAction(formData: FormData) {
                     email: invitation.email,
                     expiresAt: values.expiresAt.toISOString(),
                     previousStatus: invitation.status,
-                    questName: invitation.quest.name,
+                    campaignName: invitation.campaign.name,
                 },
-                questId: invitation.quest.id,
+                campaignId: invitation.campaign.id,
             },
         })
     })
@@ -351,7 +351,7 @@ export async function resendInvitationAction(formData: FormData) {
         await sendInvitationNotification({
             expiresAt: values.expiresAt,
             invitationLink,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             recipientEmail: invitation.email,
         })
     } catch {
@@ -385,7 +385,7 @@ export async function revokeInvitationAction(formData: FormData) {
             email: true,
             expiresAt: true,
             id: true,
-            quest: {
+            campaign: {
                 select: {
                     id: true,
                     name: true,
@@ -435,10 +435,10 @@ export async function revokeInvitationAction(formData: FormData) {
                 invitationId: invitation.id,
                 metadata: {
                     email: invitation.email,
-                    questName: invitation.quest.name,
+                    campaignName: invitation.campaign.name,
                     revokedAt: now.toISOString(),
                 },
-                questId: invitation.quest.id,
+                campaignId: invitation.campaign.id,
             },
         })
     })

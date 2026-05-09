@@ -1,6 +1,6 @@
 import type {
     InvitationStatus,
-    QuestStatus,
+    CampaignStatus,
     ReadingEntryType,
 } from '@prisma/client'
 import { cache } from 'react'
@@ -9,13 +9,13 @@ import { rankStandings } from '@/lib/competitor-dashboard'
 import { getEffectiveInvitationStatus } from '@/lib/invitation-admin'
 import { prisma } from '@/lib/prisma'
 
-export type AdminReportQuestRecord = {
+export type AdminReportCampaignRecord = {
     createdAt: Date
     endAt: Date
     id: string
     name: string
     startAt: Date
-    status: QuestStatus
+    status: CampaignStatus
     timezone: string
 }
 
@@ -59,7 +59,7 @@ export type AdminReportModerationEntryRecord = {
     createdAt: Date
     id: string
     notes: string | null
-    questParticipant: {
+    campaignParticipant: {
         user: {
             email: string
             name: string | null
@@ -85,7 +85,7 @@ export type AdminReportAuditRecord = {
         email: string
     } | null
     metadata: unknown
-    questParticipant: {
+    campaignParticipant: {
         user: {
             email: string
             name: string | null
@@ -93,7 +93,7 @@ export type AdminReportAuditRecord = {
     } | null
 }
 
-export type AdminReportQuestOption = {
+export type AdminReportCampaignOption = {
     href: string
     id: string
     isSelected: boolean
@@ -165,30 +165,30 @@ export type AdminReportsViewModel = {
     hasQuest: boolean
     moderationRows: AdminReportModerationRow[]
     participantRows: AdminReportParticipantRow[]
-    questDescription: string
-    questName: string
-    questOptions: AdminReportQuestOption[]
-    questStatusLabel: string
-    questWindowLabel: string
+    campaignDescription: string
+    campaignName: string
+    campaignOptions: AdminReportCampaignOption[]
+    campaignStatusLabel: string
+    campaignWindowLabel: string
     selectedModerationEntry: AdminReportSelectedModerationEntry | null
     summaryCards: AdminReportSummaryCard[]
 }
 
-export type AdminQuestResultsCsvExport = {
+export type AdminCampaignResultsCsvExport = {
     csv: string
     filename: string
 }
 
 export type BuildAdminReportsViewModelInput = {
     auditLogs: AdminReportAuditRecord[]
-    availableQuests: AdminReportQuestRecord[]
+    availableQuests: AdminReportCampaignRecord[]
     entries: AdminReportEntryRecord[]
     invitations: AdminReportInvitationRecord[]
     moderationEntries: AdminReportModerationEntryRecord[]
     now: Date
     participants: AdminReportParticipantRecord[]
     selectedReadingEntryId: string | null
-    selectedQuestId: string | null
+    selectedCampaignId: string | null
 }
 
 type EntryBreakdownTotals = {
@@ -203,7 +203,7 @@ const entryTypeOrder: ReadingEntryType[] = [
     'CHALLENGE_COMPLETION',
 ]
 
-const questStatusPriority: Record<QuestStatus, number> = {
+const campaignStatusPriority: Record<CampaignStatus, number> = {
     ACTIVE: 0,
     SCHEDULED: 1,
     COMPLETED: 2,
@@ -217,22 +217,23 @@ const defaultAdminReportsViewModel: AdminReportsViewModel = {
     hasQuest: false,
     moderationRows: [],
     participantRows: [],
-    questDescription:
-        'No quests are available for reporting yet. Create or publish a quest to unlock participation summaries.',
-    questName: 'No quest selected',
-    questOptions: [],
-    questStatusLabel: 'No reportable quest',
-    questWindowLabel: 'Create a quest to see participation summaries here.',
+    campaignDescription:
+        'No campaigns are available for reporting yet. Create or publish a campaign to unlock participation summaries.',
+    campaignName: 'No campaign selected',
+    campaignOptions: [],
+    campaignStatusLabel: 'No reportable campaign',
+    campaignWindowLabel:
+        'Create a campaign to see participation summaries here.',
     selectedModerationEntry: null,
     summaryCards: [],
 }
 
 export { defaultAdminReportsViewModel }
 
-export async function getAdminQuestResultsCsv(
-    selectedQuestId: string | null
-): Promise<AdminQuestResultsCsvExport | null> {
-    const availableQuests = await prisma.quest.findMany({
+export async function getAdminCampaignResultsCsv(
+    selectedCampaignId: string | null
+): Promise<AdminCampaignResultsCsvExport | null> {
+    const availableQuests = await prisma.campaign.findMany({
         select: {
             createdAt: true,
             endAt: true,
@@ -246,14 +247,14 @@ export async function getAdminQuestResultsCsv(
 
     const selectedQuest = selectAdminReportQuest(
         availableQuests,
-        selectedQuestId
+        selectedCampaignId
     )
 
     if (!selectedQuest) {
         return null
     }
 
-    const participants = await prisma.questParticipant.findMany({
+    const participants = await prisma.campaignParticipant.findMany({
         select: {
             createdAt: true,
             id: true,
@@ -272,26 +273,26 @@ export async function getAdminQuestResultsCsv(
             },
         },
         where: {
-            questId: selectedQuest.id,
+            campaignId: selectedQuest.id,
             removedAt: null,
         },
     })
 
     return {
-        csv: buildAdminQuestResultsCsv({
+        csv: buildAdminCampaignResultsCsv({
             participants,
-            quest: selectedQuest,
+            campaign: selectedQuest,
         }),
-        filename: buildAdminQuestResultsFilename(selectedQuest.name),
+        filename: buildAdminCampaignResultsFilename(selectedQuest.name),
     }
 }
 
 export const getAdminReportsViewModel = cache(
     async (
-        selectedQuestId: string | null,
+        selectedCampaignId: string | null,
         selectedReadingEntryId: string | null
     ): Promise<AdminReportsViewModel> => {
-        const availableQuests = await prisma.quest.findMany({
+        const availableQuests = await prisma.campaign.findMany({
             select: {
                 createdAt: true,
                 endAt: true,
@@ -305,7 +306,7 @@ export const getAdminReportsViewModel = cache(
 
         const selectedQuest = selectAdminReportQuest(
             availableQuests,
-            selectedQuestId
+            selectedCampaignId
         )
 
         if (!selectedQuest) {
@@ -319,7 +320,7 @@ export const getAdminReportsViewModel = cache(
             moderationEntries,
             auditLogs,
         ] = await Promise.all([
-            prisma.questParticipant.findMany({
+            prisma.campaignParticipant.findMany({
                 select: {
                     createdAt: true,
                     id: true,
@@ -338,7 +339,7 @@ export const getAdminReportsViewModel = cache(
                     },
                 },
                 where: {
-                    questId: selectedQuest.id,
+                    campaignId: selectedQuest.id,
                     removedAt: null,
                 },
             }),
@@ -350,7 +351,7 @@ export const getAdminReportsViewModel = cache(
                     status: true,
                 },
                 where: {
-                    questId: selectedQuest.id,
+                    campaignId: selectedQuest.id,
                 },
             }),
             prisma.readingEntry.findMany({
@@ -360,8 +361,8 @@ export const getAdminReportsViewModel = cache(
                 },
                 where: {
                     deletedAt: null,
-                    questParticipant: {
-                        questId: selectedQuest.id,
+                    campaignParticipant: {
+                        campaignId: selectedQuest.id,
                     },
                 },
             }),
@@ -383,7 +384,7 @@ export const getAdminReportsViewModel = cache(
                     createdAt: true,
                     id: true,
                     notes: true,
-                    questParticipant: {
+                    campaignParticipant: {
                         select: {
                             user: {
                                 select: {
@@ -399,8 +400,8 @@ export const getAdminReportsViewModel = cache(
                 take: 12,
                 where: {
                     deletedAt: null,
-                    questParticipant: {
-                        questId: selectedQuest.id,
+                    campaignParticipant: {
+                        campaignId: selectedQuest.id,
                     },
                 },
             }),
@@ -430,7 +431,7 @@ export const getAdminReportsViewModel = cache(
                         },
                     },
                     metadata: true,
-                    questParticipant: {
+                    campaignParticipant: {
                         select: {
                             user: {
                                 select: {
@@ -443,7 +444,7 @@ export const getAdminReportsViewModel = cache(
                 },
                 take: 12,
                 where: {
-                    questId: selectedQuest.id,
+                    campaignId: selectedQuest.id,
                 },
             }),
         ])
@@ -457,25 +458,25 @@ export const getAdminReportsViewModel = cache(
             now: new Date(),
             participants,
             selectedReadingEntryId,
-            selectedQuestId,
+            selectedCampaignId,
         })
     }
 )
 
-export function buildAdminQuestResultsCsv({
+export function buildAdminCampaignResultsCsv({
     participants,
-    quest,
+    campaign,
 }: {
     participants: AdminReportParticipantRecord[]
-    quest: AdminReportQuestRecord
+    campaign: AdminReportCampaignRecord
 }) {
     const rankedParticipants = rankStandings(orderParticipants(participants))
     const header = [
-        'quest_name',
-        'quest_status',
-        'quest_timezone',
-        'quest_start_at',
-        'quest_end_at',
+        'campaign_name',
+        'campaign_status',
+        'campaign_timezone',
+        'campaign_start_at',
+        'campaign_end_at',
         'rank',
         'reader_name',
         'reader_email',
@@ -489,11 +490,11 @@ export function buildAdminQuestResultsCsv({
     ]
 
     const rows = rankedParticipants.map((participant) => [
-        quest.name,
-        getQuestStatusLabel(quest.status),
-        quest.timezone,
-        quest.startAt.toISOString(),
-        quest.endAt.toISOString(),
+        campaign.name,
+        getCampaignStatusLabel(campaign.status),
+        campaign.timezone,
+        campaign.startAt.toISOString(),
+        campaign.endAt.toISOString(),
         String(participant.rankNumber),
         participant.user.name ?? '',
         participant.user.email,
@@ -511,14 +512,14 @@ export function buildAdminQuestResultsCsv({
         .join('\n')
 }
 
-function buildAdminQuestResultsFilename(questName: string) {
-    const slug = questName
+function buildAdminCampaignResultsFilename(campaignName: string) {
+    const slug = campaignName
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
 
-    return `${slug || 'quest'}-results.csv`
+    return `${slug || 'campaign'}-results.csv`
 }
 
 export function buildAdminReportsViewModel({
@@ -530,11 +531,11 @@ export function buildAdminReportsViewModel({
     now,
     participants,
     selectedReadingEntryId,
-    selectedQuestId,
+    selectedCampaignId,
 }: BuildAdminReportsViewModelInput): AdminReportsViewModel {
     const selectedQuest = selectAdminReportQuest(
         availableQuests,
-        selectedQuestId
+        selectedCampaignId
     )
 
     if (!selectedQuest) {
@@ -554,13 +555,13 @@ export function buildAdminReportsViewModel({
         moderationEntries,
         selectedReadingEntryId
     )
-    const questOptions = sortAdminReportQuests(availableQuests).map(
-        (quest) => ({
-            href: `/admin/reports?questId=${encodeURIComponent(quest.id)}`,
-            id: quest.id,
-            isSelected: quest.id === selectedQuest.id,
-            label: quest.name,
-            statusLabel: getQuestStatusLabel(quest.status),
+    const campaignOptions = sortAdminReportQuests(availableQuests).map(
+        (campaign) => ({
+            href: `/admin/reports?campaignId=${encodeURIComponent(campaign.id)}`,
+            id: campaign.id,
+            isSelected: campaign.id === selectedQuest.id,
+            label: campaign.name,
+            statusLabel: getCampaignStatusLabel(campaign.status),
         })
     )
 
@@ -570,30 +571,30 @@ export function buildAdminReportsViewModel({
         hasQuest: true,
         moderationRows: buildModerationRows({
             entries: moderationEntries,
-            questId: selectedQuest.id,
+            campaignId: selectedQuest.id,
             selectedReadingEntryId: selectedModerationEntry?.id ?? null,
         }),
         participantRows: buildParticipantRows(
             participants,
             selectedQuest.timezone
         ),
-        questDescription: [
-            `${formatCount(participants.length)} readers are on this quest roster.`,
+        campaignDescription: [
+            `${formatCount(participants.length)} readers are on this campaign roster.`,
             `${formatCount(activeReaders)} have logged progress so far.`,
             `${formatCount(totalEntryCount)} ${pluralize('entry', totalEntryCount)} feed this summary.`,
         ].join(' '),
-        questName: selectedQuest.name,
-        questOptions,
-        questStatusLabel: getQuestStatusLabel(selectedQuest.status),
-        questWindowLabel: formatQuestWindowLabel(selectedQuest),
+        campaignName: selectedQuest.name,
+        campaignOptions,
+        campaignStatusLabel: getCampaignStatusLabel(selectedQuest.status),
+        campaignWindowLabel: formatCampaignWindowLabel(selectedQuest),
         selectedModerationEntry: selectedModerationEntry
             ? toSelectedModerationEntry(selectedModerationEntry)
             : null,
         summaryCards: [
             {
-                detail: formatQuestWindowLabel(selectedQuest),
-                label: 'Quest status',
-                value: getQuestStatusLabel(selectedQuest.status),
+                detail: formatCampaignWindowLabel(selectedQuest),
+                label: 'Campaign status',
+                value: getCampaignStatusLabel(selectedQuest.status),
             },
             {
                 detail: [
@@ -637,11 +638,11 @@ function buildAuditRows(auditLogs: AdminReportAuditRecord[]) {
 
 function buildModerationRows({
     entries,
-    questId,
+    campaignId,
     selectedReadingEntryId,
 }: {
     entries: AdminReportModerationEntryRecord[]
-    questId: string
+    campaignId: string
     selectedReadingEntryId: string | null
 }) {
     return entries.map((entry) => {
@@ -650,15 +651,15 @@ function buildModerationRows({
         return {
             activityLabel: formatCalendarDate(entry.activityDate, 'UTC'),
             editHref: isEditable
-                ? `/admin/reports?questId=${encodeURIComponent(questId)}&selectedReadingEntryId=${encodeURIComponent(entry.id)}`
+                ? `/admin/reports?campaignId=${encodeURIComponent(campaignId)}&selectedReadingEntryId=${encodeURIComponent(entry.id)}`
                 : null,
             isEditable,
             isSelected: entry.id === selectedReadingEntryId,
             key: entry.id,
             noteLabel: entry.notes ? `Note: ${entry.notes}` : null,
             readerLabel:
-                entry.questParticipant.user.name ||
-                entry.questParticipant.user.email,
+                entry.campaignParticipant.user.name ||
+                entry.campaignParticipant.user.email,
             summaryLabel: getModerationEntrySummary(entry),
             typeLabel: getModerationEntryTypeLabel(entry),
         }
@@ -738,8 +739,8 @@ function toSelectedModerationEntry(
         isEditable,
         notes: entry.notes ?? '',
         participantLabel:
-            entry.questParticipant.user.name ||
-            entry.questParticipant.user.email,
+            entry.campaignParticipant.user.name ||
+            entry.campaignParticipant.user.email,
         statusMessage: isEditable
             ? 'Standard reading entries can be corrected from this moderation panel.'
             : 'Challenge completion entries are read-only here so review state and awarded points stay consistent.',
@@ -838,14 +839,14 @@ function orderParticipants(participants: AdminReportParticipantRecord[]) {
 }
 
 function selectAdminReportQuest(
-    availableQuests: AdminReportQuestRecord[],
-    selectedQuestId: string | null
+    availableQuests: AdminReportCampaignRecord[],
+    selectedCampaignId: string | null
 ) {
     const sortedQuests = sortAdminReportQuests(availableQuests)
 
-    if (selectedQuestId) {
+    if (selectedCampaignId) {
         const matchingQuest = sortedQuests.find(
-            (quest) => quest.id === selectedQuestId
+            (campaign) => campaign.id === selectedCampaignId
         )
 
         if (matchingQuest) {
@@ -856,10 +857,11 @@ function selectAdminReportQuest(
     return sortedQuests[0] ?? null
 }
 
-function sortAdminReportQuests(availableQuests: AdminReportQuestRecord[]) {
+function sortAdminReportQuests(availableQuests: AdminReportCampaignRecord[]) {
     return [...availableQuests].sort((left, right) => {
         const priorityDifference =
-            questStatusPriority[left.status] - questStatusPriority[right.status]
+            campaignStatusPriority[left.status] -
+            campaignStatusPriority[right.status]
 
         if (priorityDifference !== 0) {
             return priorityDifference
@@ -956,18 +958,18 @@ function getAuditActionLabel(action: string) {
             return 'Invitation resent'
         case 'invitation.revoked':
             return 'Invitation revoked'
-        case 'quest.archived':
-            return 'Quest archived'
-        case 'quest.challenge-assigned':
-            return 'Quest challenge assigned'
-        case 'quest.created':
-            return 'Quest created'
-        case 'quest.duplicated':
-            return 'Quest duplicated'
-        case 'quest.published':
-            return 'Quest published'
-        case 'quest.updated':
-            return 'Quest updated'
+        case 'campaign.archived':
+            return 'Campaign archived'
+        case 'campaign.challenge-assigned':
+            return 'Campaign challenge assigned'
+        case 'campaign.created':
+            return 'Campaign created'
+        case 'campaign.duplicated':
+            return 'Campaign duplicated'
+        case 'campaign.published':
+            return 'Campaign published'
+        case 'campaign.updated':
+            return 'Campaign updated'
         case 'reading-entry.admin-updated':
             return 'Entry corrected'
         case 'reading-entry.created':
@@ -979,9 +981,9 @@ function getAuditActionLabel(action: string) {
 
 function getAuditDetailLabel(auditLog: AdminReportAuditRecord) {
     const metadata = toMetadataRecord(auditLog.metadata)
-    const participantLabel = auditLog.questParticipant
-        ? auditLog.questParticipant.user.name ||
-          auditLog.questParticipant.user.email
+    const participantLabel = auditLog.campaignParticipant
+        ? auditLog.campaignParticipant.user.name ||
+          auditLog.campaignParticipant.user.email
         : null
 
     switch (auditLog.action) {
@@ -1014,15 +1016,15 @@ function getAuditDetailLabel(auditLog: AdminReportAuditRecord) {
                 ? `Invitation activity for ${email}.`
                 : 'Invitation state changed.'
         }
-        case 'quest.challenge-assigned': {
+        case 'campaign.challenge-assigned': {
             const challengeTitle = getStringMetadataValue(
                 metadata,
                 'challengeTitle'
             )
 
             return challengeTitle
-                ? `${challengeTitle} linked to this quest.`
-                : 'A challenge assignment changed for this quest.'
+                ? `${challengeTitle} linked to this campaign.`
+                : 'A challenge assignment changed for this campaign.'
         }
         case 'reading-entry.admin-updated': {
             const updatedEntry = getNestedMetadataRecord(
@@ -1049,7 +1051,7 @@ function getAuditDetailLabel(auditLog: AdminReportAuditRecord) {
             return 'A reading entry was logged.'
         }
         default:
-            return `${auditLog.entityType} activity recorded for this quest.`
+            return `${auditLog.entityType} activity recorded for this campaign.`
     }
 }
 
@@ -1068,16 +1070,16 @@ function formatEntryTypeTotal(type: ReadingEntryType, totalValue: number) {
     }
 }
 
-function formatQuestWindowLabel(quest: AdminReportQuestRecord) {
+function formatCampaignWindowLabel(campaign: AdminReportCampaignRecord) {
     const formatter = new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
-        timeZone: quest.timezone,
+        timeZone: campaign.timezone,
     })
 
-    return `${formatter.format(quest.startAt)} to ${formatter.format(quest.endAt)} in ${quest.timezone}`
+    return `${formatter.format(campaign.startAt)} to ${formatter.format(campaign.endAt)} in ${campaign.timezone}`
 }
 
-function getQuestStatusLabel(status: QuestStatus) {
+function getCampaignStatusLabel(status: CampaignStatus) {
     switch (status) {
         case 'ACTIVE':
             return 'Active'

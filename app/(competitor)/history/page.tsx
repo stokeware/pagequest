@@ -33,17 +33,19 @@ function getFirstSearchParamValue(
 export default async function HistoryPage({ searchParams }: HistoryPageProps) {
     const viewer = await getRoleAwareSession('COMPETITOR')
     const resolvedSearchParams = searchParams ? await searchParams : {}
-    const selectedQuestId = getFirstSearchParamValue(resolvedSearchParams.quest)
+    const selectedCampaignId = getFirstSearchParamValue(
+        resolvedSearchParams.campaign
+    )
     const viewModel = viewer.isAuthorized
-        ? await getCompetitorHistoryViewModel(viewer.userId, selectedQuestId)
+        ? await getCompetitorHistoryViewModel(viewer.userId, selectedCampaignId)
         : defaultCompetitorHistoryViewModel
 
-    if (!viewModel.hasQuestHistory) {
+    if (!viewModel.hasCampaignHistory) {
         return (
             <EmptyState
                 eyebrow='History'
-                title='Your reading timeline is waiting for a quest.'
-                description={viewModel.selectedQuestSummary}
+                title='Your reading timeline is waiting for a campaign.'
+                description={viewModel.selectedCampaignSummary}
                 action={
                     <Button
                         variant='outline'
@@ -60,10 +62,10 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
         <div className='auth-page-stack'>
             <Card className='surface-card'>
                 <CardHeader>
-                    <CardTitle>{viewModel.selectedQuestName}</CardTitle>
+                    <CardTitle>{viewModel.selectedCampaignName}</CardTitle>
                     <CardDescription>
-                        {viewModel.selectedQuestStatusLabel}.{' '}
-                        {viewModel.selectedQuestSummary}
+                        {viewModel.selectedCampaignStatusLabel}.{' '}
+                        {viewModel.selectedCampaignSummary}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='auth-inline-actions'>
@@ -80,10 +82,10 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
             </Card>
 
             <div className='auth-card-grid'>
-                {viewModel.selectedQuestMetrics.map((metric) => (
+                {viewModel.selectedCampaignMetrics.map((metric) => (
                     <StatCard
                         key={metric.label}
-                        eyebrow='Quest snapshot'
+                        eyebrow='Campaign snapshot'
                         title={metric.label}
                         value={metric.value}
                         description={metric.detail}
@@ -95,8 +97,8 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
                 <CardHeader>
                     <CardTitle>My history</CardTitle>
                     <CardDescription>
-                        Every non-deleted entry for the selected quest, ordered
-                        from newest to oldest.
+                        Every non-deleted entry for the selected campaign,
+                        ordered from newest to oldest.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>
@@ -135,37 +137,44 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
                         ))
                     ) : (
                         <p className='text-sm text-muted-foreground'>
-                            No reading history has been logged for this quest
+                            No reading history has been logged for this campaign
                             yet.
                         </p>
                     )}
                 </CardContent>
             </Card>
 
-            {viewModel.currentQuestCard ? (
+            {viewModel.currentCampaignCard ? (
                 <Card className='surface-card'>
                     <CardHeader>
-                        <CardTitle>Current quest</CardTitle>
+                        <CardTitle>Current campaign</CardTitle>
                         <CardDescription>
-                            Jump back to your live or upcoming quest timeline.
+                            Jump back to your live or upcoming campaign
+                            timeline.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Link
-                            href={viewModel.currentQuestCard.href}
+                            href={viewModel.currentCampaignCard.href}
                             className='block rounded-3xl border border-border/70 bg-background/80 px-4 py-4 transition-colors hover:border-primary/40 hover:bg-background'
                         >
                             <p className='font-medium'>
-                                {viewModel.currentQuestCard.questName}
+                                {viewModel.currentCampaignCard.campaignName}
                             </p>
                             <p className='text-sm text-muted-foreground'>
-                                {viewModel.currentQuestCard.questStatusLabel}
+                                {
+                                    viewModel.currentCampaignCard
+                                        .campaignStatusLabel
+                                }
                             </p>
                             <p className='mt-2 text-sm text-muted-foreground'>
-                                {viewModel.currentQuestCard.totalsLabel}
+                                {viewModel.currentCampaignCard.totalsLabel}
                             </p>
                             <p className='text-sm text-muted-foreground'>
-                                {viewModel.currentQuestCard.lastActivityLabel}
+                                {
+                                    viewModel.currentCampaignCard
+                                        .lastActivityLabel
+                                }
                             </p>
                         </Link>
                     </CardContent>
@@ -174,40 +183,40 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 
             <Card className='surface-card'>
                 <CardHeader>
-                    <CardTitle>Past quests</CardTitle>
+                    <CardTitle>Past campaigns</CardTitle>
                     <CardDescription>
-                        Browse earlier quest seasons without leaving your
+                        Browse earlier campaign seasons without leaving your
                         personal history view.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-3'>
-                    {viewModel.pastQuestCards.length > 0 ? (
-                        viewModel.pastQuestCards.map((quest) => (
+                    {viewModel.pastCampaignCards.length > 0 ? (
+                        viewModel.pastCampaignCards.map((campaign) => (
                             <Link
-                                key={quest.participantId}
-                                href={quest.href}
+                                key={campaign.participantId}
+                                href={campaign.href}
                                 className='block rounded-3xl border border-border/70 bg-background/80 px-4 py-4 transition-colors hover:border-primary/40 hover:bg-background'
                             >
                                 <div className='flex flex-wrap items-start justify-between gap-3'>
                                     <div className='space-y-2'>
                                         <div className='flex flex-wrap items-center gap-2'>
                                             <p className='font-medium'>
-                                                {quest.questName}
+                                                {campaign.campaignName}
                                             </p>
-                                            {quest.isSelected ? (
+                                            {campaign.isSelected ? (
                                                 <span className='rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground'>
                                                     Selected
                                                 </span>
                                             ) : null}
                                         </div>
                                         <p className='text-sm text-muted-foreground'>
-                                            {quest.questStatusLabel}
+                                            {campaign.campaignStatusLabel}
                                         </p>
                                         <p className='text-sm text-muted-foreground'>
-                                            {quest.totalsLabel}
+                                            {campaign.totalsLabel}
                                         </p>
                                         <p className='text-sm text-muted-foreground'>
-                                            {quest.lastActivityLabel}
+                                            {campaign.lastActivityLabel}
                                         </p>
                                     </div>
                                 </div>
@@ -215,8 +224,8 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
                         ))
                     ) : (
                         <p className='text-sm text-muted-foreground'>
-                            Past quests will appear here after your first season
-                            is completed.
+                            Past campaigns will appear here after your first
+                            season is completed.
                         </p>
                     )}
                 </CardContent>

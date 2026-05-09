@@ -11,12 +11,12 @@ const steps = [
     {
         title: '1. Receive an invitation',
         description:
-            'An administrator sends a quest invitation with a secure join link and the season details.',
+            'An administrator sends a campaign invitation with a secure join link and the season details.',
     },
     {
         title: '2. Sign in and join',
         description:
-            'Participants connect or create an account, then enter the active quest through the invitation flow.',
+            'Participants connect or create an account, then enter the active campaign through the invitation flow.',
     },
     {
         title: '3. Log progress quickly',
@@ -33,7 +33,7 @@ const steps = [
 export default function HowItWorksPage() {
     return (
         <PublicShell
-            eyebrow='Quest flow'
+            eyebrow='Campaign flow'
             title='How Page Quest runs a season from invite to leaderboard.'
             description='The public shell explains the full journey up front so competitors know what to expect before they ever log an entry.'
         >

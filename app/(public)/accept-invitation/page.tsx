@@ -129,7 +129,7 @@ function InvitationTokenCard({
                 <FormField
                     label='Invited email'
                     htmlFor='wrong-account-email'
-                    hint='Switch to the invited account, then reopen this secure link to accept the quest.'
+                    hint='Switch to the invited account, then reopen this secure link to accept the campaign.'
                 >
                     <Input
                         id='wrong-account-email'
@@ -162,26 +162,26 @@ function InvitationTokenCard({
             >
                 <Input
                     id='secure-invite-email'
-                    value={access.invitationEmail ?? ''}
+                    value={access.expectedEmail ?? ''}
                     readOnly
                 />
             </FormField>
 
             <FormField
-                label='Quest'
-                htmlFor='secure-invite-quest'
-                hint='This secure link is already validated. Accepting it will link the invited account to the quest.'
+                label='Campaign'
+                htmlFor='secure-invite-campaign'
+                hint='This secure link is already validated. Accepting it will link the invited account to the campaign.'
             >
                 <Input
-                    id='secure-invite-quest'
-                    value={access.questName ?? ''}
+                    id='secure-invite-campaign'
+                    value={access.campaignName ?? ''}
                     readOnly
                 />
             </FormField>
 
             <form action={acceptInvitationAction} className='ui-form-shell'>
                 <input type='hidden' name='token' value={token} />
-                <FormActions note='Accepting this invitation links the signed-in account to the quest and creates the participant record.'>
+                <FormActions note='Accepting this invitation links the signed-in account to the campaign and creates the participant record.'>
                     <Button nativeButton type='submit'>
                         Accept invitation
                     </Button>
@@ -219,7 +219,7 @@ function InvitationAccessCard({
         return (
             <EmptyState
                 eyebrow='Invitation access'
-                title='This account is already part of the quest.'
+                title='This account is already part of the campaign.'
                 description={access.summary}
                 action={
                     <Button render={<Link href='/dashboard' />}>
@@ -259,7 +259,7 @@ function InvitationAccessCard({
             <FormField
                 label='Invited email'
                 htmlFor='invite-email'
-                hint='The current sign-in must match the invitation email before the quest can be joined.'
+                hint='The current sign-in must match the invitation email before the campaign can be joined.'
             >
                 <Input
                     id='invite-email'
@@ -269,18 +269,18 @@ function InvitationAccessCard({
             </FormField>
 
             <FormField
-                label='Quest'
-                htmlFor='invite-quest'
+                label='Campaign'
+                htmlFor='invite-campaign'
                 hint='This invitation is recognized for the signed-in account and can be completed through the secure link in the email.'
             >
                 <Input
-                    id='invite-quest'
-                    value={access.questName ?? ''}
+                    id='invite-campaign'
+                    value={access.campaignName ?? ''}
                     readOnly
                 />
             </FormField>
 
-            <FormActions note='Invitation access is active. Use the secure link from the invitation email to complete acceptance and join the quest.'>
+            <FormActions note='Invitation access is active. Use the secure link from the invitation email to complete acceptance and join the campaign.'>
                 <Button disabled>
                     {access.state === 'pending'
                         ? 'Check your invitation email'
@@ -308,7 +308,7 @@ export default async function AcceptInvitationPage({
                       acceptedByUserId: true,
                       email: true,
                       expiresAt: true,
-                      quest: {
+                      campaign: {
                           select: {
                               name: true,
                               status: true,
@@ -333,7 +333,7 @@ export default async function AcceptInvitationPage({
     return (
         <PublicShell
             eyebrow='Invitation access'
-            title='Accept a quest invitation and join the season.'
+            title='Accept a campaign invitation and join the season.'
             description='This route now validates secure invite links, links the invited account, and unlocks the competitor experience after acceptance.'
         >
             {token && tokenAcceptance ? (

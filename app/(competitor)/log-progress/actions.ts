@@ -11,7 +11,7 @@ import {
 import { prisma } from '@/lib/prisma'
 
 type SubmitLogProgressInput = {
-    questParticipantId: string | null
+    campaignParticipantId: string | null
     values: LogProgressFormValues
 }
 
@@ -31,14 +31,16 @@ export async function submitLogProgressAction(
 ): Promise<SubmitLogProgressResult> {
     const actor = await requireAuthenticatedActionUser('COMPETITOR')
 
-    if (!input.questParticipantId) {
+    if (!input.campaignParticipantId) {
         return {
-            detail: 'missing-quest-participant',
+            detail: 'missing-campaign-participant',
             message:
-                'A quest profile is required before you can save reading progress.',
+                'A campaign profile is required before you can save reading progress.',
             outcome: 'error',
         }
     }
+
+    const campaignParticipantId = input.campaignParticipantId
 
     try {
         const result = await prisma.$transaction((transaction) =>
@@ -46,7 +48,7 @@ export async function submitLogProgressAction(
                 actorUserId: actor.id,
                 formValues: input.values,
                 now: new Date(),
-                questParticipantId: input.questParticipantId,
+                campaignParticipantId,
             })
         )
 
@@ -73,7 +75,7 @@ function resolveLogProgressErrorMessage(error: unknown) {
 
     switch (errorCode) {
         case 'duplicate-one-time-challenge-completion':
-            return 'That one-time challenge has already been credited for this quest participant.'
+            return 'That one-time challenge has already been credited for this campaign participant.'
         case 'invalid-entry':
             return error instanceof Error
                 ? error.message
@@ -81,10 +83,10 @@ function resolveLogProgressErrorMessage(error: unknown) {
         case 'participant-access-denied':
         case 'participant-not-found':
         case 'participant-removed':
-        case 'quest-challenge-not-found':
+        case 'campaign-challenge-not-found':
             return error instanceof Error
                 ? error.message
-                : 'The selected quest entry could not be saved.'
+                : 'The selected campaign entry could not be saved.'
         default:
             return 'Something went wrong while saving the entry. Try again.'
     }

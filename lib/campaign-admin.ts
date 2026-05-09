@@ -1,18 +1,22 @@
-import { Prisma, type QuestStatus, type QuestVisibility } from '@prisma/client'
+import {
+    Prisma,
+    type CampaignStatus,
+    type CampaignVisibility,
+} from '@prisma/client'
 
-import { deriveQuestStatus } from '@/lib/quest-domain'
+import { deriveCampaignStatus } from '@/lib/campaign-domain'
 
-export class QuestAdminError extends Error {
+export class CampaignAdminError extends Error {
     code: string
 
     constructor(code: string, message: string) {
         super(message)
         this.code = code
-        this.name = 'QuestAdminError'
+        this.name = 'CampaignAdminError'
     }
 }
 
-export type QuestFormValues = {
+export type CampaignFormValues = {
     description: string | null
     endAt: Date
     entryDeleteWindowMinutes: number | null
@@ -24,15 +28,15 @@ export type QuestFormValues = {
     pointsPerPage: Prisma.Decimal
     startAt: Date
     timezone: string
-    visibility: QuestVisibility
+    visibility: CampaignVisibility
 }
 
-type QuestLifecycleValues = {
+type CampaignLifecycleValues = {
     archivedAt: Date | null
     publishedAt: Date | null
 }
 
-type QuestWritableRecord = QuestLifecycleValues & {
+type CampaignWritableRecord = CampaignLifecycleValues & {
     description: string | null
     endAt: Date
     entryDeleteWindowMinutes: number | null
@@ -44,46 +48,47 @@ type QuestWritableRecord = QuestLifecycleValues & {
     pointsPerPage: Prisma.Decimal | number | string
     startAt: Date
     timezone: string
-    visibility: QuestVisibility
+    visibility: CampaignVisibility
 }
 
-export type QuestWriteValues = QuestFormValues &
-    QuestLifecycleValues & {
-        status: QuestStatus
+export type CampaignWriteValues = CampaignFormValues &
+    CampaignLifecycleValues & {
+        status: CampaignStatus
     }
 
-export type QuestScoringPreviewItem = {
+export type CampaignScoringPreviewItem = {
     description: string
     points: Prisma.Decimal
     title: string
 }
 
-export type ActiveQuestConflict = {
+export type ActiveCampaignConflict = {
     id: string
     name: string
 }
 
-export type QuestLifecycleSnapshot = {
+export type CampaignLifecycleSnapshot = {
     archivedAt: Date | null
     endAt: Date
     publishedAt: Date | null
     startAt: Date
-    status: QuestStatus
+    status: CampaignStatus
 }
 
-export type QuestChallengeAssignmentFormValues = {
+export type CampaignChallengeAssignmentFormValues = {
     challengeId: string
     pointValueOverride: Prisma.Decimal | null
     sortOrder: number
 }
 
-export type QuestChallengeWriteValues = QuestChallengeAssignmentFormValues & {
-    isActive: boolean
-}
+export type CampaignChallengeWriteValues =
+    CampaignChallengeAssignmentFormValues & {
+        isActive: boolean
+    }
 
-const inviteOnlyVisibility = 'INVITE_ONLY' satisfies QuestVisibility
+const inviteOnlyVisibility = 'INVITE_ONLY' satisfies CampaignVisibility
 
-const questStatusLabels: Record<QuestStatus, string> = {
+const campaignStatusLabels: Record<CampaignStatus, string> = {
     ACTIVE: 'Active',
     ARCHIVED: 'Archived',
     COMPLETED: 'Completed',
@@ -91,17 +96,19 @@ const questStatusLabels: Record<QuestStatus, string> = {
     SCHEDULED: 'Scheduled',
 }
 
-const questVisibilityLabels: Record<QuestVisibility, string> = {
+const campaignVisibilityLabels: Record<CampaignVisibility, string> = {
     INVITE_ONLY: 'Invite only',
 }
 
-export function parseQuestFormValues(formData: FormData): QuestFormValues {
+export function parseCampaignFormValues(
+    formData: FormData
+): CampaignFormValues {
     const name = getRequiredString(formData, 'name', 'missing-name')
     const timezone = getRequiredString(formData, 'timezone', 'missing-timezone')
     const startAt = getRequiredDate(formData, 'startAt', 'missing-start-at')
     const endAt = getRequiredDate(formData, 'endAt', 'missing-end-at')
 
-    assertValidQuestWindow(startAt, endAt)
+    assertValidCampaignWindow(startAt, endAt)
 
     return {
         description: getOptionalString(formData, 'description'),
@@ -139,15 +146,15 @@ export function parseQuestFormValues(formData: FormData): QuestFormValues {
         ),
         startAt,
         timezone,
-        visibility: getQuestVisibility(formData),
+        visibility: getCampaignVisibility(formData),
     }
 }
 
-export function prepareQuestCreateValues(
-    formValues: QuestFormValues,
+export function prepareCampaignCreateValues(
+    formValues: CampaignFormValues,
     now?: Date
-): QuestWriteValues {
-    return finalizeQuestWriteValues({
+): CampaignWriteValues {
+    return finalizeCampaignWriteValues({
         archivedAt: null,
         formValues,
         now,
@@ -155,18 +162,18 @@ export function prepareQuestCreateValues(
     })
 }
 
-export function prepareQuestUpdateValues({
+export function prepareCampaignUpdateValues({
     archivedAt,
     formValues,
     now,
     publishedAt,
 }: {
     archivedAt: Date | null
-    formValues: QuestFormValues
+    formValues: CampaignFormValues
     now?: Date
     publishedAt: Date | null
-}): QuestWriteValues {
-    return finalizeQuestWriteValues({
+}): CampaignWriteValues {
+    return finalizeCampaignWriteValues({
         archivedAt,
         formValues,
         now,
@@ -174,132 +181,137 @@ export function prepareQuestUpdateValues({
     })
 }
 
-export function prepareQuestPublishValues({
+export function prepareCampaignPublishValues({
     now,
-    quest,
+    campaign,
 }: {
     now: Date
-    quest: Pick<
-        QuestWritableRecord,
+    campaign: Pick<
+        CampaignWritableRecord,
         'archivedAt' | 'endAt' | 'publishedAt' | 'startAt'
     >
 }) {
-    if (quest.archivedAt) {
-        throw new QuestAdminError(
-            'quest-already-archived',
-            'Archived quests cannot be published.'
+    if (campaign.archivedAt) {
+        throw new CampaignAdminError(
+            'campaign-already-archived',
+            'Archived campaigns cannot be published.'
         )
     }
 
-    const publishedAt = quest.publishedAt ?? now
+    const publishedAt = campaign.publishedAt ?? now
 
     return {
         archivedAt: null,
         publishedAt,
-        status: deriveQuestStatus({
+        status: deriveCampaignStatus({
             archivedAt: null,
-            endAt: quest.endAt,
+            endAt: campaign.endAt,
             now,
             publishedAt,
-            startAt: quest.startAt,
+            startAt: campaign.startAt,
         }),
-    } satisfies QuestLifecycleValues & {
-        status: QuestStatus
+    } satisfies CampaignLifecycleValues & {
+        status: CampaignStatus
     }
 }
 
-export function prepareQuestArchiveValues({
+export function prepareCampaignArchiveValues({
     now,
-    quest,
+    campaign,
 }: {
     now: Date
-    quest: Pick<QuestWritableRecord, 'endAt' | 'publishedAt' | 'startAt'> & {
+    campaign: Pick<
+        CampaignWritableRecord,
+        'endAt' | 'publishedAt' | 'startAt'
+    > & {
         archivedAt: Date | null
     }
 }) {
-    const archivedAt = quest.archivedAt ?? now
+    const archivedAt = campaign.archivedAt ?? now
 
     return {
         archivedAt,
-        publishedAt: quest.publishedAt,
-        status: deriveQuestStatus({
+        publishedAt: campaign.publishedAt,
+        status: deriveCampaignStatus({
             archivedAt,
-            endAt: quest.endAt,
+            endAt: campaign.endAt,
             now,
-            publishedAt: quest.publishedAt,
-            startAt: quest.startAt,
+            publishedAt: campaign.publishedAt,
+            startAt: campaign.startAt,
         }),
-    } satisfies QuestLifecycleValues & {
-        status: QuestStatus
+    } satisfies CampaignLifecycleValues & {
+        status: CampaignStatus
     }
 }
 
-export function prepareQuestDuplicateValues(
-    quest: Omit<QuestWritableRecord, keyof QuestLifecycleValues>,
+export function prepareCampaignDuplicateValues(
+    campaign: Omit<CampaignWritableRecord, keyof CampaignLifecycleValues>,
     now?: Date
-): QuestWriteValues {
-    return finalizeQuestWriteValues({
+): CampaignWriteValues {
+    return finalizeCampaignWriteValues({
         archivedAt: null,
         formValues: {
-            description: quest.description,
-            endAt: quest.endAt,
-            entryDeleteWindowMinutes: quest.entryDeleteWindowMinutes,
-            entryEditWindowMinutes: quest.entryEditWindowMinutes,
-            name: buildDuplicateQuestName(quest.name),
-            pointsPerAudiobookMinute: toDecimal(quest.pointsPerAudiobookMinute),
-            pointsPerBook: toDecimal(quest.pointsPerBook),
-            pointsPerChallengeCompletion: toDecimal(
-                quest.pointsPerChallengeCompletion
+            description: campaign.description,
+            endAt: campaign.endAt,
+            entryDeleteWindowMinutes: campaign.entryDeleteWindowMinutes,
+            entryEditWindowMinutes: campaign.entryEditWindowMinutes,
+            name: buildDuplicateCampaignName(campaign.name),
+            pointsPerAudiobookMinute: toDecimal(
+                campaign.pointsPerAudiobookMinute
             ),
-            pointsPerPage: toDecimal(quest.pointsPerPage),
-            startAt: quest.startAt,
-            timezone: quest.timezone,
-            visibility: quest.visibility,
+            pointsPerBook: toDecimal(campaign.pointsPerBook),
+            pointsPerChallengeCompletion: toDecimal(
+                campaign.pointsPerChallengeCompletion
+            ),
+            pointsPerPage: toDecimal(campaign.pointsPerPage),
+            startAt: campaign.startAt,
+            timezone: campaign.timezone,
+            visibility: campaign.visibility,
         },
         now,
         publishedAt: null,
     })
 }
 
-export function getQuestStatusLabel(status: QuestStatus) {
-    return questStatusLabels[status]
+export function getCampaignStatusLabel(status: CampaignStatus) {
+    return campaignStatusLabels[status]
 }
 
-export function getQuestVisibilityLabel(visibility: QuestVisibility) {
-    return questVisibilityLabels[visibility]
+export function getCampaignVisibilityLabel(visibility: CampaignVisibility) {
+    return campaignVisibilityLabels[visibility]
 }
 
-export function describeQuestLifecycle(snapshot: QuestLifecycleSnapshot) {
+export function describeCampaignLifecycle(snapshot: CampaignLifecycleSnapshot) {
     if (snapshot.status === 'ARCHIVED') {
         return snapshot.archivedAt
-            ? `Archived on ${snapshot.archivedAt.toISOString()} after the quest window ended on or after ${snapshot.endAt.toISOString()}.`
-            : 'Archived quests stay read-only and remain available for historical reporting.'
+            ? `Archived on ${snapshot.archivedAt.toISOString()} after the campaign window ended on or after ${snapshot.endAt.toISOString()}.`
+            : 'Archived campaigns stay read-only and remain available for historical reporting.'
     }
 
     if (snapshot.status === 'DRAFT') {
-        return 'Draft quests are editable and stay off the competitor surface until they are published.'
+        return 'Draft campaigns are editable and stay off the competitor surface until they are published.'
     }
 
     if (snapshot.status === 'SCHEDULED') {
-        return `Published quests stay scheduled until the start window opens at ${snapshot.startAt.toISOString()}.`
+        return `Published campaigns stay scheduled until the start window opens at ${snapshot.startAt.toISOString()}.`
     }
 
     if (snapshot.status === 'ACTIVE') {
-        return `The quest is live now and remains active until ${snapshot.endAt.toISOString()}.`
+        return `The campaign is live now and remains active until ${snapshot.endAt.toISOString()}.`
     }
 
-    return `The quest window closed on ${snapshot.endAt.toISOString()}, so the lifecycle is now completed unless the quest is archived.`
+    return `The campaign window closed on ${snapshot.endAt.toISOString()}, so the lifecycle is now completed unless the campaign is archived.`
 }
 
-export function buildQuestScoringPreviewItems(
+export function buildCampaignScoringPreviewItems(
     scoringRules: Pick<
-        QuestFormValues,
+        CampaignFormValues,
         | 'pointsPerAudiobookMinute'
         | 'pointsPerBook'
         | 'pointsPerChallengeCompletion'
         | 'pointsPerPage'
     >
-): QuestScoringPreviewItem[] {
+): CampaignScoringPreviewItem[] {
     return [
         {
             description: 'One completed book',
@@ -324,9 +336,9 @@ export function buildQuestScoringPreviewItems(
     ]
 }
 
-export function parseQuestChallengeAssignmentFormValues(
+export function parseCampaignChallengeAssignmentFormValues(
     formData: FormData
-): QuestChallengeAssignmentFormValues {
+): CampaignChallengeAssignmentFormValues {
     return {
         challengeId: getRequiredString(
             formData,
@@ -346,16 +358,16 @@ export function parseQuestChallengeAssignmentFormValues(
     }
 }
 
-export function prepareQuestChallengeAssignmentValues(
-    formValues: QuestChallengeAssignmentFormValues
-): QuestChallengeWriteValues {
+export function prepareCampaignChallengeAssignmentValues(
+    formValues: CampaignChallengeAssignmentFormValues
+): CampaignChallengeWriteValues {
     return {
         ...formValues,
         isActive: true,
     }
 }
 
-export function assertQuestChallengeNotAssigned({
+export function assertCampaignChallengeNotAssigned({
     challengeId,
     existingChallengeIds,
 }: {
@@ -363,9 +375,9 @@ export function assertQuestChallengeNotAssigned({
     existingChallengeIds: string[]
 }) {
     if (existingChallengeIds.includes(challengeId)) {
-        throw new QuestAdminError(
-            'duplicate-quest-challenge',
-            'That challenge is already assigned to this quest.'
+        throw new CampaignAdminError(
+            'duplicate-campaign-challenge',
+            'That challenge is already assigned to this campaign.'
         )
     }
 }
@@ -373,42 +385,42 @@ export function assertQuestChallengeNotAssigned({
 export function assertSingleActiveQuest({
     activeQuest,
     nextStatus,
-    questId,
+    campaignId,
 }: {
-    activeQuest: ActiveQuestConflict | null
-    nextStatus: QuestStatus
-    questId?: string
+    activeQuest: ActiveCampaignConflict | null
+    nextStatus: CampaignStatus
+    campaignId?: string
 }) {
     if (nextStatus !== 'ACTIVE' || !activeQuest) {
         return
     }
 
-    if (questId && activeQuest.id === questId) {
+    if (campaignId && activeQuest.id === campaignId) {
         return
     }
 
-    throw new QuestAdminError(
-        'active-quest-conflict',
-        `Only one quest can be active at a time. Archive or complete ${activeQuest.name} before activating another quest.`
+    throw new CampaignAdminError(
+        'active-campaign-conflict',
+        `Only one campaign can be active at a time. Archive or complete ${activeQuest.name} before activating another campaign.`
     )
 }
 
-function finalizeQuestWriteValues({
+function finalizeCampaignWriteValues({
     archivedAt,
     formValues,
     now,
     publishedAt,
 }: {
     archivedAt: Date | null
-    formValues: QuestFormValues
+    formValues: CampaignFormValues
     now?: Date
     publishedAt: Date | null
-}): QuestWriteValues {
+}): CampaignWriteValues {
     return {
         ...formValues,
         archivedAt,
         publishedAt,
-        status: deriveQuestStatus({
+        status: deriveCampaignStatus({
             archivedAt,
             endAt: formValues.endAt,
             now,
@@ -418,7 +430,7 @@ function finalizeQuestWriteValues({
     }
 }
 
-function buildDuplicateQuestName(name: string) {
+function buildDuplicateCampaignName(name: string) {
     const trimmedName = name.trim()
 
     return trimmedName.endsWith('Copy')
@@ -426,7 +438,7 @@ function buildDuplicateQuestName(name: string) {
         : `${trimmedName} Copy`
 }
 
-function getQuestVisibility(formData: FormData) {
+function getCampaignVisibility(formData: FormData): CampaignVisibility {
     const rawValue = getOptionalString(formData, 'visibility')
 
     if (!rawValue) {
@@ -434,9 +446,9 @@ function getQuestVisibility(formData: FormData) {
     }
 
     if (rawValue !== inviteOnlyVisibility) {
-        throw new QuestAdminError(
+        throw new CampaignAdminError(
             'invalid-visibility',
-            'Only invite-only quests are supported right now.'
+            'Only invite-only campaigns are supported right now.'
         )
     }
 
@@ -451,7 +463,7 @@ function getRequiredString(
     const value = getOptionalString(formData, fieldName)
 
     if (!value) {
-        throw new QuestAdminError(errorCode, `${fieldName} is required.`)
+        throw new CampaignAdminError(errorCode, `${fieldName} is required.`)
     }
 
     return value
@@ -477,13 +489,16 @@ function getRequiredDate(
     const value = getOptionalString(formData, fieldName)
 
     if (!value) {
-        throw new QuestAdminError(missingErrorCode, `${fieldName} is required.`)
+        throw new CampaignAdminError(
+            missingErrorCode,
+            `${fieldName} is required.`
+        )
     }
 
     const parsedValue = new Date(value)
 
     if (Number.isNaN(parsedValue.getTime())) {
-        throw new QuestAdminError(
+        throw new CampaignAdminError(
             `invalid-${fieldName}`,
             `${fieldName} must be a valid date.`
         )
@@ -500,13 +515,13 @@ function getRequiredDecimal(
     const value = getOptionalString(formData, fieldName)
 
     if (!value) {
-        throw new QuestAdminError(errorCode, `${fieldName} is required.`)
+        throw new CampaignAdminError(errorCode, `${fieldName} is required.`)
     }
 
     const decimalValue = toDecimal(value, errorCode)
 
     if (decimalValue.isNegative()) {
-        throw new QuestAdminError(
+        throw new CampaignAdminError(
             errorCode,
             `${fieldName} must be zero or greater.`
         )
@@ -529,7 +544,7 @@ function getOptionalInteger(
     const parsedValue = Number.parseInt(value, 10)
 
     if (!Number.isInteger(parsedValue) || parsedValue < 0) {
-        throw new QuestAdminError(
+        throw new CampaignAdminError(
             errorCode,
             `${fieldName} must be a whole number greater than or equal to zero.`
         )
@@ -546,7 +561,7 @@ function getRequiredInteger(
     const value = getOptionalInteger(formData, fieldName, errorCode)
 
     if (value === null) {
-        throw new QuestAdminError(errorCode, `${fieldName} is required.`)
+        throw new CampaignAdminError(errorCode, `${fieldName} is required.`)
     }
 
     return value
@@ -566,7 +581,7 @@ function getOptionalDecimal(
     const decimalValue = toDecimal(value, errorCode)
 
     if (decimalValue.isNegative()) {
-        throw new QuestAdminError(
+        throw new CampaignAdminError(
             errorCode,
             `${fieldName} must be zero or greater.`
         )
@@ -575,16 +590,16 @@ function getOptionalDecimal(
     return decimalValue
 }
 
-function assertValidQuestWindow(startAt: Date, endAt: Date) {
+function assertValidCampaignWindow(startAt: Date, endAt: Date) {
     try {
-        deriveQuestStatus({
+        deriveCampaignStatus({
             endAt,
             startAt,
         })
     } catch {
-        throw new QuestAdminError(
-            'invalid-quest-window',
-            'Quest startAt must be on or before endAt.'
+        throw new CampaignAdminError(
+            'invalid-campaign-window',
+            'Campaign startAt must be on or before endAt.'
         )
     }
 }
@@ -598,7 +613,7 @@ function toDecimal(
             ? value
             : new Prisma.Decimal(value)
     } catch {
-        throw new QuestAdminError(
+        throw new CampaignAdminError(
             errorCode ?? 'invalid-decimal',
             'A numeric value is required.'
         )

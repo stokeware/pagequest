@@ -20,7 +20,7 @@ const navigationLinks = [
 const quickActions = [
     {
         href: '/how-it-works',
-        label: 'See the quest flow',
+        label: 'See the campaign flow',
         description:
             'Learn how invitations, scoring, and leaderboards fit together.',
         icon: Compass,
@@ -36,7 +36,7 @@ const quickActions = [
         href: '/accept-invitation',
         label: 'Preview invite acceptance',
         description:
-            'Open the route where invited competitors will join a quest.',
+            'Open the route where invited competitors will join a campaign.',
         icon: ScrollText,
     },
 ]

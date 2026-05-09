@@ -1,12 +1,24 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { Prisma } from '@prisma/client'
 
-import { prisma } from '../lib/prisma'
+import { prisma } from '@/lib/prisma'
 
 const localAuthPassphrase =
     process.env.LOCAL_AUTH_PASSPHRASE ?? 'pagequest-local'
 
-const competitorEmail = 'alice@pagequest.local'
+const competitorEmail = 'ben@pagequest.local'
+
+type ActiveStandingRow = {
+    email: string
+    totalPages: number
+    totalPoints: Prisma.Decimal | number | string
+}
+
+type ActiveParticipantRow = {
+    totalPages: number
+    totalPoints: Prisma.Decimal | number | string
+}
 
 test.describe('leaderboard navigation and refresh', () => {
     test.describe.configure({ mode: 'serial' })
@@ -63,20 +75,20 @@ test.describe('leaderboard navigation and refresh', () => {
         await expect(page).toHaveURL(/\/leaderboard$/)
         await expect(page.getByText('Standings')).toBeVisible()
 
-        const aliceRow = page.getByRole('link', {
-            name: /Open details for Alice Redwood/i,
+        const benRow = page.getByRole('link', {
+            name: /Open details for Ben Sparrow/i,
         })
 
-        await expect(aliceRow).toContainText('#1')
-        await expect(aliceRow).toContainText(
+        await expect(benRow).toContainText('#1')
+        await expect(benRow).toContainText(
             formatPointsLabel(afterParticipant.totalPoints)
         )
 
-        await aliceRow.click()
+        await benRow.click()
 
         await expect(page).toHaveURL(/\/leaderboard\//)
         await expect(
-            page.getByText('Alice Redwood', { exact: true })
+            page.getByText('Ben Sparrow', { exact: true })
         ).toBeVisible()
         await expect(page.getByText(`Note: ${notes}`)).toBeVisible()
 
@@ -109,67 +121,51 @@ async function signInWithLocalCredentials({
 }
 
 async function loadActiveStandings() {
-    const participants = await prisma.questParticipant.findMany({
-        orderBy: [
-            {
-                totalPoints: 'desc',
-            },
-            {
-                totalPages: 'desc',
-            },
-            {
-                totalAudiobookMinutes: 'desc',
-            },
-            {
-                totalBooks: 'desc',
-            },
-            {
-                createdAt: 'asc',
-            },
-        ],
-        select: {
-            totalPages: true,
-            totalPoints: true,
-            user: {
-                select: {
-                    email: true,
-                },
-            },
-        },
-        where: {
-            quest: {
-                status: 'ACTIVE',
-            },
-            removedAt: null,
-        },
-    })
+    const participants = await prisma.$queryRaw<ActiveStandingRow[]>(Prisma.sql`
+        SELECT
+            "User"."email" AS "email",
+            "CampaignParticipant"."totalPages" AS "totalPages",
+            "CampaignParticipant"."totalPoints" AS "totalPoints"
+        FROM "CampaignParticipant"
+        INNER JOIN "Campaign"
+            ON "Campaign"."id" = "CampaignParticipant"."campaignId"
+        INNER JOIN "User"
+            ON "User"."id" = "CampaignParticipant"."userId"
+        WHERE "Campaign"."status" = 'ACTIVE'
+            AND "CampaignParticipant"."removedAt" IS NULL
+        ORDER BY
+            "CampaignParticipant"."totalPoints" DESC,
+            "CampaignParticipant"."totalPages" DESC,
+            "CampaignParticipant"."totalAudiobookMinutes" DESC,
+            "CampaignParticipant"."totalBooks" DESC,
+            "CampaignParticipant"."createdAt" ASC
+    `)
 
     return participants.map((participant) => ({
-        email: participant.user.email,
+        email: participant.email,
         totalPages: participant.totalPages,
         totalPoints: participant.totalPoints.toString(),
     }))
 }
 
 async function loadActiveParticipant(email: string) {
-    const participant = await prisma.questParticipant.findFirst({
-        orderBy: {
-            createdAt: 'desc',
-        },
-        select: {
-            totalPages: true,
-            totalPoints: true,
-        },
-        where: {
-            quest: {
-                status: 'ACTIVE',
-            },
-            removedAt: null,
-            user: {
-                email,
-            },
-        },
-    })
+    const [participant] = await prisma.$queryRaw<ActiveParticipantRow[]>(
+        Prisma.sql`
+            SELECT
+                "CampaignParticipant"."totalPages" AS "totalPages",
+                "CampaignParticipant"."totalPoints" AS "totalPoints"
+            FROM "CampaignParticipant"
+            INNER JOIN "Campaign"
+                ON "Campaign"."id" = "CampaignParticipant"."campaignId"
+            INNER JOIN "User"
+                ON "User"."id" = "CampaignParticipant"."userId"
+            WHERE "Campaign"."status" = 'ACTIVE'
+                AND "CampaignParticipant"."removedAt" IS NULL
+                AND "User"."email" = ${email}
+            ORDER BY "CampaignParticipant"."createdAt" DESC
+            LIMIT 1
+        `
+    )
 
     expect(participant).not.toBeNull()
 

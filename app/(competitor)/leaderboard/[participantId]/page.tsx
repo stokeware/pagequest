@@ -39,8 +39,8 @@ export default async function ParticipantDetailPage({
                 <CardHeader>
                     <CardTitle>{viewModel.participantLabel}</CardTitle>
                     <CardDescription>
-                        {viewModel.questStatusLabel}. {viewModel.questName}.{' '}
-                        {viewModel.participantSummary}
+                        {viewModel.campaignStatusLabel}.{' '}
+                        {viewModel.campaignName}. {viewModel.participantSummary}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='auth-inline-actions'>
@@ -80,10 +80,10 @@ export default async function ParticipantDetailPage({
 
             <Card className='surface-warm'>
                 <CardHeader>
-                    <CardTitle>Quest reading history</CardTitle>
+                    <CardTitle>Campaign reading history</CardTitle>
                     <CardDescription>
                         Every non-deleted entry for this participant in the
-                        selected quest, ordered from newest to oldest.
+                        selected campaign, ordered from newest to oldest.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>

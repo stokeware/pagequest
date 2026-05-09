@@ -33,7 +33,7 @@ const invitationActionMocks = vi.hoisted(() => {
         invitation: {
             findUnique: vi.fn(),
         },
-        quest: {
+        campaign: {
             findFirst: vi.fn(),
         },
     }
@@ -163,8 +163,8 @@ describe('admin invitation actions audit logging', () => {
     })
 
     it('records an audit log when an admin creates an invitation', async () => {
-        invitationActionMocks.prisma.quest.findFirst.mockResolvedValue({
-            id: 'quest-1',
+        invitationActionMocks.prisma.campaign.findFirst.mockResolvedValue({
+            id: 'campaign-1',
             name: 'Spring Story Sprint 2026',
             status: 'ACTIVE',
         })
@@ -173,7 +173,7 @@ describe('admin invitation actions audit logging', () => {
         )
 
         const formData = new FormData()
-        formData.set('questId', 'quest-1')
+        formData.set('campaignId', 'campaign-1')
         formData.set('email', ' Reader@Example.com ')
 
         await expect(createInvitationAction(formData)).rejects.toMatchObject({
@@ -192,9 +192,9 @@ describe('admin invitation actions audit logging', () => {
                 metadata: {
                     email: 'reader@example.com',
                     expiresAt: '2026-05-22T18:00:00.000Z',
-                    questName: 'Spring Story Sprint 2026',
+                    campaignName: 'Spring Story Sprint 2026',
                 },
-                questId: 'quest-1',
+                campaignId: 'campaign-1',
             },
         })
     })
@@ -205,8 +205,8 @@ describe('admin invitation actions audit logging', () => {
             email: 'reader@example.com',
             expiresAt: new Date('2026-05-10T12:00:00.000Z'),
             id: 'invite-1',
-            quest: {
-                id: 'quest-1',
+            campaign: {
+                id: 'campaign-1',
                 name: 'Spring Story Sprint 2026',
                 status: 'ACTIVE',
                 visibility: 'INVITE_ONLY',
@@ -235,9 +235,9 @@ describe('admin invitation actions audit logging', () => {
                     email: 'reader@example.com',
                     expiresAt: '2026-05-23T18:00:00.000Z',
                     previousStatus: 'EXPIRED',
-                    questName: 'Spring Story Sprint 2026',
+                    campaignName: 'Spring Story Sprint 2026',
                 },
-                questId: 'quest-1',
+                campaignId: 'campaign-1',
             },
         })
     })
@@ -248,8 +248,8 @@ describe('admin invitation actions audit logging', () => {
             email: 'reader@example.com',
             expiresAt: new Date('2026-05-10T12:00:00.000Z'),
             id: 'invite-1',
-            quest: {
-                id: 'quest-1',
+            campaign: {
+                id: 'campaign-1',
                 name: 'Spring Story Sprint 2026',
             },
             revokedAt: null,
@@ -274,10 +274,10 @@ describe('admin invitation actions audit logging', () => {
                 invitationId: 'invite-1',
                 metadata: {
                     email: 'reader@example.com',
-                    questName: 'Spring Story Sprint 2026',
+                    campaignName: 'Spring Story Sprint 2026',
                     revokedAt: '2026-05-08T18:00:00.000Z',
                 },
-                questId: 'quest-1',
+                campaignId: 'campaign-1',
             },
         })
     })

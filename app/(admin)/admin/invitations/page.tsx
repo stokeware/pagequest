@@ -21,7 +21,7 @@ import {
     getEffectiveInvitationStatus,
 } from '@/lib/invitation-admin'
 import { prisma } from '@/lib/prisma'
-import { synchronizeDerivedQuestStatuses } from '@/lib/quest-status'
+import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
 
 import {
     createInvitationAction,
@@ -50,7 +50,7 @@ const selectClassName = [
 const noticeContent = {
     created: {
         description:
-            'The invitation is now tracked for this quest, and a local copy was sent through the configured email adapter.',
+            'The invitation is now tracked for this campaign, and a local copy was sent through the configured email adapter.',
         title: 'Invitation created.',
         tone: 'success',
     },
@@ -68,7 +68,7 @@ const noticeContent = {
     },
     revoked: {
         description:
-            'The invitation remains in the history view, but competitors can no longer use it to join the quest.',
+            'The invitation remains in the history view, but competitors can no longer use it to join the campaign.',
         title: 'Invitation revoked.',
         tone: 'success',
     },
@@ -76,19 +76,19 @@ const noticeContent = {
 
 const errorDetailMessages: Record<string, string> = {
     'accepted-invitation':
-        'This invitation was already accepted, so create a new quest invitation only if you change the participant model later.',
+        'This invitation was already accepted, so create a new campaign invitation only if you change the participant model later.',
     'action-not-allowed':
         'That invitation status does not allow this action anymore.',
     'duplicate-invitation':
-        'An invitation for that email and quest already exists. Use resend instead of creating another record.',
+        'An invitation for that email and campaign already exists. Use resend instead of creating another record.',
     'email-send-failed':
         'The invitation record was saved, but delivery failed. Check the local SMTP settings or Mailpit service, then resend the invitation.',
     'missing-email': 'Enter an email address before creating an invitation.',
     'missing-invitation':
         'Choose a valid invitation record before trying again.',
-    'missing-quest': 'Choose a quest before creating an invitation.',
-    'quest-unavailable':
-        'Only non-archived invite-only quests can receive new invitation activity.',
+    'missing-campaign': 'Choose a campaign before creating an invitation.',
+    'campaign-unavailable':
+        'Only non-archived invite-only campaigns can receive new invitation activity.',
 }
 
 function getFirstSearchParamValue(
@@ -112,7 +112,7 @@ function formatDateTime(value: Date | null) {
     }).format(value)
 }
 
-function formatQuestWindow(startAt: Date, endAt: Date) {
+function formatCampaignWindow(startAt: Date, endAt: Date) {
     const formatter = new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
     })
@@ -202,9 +202,9 @@ export default async function AdminInvitationsPage({
     )
     const notice = getNotice(outcome, detail)
     const now = new Date()
-    await synchronizeDerivedQuestStatuses(now)
-    const [quests, invitations] = await Promise.all([
-        prisma.quest.findMany({
+    await synchronizeDerivedCampaignStatuses(now)
+    const [campaigns, invitations] = await Promise.all([
+        prisma.campaign.findMany({
             orderBy: [
                 {
                     startAt: 'desc',
@@ -241,7 +241,7 @@ export default async function AdminInvitationsPage({
                         name: true,
                     },
                 },
-                quest: {
+                campaign: {
                     select: {
                         endAt: true,
                         id: true,
@@ -296,12 +296,12 @@ export default async function AdminInvitationsPage({
                             'an administrator'}
                     </p>
                 </div>,
-                <div key='quest' className='stack-sm'>
-                    <strong>{invitation.quest.name}</strong>
+                <div key='campaign' className='stack-sm'>
+                    <strong>{invitation.campaign.name}</strong>
                     <p className='type-muted text-xs'>
-                        {formatQuestWindow(
-                            invitation.quest.startAt,
-                            invitation.quest.endAt
+                        {formatCampaignWindow(
+                            invitation.campaign.startAt,
+                            invitation.campaign.endAt
                         )}
                     </p>
                 </div>,
@@ -435,13 +435,13 @@ export default async function AdminInvitationsPage({
                     eyebrow='Invitation roster'
                     title='Tracked invitations'
                     value={totalCount}
-                    description='Every quest invite lives here even after it expires or is revoked.'
+                    description='Every campaign invite lives here even after it expires or is revoked.'
                 />
                 <StatCard
                     eyebrow='Ready to join'
                     title='Pending acceptance'
                     value={pendingCount}
-                    description='These recipients still have a live path into the quest.'
+                    description='These recipients still have a live path into the campaign.'
                 />
                 <StatCard
                     eyebrow='Joined competitors'
@@ -460,33 +460,36 @@ export default async function AdminInvitationsPage({
             <div className='grid gap-6 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]'>
                 <FormCard
                     title='Create a new invitation'
-                    description='Invite a reader into any current invite-only quest. Token generation, delivery, and acceptance tracking are active now.'
+                    description='Invite a reader into any current invite-only campaign. Token generation, delivery, and acceptance tracking are active now.'
                 >
                     <form
                         action={createInvitationAction}
                         className='ui-form-shell'
                     >
                         <FormField
-                            label='Quest'
-                            htmlFor='questId'
-                            hint='Only non-archived invite-only quests are available for new invitations.'
+                            label='Campaign'
+                            htmlFor='campaignId'
+                            hint='Only non-archived invite-only campaigns are available for new invitations.'
                         >
                             <select
-                                id='questId'
-                                name='questId'
+                                id='campaignId'
+                                name='campaignId'
                                 className={selectClassName}
-                                defaultValue={quests[0]?.id ?? ''}
-                                disabled={quests.length === 0}
+                                defaultValue={campaigns[0]?.id ?? ''}
+                                disabled={campaigns.length === 0}
                             >
-                                {quests.length === 0 ? (
+                                {campaigns.length === 0 ? (
                                     <option value=''>
-                                        No eligible quests yet
+                                        No eligible campaigns yet
                                     </option>
                                 ) : (
-                                    quests.map((quest) => (
-                                        <option key={quest.id} value={quest.id}>
-                                            {quest.name} (
-                                            {quest.status.toLowerCase()})
+                                    campaigns.map((campaign) => (
+                                        <option
+                                            key={campaign.id}
+                                            value={campaign.id}
+                                        >
+                                            {campaign.name} (
+                                            {campaign.status.toLowerCase()})
                                         </option>
                                     ))
                                 )}
@@ -496,28 +499,28 @@ export default async function AdminInvitationsPage({
                         <FormField
                             label='Recipient email'
                             htmlFor='email'
-                            hint='Each quest can track one invitation per email address.'
+                            hint='Each campaign can track one invitation per email address.'
                         >
                             <Input
                                 id='email'
                                 name='email'
                                 type='email'
                                 placeholder='reader@example.com'
-                                disabled={quests.length === 0}
+                                disabled={campaigns.length === 0}
                             />
                         </FormField>
 
                         <FormActions
                             note={
-                                quests.length === 0
-                                    ? 'Create or unarchive an invite-only quest first, then return here to send invitations.'
+                                campaigns.length === 0
+                                    ? 'Create or unarchive an invite-only campaign first, then return here to send invitations.'
                                     : 'Create stores the invitation immediately. Resend and revoke controls stay available in the history table.'
                             }
                         >
                             <Button
                                 nativeButton
                                 type='submit'
-                                disabled={quests.length === 0}
+                                disabled={campaigns.length === 0}
                             >
                                 Create invitation
                             </Button>
@@ -581,7 +584,7 @@ export default async function AdminInvitationsPage({
                     description='This is the admin status view for creation, resend, revoke, and acceptance tracking.'
                     columns={[
                         'Recipient',
-                        'Quest',
+                        'Campaign',
                         'Status',
                         'Activity',
                         'Actions',
@@ -593,7 +596,7 @@ export default async function AdminInvitationsPage({
                 <EmptyState
                     eyebrow='Invitation history'
                     title='No invitations have been recorded yet.'
-                    description='Use the form to invite the first reader into an active quest. Once invitations exist, resend, revoke, and status tracking will appear here.'
+                    description='Use the form to invite the first reader into an active campaign. Once invitations exist, resend, revoke, and status tracking will appear here.'
                 />
             )}
         </div>

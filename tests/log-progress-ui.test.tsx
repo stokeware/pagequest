@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { LogProgressScreen } from '@/app/(competitor)/log-progress/log-progress-screen'
 
 describe('log progress competitor UI', () => {
-    it('renders all supported entry types and quest challenge prompts', () => {
+    it('renders all supported entry types and campaign challenge prompts', () => {
         const html = renderToStaticMarkup(
             <LogProgressScreen
                 challengeOptions={[
@@ -14,23 +14,23 @@ describe('log progress competitor UI', () => {
                             'Read a title recommended by another participant.',
                         evidencePrompt:
                             'Name the recommender and the book title.',
-                        id: 'quest-challenge-1',
+                        id: 'campaign-challenge-1',
                         pointsLabel: '25 points',
                         requiresReview: true,
                         title: 'Friend recommendation',
                     },
                 ]}
                 hasLiveQuest={true}
-                participantSummary='Your current quest is live, so this form is ready for book, page, audio, and challenge entries.'
-                questParticipantId='participant-1'
-                questPolicy={{
+                participantSummary='Your current campaign is live, so this form is ready for book, page, audio, and challenge entries.'
+                campaignParticipantId='participant-1'
+                campaignPolicy={{
                     entryDeleteWindowMinutes: 60,
                     entryEditWindowMinutes: 180,
-                    questEndAt: '2026-05-31T23:59:59.000Z',
-                    questStartAt: '2026-05-01T00:00:00.000Z',
+                    campaignEndAt: '2026-05-31T23:59:59.000Z',
+                    campaignStartAt: '2026-05-01T00:00:00.000Z',
                     timezone: 'America/Chicago',
                 }}
-                questName='Spring Story Sprint'
+                campaignName='Spring Story Sprint'
                 scoringSummary={{
                     audiobookMinutes: '0.75 points per minute',
                     bookCompletion: '10 points per book',
@@ -62,10 +62,10 @@ describe('log progress competitor UI', () => {
             <LogProgressScreen
                 challengeOptions={[]}
                 hasLiveQuest={false}
-                participantSummary='No active quest participation is linked to this account yet.'
-                questParticipantId={null}
-                questPolicy={null}
-                questName='Quest assignment pending'
+                participantSummary='No active campaign participation is linked to this account yet.'
+                campaignParticipantId={null}
+                campaignPolicy={null}
+                campaignName='Campaign assignment pending'
                 scoringSummary={{
                     audiobookMinutes: '0.75 points per minute',
                     bookCompletion: '1 point per book',
@@ -75,11 +75,11 @@ describe('log progress competitor UI', () => {
             />
         )
 
-        expect(html).toContain('Quest assignment pending')
+        expect(html).toContain('Campaign assignment pending')
         expect(html).toContain(
-            'No active challenges are attached to this quest yet.'
+            'No active challenges are attached to this campaign yet.'
         )
-        expect(html).toContain('Quest dates unavailable')
+        expect(html).toContain('Campaign dates unavailable')
         expect(html).toContain('Save entry')
     })
 })

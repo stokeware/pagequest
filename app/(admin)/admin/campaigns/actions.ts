@@ -5,30 +5,30 @@ import { redirect } from 'next/navigation'
 
 import { requireAdminActionUser } from '@/lib/auth/session'
 import {
-    assertQuestChallengeNotAssigned,
+    assertCampaignChallengeNotAssigned,
     assertSingleActiveQuest,
-    QuestAdminError,
-    parseQuestChallengeAssignmentFormValues,
-    parseQuestFormValues,
-    prepareQuestChallengeAssignmentValues,
-    prepareQuestArchiveValues,
-    prepareQuestCreateValues,
-    prepareQuestDuplicateValues,
-    prepareQuestPublishValues,
-    prepareQuestUpdateValues,
-} from '@/lib/quest-admin'
+    CampaignAdminError,
+    parseCampaignChallengeAssignmentFormValues,
+    parseCampaignFormValues,
+    prepareCampaignChallengeAssignmentValues,
+    prepareCampaignArchiveValues,
+    prepareCampaignCreateValues,
+    prepareCampaignDuplicateValues,
+    prepareCampaignPublishValues,
+    prepareCampaignUpdateValues,
+} from '@/lib/campaign-admin'
 import { prisma } from '@/lib/prisma'
 
-const adminQuestsPath = '/admin/quests'
+const adminCampaignsPath = '/admin/campaigns'
 
 function buildRedirectUrl({
     detail,
     outcome,
-    selectedQuestId,
+    selectedCampaignId,
 }: {
     detail?: string
     outcome: string
-    selectedQuestId?: string
+    selectedCampaignId?: string
 }) {
     const params = new URLSearchParams({
         outcome,
@@ -38,28 +38,28 @@ function buildRedirectUrl({
         params.set('detail', detail)
     }
 
-    if (selectedQuestId) {
-        params.set('selectedQuestId', selectedQuestId)
+    if (selectedCampaignId) {
+        params.set('selectedCampaignId', selectedCampaignId)
     }
 
-    return `${adminQuestsPath}?${params.toString()}`
+    return `${adminCampaignsPath}?${params.toString()}`
 }
 
 function finishAction({
     detail,
     outcome,
-    selectedQuestId,
+    selectedCampaignId,
 }: {
     detail?: string
     outcome: string
-    selectedQuestId?: string
+    selectedCampaignId?: string
 }): never {
-    revalidatePath(adminQuestsPath)
+    revalidatePath(adminCampaignsPath)
     redirect(
         buildRedirectUrl({
             detail,
             outcome,
-            selectedQuestId,
+            selectedCampaignId,
         })
     )
 }
@@ -70,8 +70,8 @@ function getStringField(formData: FormData, fieldName: string) {
     return typeof value === 'string' ? value.trim() : ''
 }
 
-async function loadQuest(questId: string) {
-    return prisma.quest.findUnique({
+async function loadQuest(campaignId: string) {
+    return prisma.campaign.findUnique({
         select: {
             archivedAt: true,
             description: true,
@@ -90,19 +90,19 @@ async function loadQuest(questId: string) {
             visibility: true,
         },
         where: {
-            id: questId,
+            id: campaignId,
         },
     })
 }
 
-async function loadActiveQuestConflict({
-    excludeQuestId,
+async function loadActiveCampaignConflict({
+    excludeCampaignId,
     now,
 }: {
-    excludeQuestId?: string
+    excludeCampaignId?: string
     now: Date
 }) {
-    return prisma.quest.findFirst({
+    return prisma.campaign.findFirst({
         select: {
             id: true,
             name: true,
@@ -112,9 +112,9 @@ async function loadActiveQuestConflict({
             endAt: {
                 gte: now,
             },
-            id: excludeQuestId
+            id: excludeCampaignId
                 ? {
-                      not: excludeQuestId,
+                      not: excludeCampaignId,
                   }
                 : undefined,
             publishedAt: {
@@ -127,8 +127,8 @@ async function loadActiveQuestConflict({
     })
 }
 
-function resolveQuestErrorCode(error: unknown) {
-    if (error instanceof QuestAdminError) {
+function resolveCampaignErrorCode(error: unknown) {
+    if (error instanceof CampaignAdminError) {
         return error.code
     }
 
@@ -145,14 +145,14 @@ function isRedirectSignal(error: unknown) {
     return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')
 }
 
-export async function createQuestAction(formData: FormData) {
+export async function createCampaignAction(formData: FormData) {
     const actor = await requireAdminActionUser()
     const now = new Date()
 
     try {
-        const formValues = parseQuestFormValues(formData)
-        const values = prepareQuestCreateValues(formValues, now)
-        const activeQuest = await loadActiveQuestConflict({
+        const formValues = parseCampaignFormValues(formData)
+        const values = prepareCampaignCreateValues(formValues, now)
+        const activeQuest = await loadActiveCampaignConflict({
             now,
         })
 
@@ -162,7 +162,7 @@ export async function createQuestAction(formData: FormData) {
         })
 
         const createdQuest = await prisma.$transaction(async (transaction) => {
-            const quest = await transaction.quest.create({
+            const campaign = await transaction.campaign.create({
                 data: {
                     ...values,
                     createdByUserId: actor.id,
@@ -175,23 +175,23 @@ export async function createQuestAction(formData: FormData) {
 
             await transaction.auditLog.create({
                 data: {
-                    action: 'quest.created',
+                    action: 'campaign.created',
                     actorUserId: actor.id,
-                    entityId: quest.id,
-                    entityType: 'Quest',
+                    entityId: campaign.id,
+                    entityType: 'Campaign',
                     metadata: {
-                        status: quest.status,
+                        status: campaign.status,
                     },
-                    questId: quest.id,
+                    campaignId: campaign.id,
                 },
             })
 
-            return quest
+            return campaign
         })
 
         finishAction({
             outcome: 'created',
-            selectedQuestId: createdQuest.id,
+            selectedCampaignId: createdQuest.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {
@@ -199,85 +199,85 @@ export async function createQuestAction(formData: FormData) {
         }
 
         finishAction({
-            detail: resolveQuestErrorCode(error),
+            detail: resolveCampaignErrorCode(error),
             outcome: 'error',
         })
     }
 }
 
-export async function updateQuestAction(formData: FormData) {
+export async function updateCampaignAction(formData: FormData) {
     const actor = await requireAdminActionUser()
     const now = new Date()
-    const questId = getStringField(formData, 'questId')
+    const campaignId = getStringField(formData, 'campaignId')
 
-    if (!questId) {
+    if (!campaignId) {
         finishAction({
-            detail: 'missing-quest',
+            detail: 'missing-campaign',
             outcome: 'error',
         })
     }
 
-    const quest = await loadQuest(questId)
+    const campaign = await loadQuest(campaignId)
 
-    if (!quest) {
+    if (!campaign) {
         finishAction({
-            detail: 'quest-not-found',
+            detail: 'campaign-not-found',
             outcome: 'error',
         })
     }
 
-    if (quest.archivedAt) {
+    if (campaign.archivedAt) {
         finishAction({
-            detail: 'quest-not-editable',
+            detail: 'campaign-not-editable',
             outcome: 'error',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     }
 
     try {
-        const formValues = parseQuestFormValues(formData)
-        const values = prepareQuestUpdateValues({
-            archivedAt: quest.archivedAt,
+        const formValues = parseCampaignFormValues(formData)
+        const values = prepareCampaignUpdateValues({
+            archivedAt: campaign.archivedAt,
             formValues,
             now,
-            publishedAt: quest.publishedAt,
+            publishedAt: campaign.publishedAt,
         })
-        const activeQuest = await loadActiveQuestConflict({
-            excludeQuestId: quest.id,
+        const activeQuest = await loadActiveCampaignConflict({
+            excludeCampaignId: campaign.id,
             now,
         })
 
         assertSingleActiveQuest({
             activeQuest,
             nextStatus: values.status,
-            questId: quest.id,
+            campaignId: campaign.id,
         })
 
         await prisma.$transaction(async (transaction) => {
-            await transaction.quest.update({
+            await transaction.campaign.update({
                 data: values,
                 where: {
-                    id: quest.id,
+                    id: campaign.id,
                 },
             })
 
             await transaction.auditLog.create({
                 data: {
-                    action: 'quest.updated',
+                    action: 'campaign.updated',
                     actorUserId: actor.id,
-                    entityId: quest.id,
-                    entityType: 'Quest',
+                    entityId: campaign.id,
+                    entityType: 'Campaign',
                     metadata: {
                         status: values.status,
                     },
-                    questId: quest.id,
+                    campaignId: campaign.id,
                 },
             })
         })
 
         finishAction({
             outcome: 'updated',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {
@@ -285,76 +285,76 @@ export async function updateQuestAction(formData: FormData) {
         }
 
         finishAction({
-            detail: resolveQuestErrorCode(error),
+            detail: resolveCampaignErrorCode(error),
             outcome: 'error',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     }
 }
 
-export async function publishQuestAction(formData: FormData) {
+export async function publishCampaignAction(formData: FormData) {
     const actor = await requireAdminActionUser()
     const now = new Date()
-    const questId = getStringField(formData, 'questId')
+    const campaignId = getStringField(formData, 'campaignId')
 
-    if (!questId) {
+    if (!campaignId) {
         finishAction({
-            detail: 'missing-quest',
+            detail: 'missing-campaign',
             outcome: 'error',
         })
     }
 
-    const quest = await loadQuest(questId)
+    const campaign = await loadQuest(campaignId)
 
-    if (!quest) {
+    if (!campaign) {
         finishAction({
-            detail: 'quest-not-found',
+            detail: 'campaign-not-found',
             outcome: 'error',
         })
     }
 
     try {
-        const values = prepareQuestPublishValues({
+        const values = prepareCampaignPublishValues({
             now,
-            quest,
+            campaign,
         })
-        const activeQuest = await loadActiveQuestConflict({
-            excludeQuestId: quest.id,
+        const activeQuest = await loadActiveCampaignConflict({
+            excludeCampaignId: campaign.id,
             now,
         })
 
         assertSingleActiveQuest({
             activeQuest,
             nextStatus: values.status,
-            questId: quest.id,
+            campaignId: campaign.id,
         })
 
         await prisma.$transaction(async (transaction) => {
-            await transaction.quest.update({
+            await transaction.campaign.update({
                 data: values,
                 where: {
-                    id: quest.id,
+                    id: campaign.id,
                 },
             })
 
             await transaction.auditLog.create({
                 data: {
-                    action: 'quest.published',
+                    action: 'campaign.published',
                     actorUserId: actor.id,
-                    entityId: quest.id,
-                    entityType: 'Quest',
+                    entityId: campaign.id,
+                    entityType: 'Campaign',
                     metadata: {
                         publishedAt: values.publishedAt?.toISOString() ?? null,
                         status: values.status,
                     },
-                    questId: quest.id,
+                    campaignId: campaign.id,
                 },
             })
         })
 
         finishAction({
             outcome: 'published',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {
@@ -362,65 +362,65 @@ export async function publishQuestAction(formData: FormData) {
         }
 
         finishAction({
-            detail: resolveQuestErrorCode(error),
+            detail: resolveCampaignErrorCode(error),
             outcome: 'error',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     }
 }
 
-export async function archiveQuestAction(formData: FormData) {
+export async function archiveCampaignAction(formData: FormData) {
     const actor = await requireAdminActionUser()
-    const questId = getStringField(formData, 'questId')
+    const campaignId = getStringField(formData, 'campaignId')
 
-    if (!questId) {
+    if (!campaignId) {
         finishAction({
-            detail: 'missing-quest',
+            detail: 'missing-campaign',
             outcome: 'error',
         })
     }
 
-    const quest = await loadQuest(questId)
+    const campaign = await loadQuest(campaignId)
 
-    if (!quest) {
+    if (!campaign) {
         finishAction({
-            detail: 'quest-not-found',
+            detail: 'campaign-not-found',
             outcome: 'error',
         })
     }
 
     try {
-        const values = prepareQuestArchiveValues({
+        const values = prepareCampaignArchiveValues({
             now: new Date(),
-            quest,
+            campaign,
         })
 
         await prisma.$transaction(async (transaction) => {
-            await transaction.quest.update({
+            await transaction.campaign.update({
                 data: values,
                 where: {
-                    id: quest.id,
+                    id: campaign.id,
                 },
             })
 
             await transaction.auditLog.create({
                 data: {
-                    action: 'quest.archived',
+                    action: 'campaign.archived',
                     actorUserId: actor.id,
-                    entityId: quest.id,
-                    entityType: 'Quest',
+                    entityId: campaign.id,
+                    entityType: 'Campaign',
                     metadata: {
                         archivedAt: values.archivedAt?.toISOString() ?? null,
                         status: values.status,
                     },
-                    questId: quest.id,
+                    campaignId: campaign.id,
                 },
             })
         })
 
         finishAction({
             outcome: 'archived',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {
@@ -428,39 +428,39 @@ export async function archiveQuestAction(formData: FormData) {
         }
 
         finishAction({
-            detail: resolveQuestErrorCode(error),
+            detail: resolveCampaignErrorCode(error),
             outcome: 'error',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     }
 }
 
-export async function duplicateQuestAction(formData: FormData) {
+export async function duplicateCampaignAction(formData: FormData) {
     const actor = await requireAdminActionUser()
-    const questId = getStringField(formData, 'questId')
+    const campaignId = getStringField(formData, 'campaignId')
 
-    if (!questId) {
+    if (!campaignId) {
         finishAction({
-            detail: 'missing-quest',
+            detail: 'missing-campaign',
             outcome: 'error',
         })
     }
 
-    const quest = await loadQuest(questId)
+    const campaign = await loadQuest(campaignId)
 
-    if (!quest) {
+    if (!campaign) {
         finishAction({
-            detail: 'quest-not-found',
+            detail: 'campaign-not-found',
             outcome: 'error',
         })
     }
 
     try {
-        const values = prepareQuestDuplicateValues(quest)
+        const values = prepareCampaignDuplicateValues(campaign)
 
         const duplicatedQuest = await prisma.$transaction(
             async (transaction) => {
-                const createdQuest = await transaction.quest.create({
+                const createdQuest = await transaction.campaign.create({
                     data: {
                         ...values,
                         createdByUserId: actor.id,
@@ -472,14 +472,14 @@ export async function duplicateQuestAction(formData: FormData) {
 
                 await transaction.auditLog.create({
                     data: {
-                        action: 'quest.duplicated',
+                        action: 'campaign.duplicated',
                         actorUserId: actor.id,
                         entityId: createdQuest.id,
-                        entityType: 'Quest',
+                        entityType: 'Campaign',
                         metadata: {
-                            sourceQuestId: quest.id,
+                            sourceCampaignId: campaign.id,
                         },
-                        questId: createdQuest.id,
+                        campaignId: createdQuest.id,
                     },
                 })
 
@@ -489,7 +489,7 @@ export async function duplicateQuestAction(formData: FormData) {
 
         finishAction({
             outcome: 'duplicated',
-            selectedQuestId: duplicatedQuest.id,
+            selectedCampaignId: duplicatedQuest.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {
@@ -497,57 +497,57 @@ export async function duplicateQuestAction(formData: FormData) {
         }
 
         finishAction({
-            detail: resolveQuestErrorCode(error),
+            detail: resolveCampaignErrorCode(error),
             outcome: 'error',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     }
 }
 
-export async function assignQuestChallengeAction(formData: FormData) {
+export async function assignCampaignChallengeAction(formData: FormData) {
     const actor = await requireAdminActionUser()
-    const questId = getStringField(formData, 'questId')
+    const campaignId = getStringField(formData, 'campaignId')
 
-    if (!questId) {
+    if (!campaignId) {
         finishAction({
-            detail: 'missing-quest',
+            detail: 'missing-campaign',
             outcome: 'error',
         })
     }
 
-    const quest = await prisma.quest.findUnique({
+    const campaign = await prisma.campaign.findUnique({
         select: {
             archivedAt: true,
             id: true,
-            questChallenges: {
+            campaignChallenges: {
                 select: {
                     challengeId: true,
                 },
             },
         },
         where: {
-            id: questId,
+            id: campaignId,
         },
     })
 
-    if (!quest) {
+    if (!campaign) {
         finishAction({
-            detail: 'quest-not-found',
+            detail: 'campaign-not-found',
             outcome: 'error',
         })
     }
 
-    if (quest.archivedAt) {
+    if (campaign.archivedAt) {
         finishAction({
-            detail: 'quest-not-editable',
+            detail: 'campaign-not-editable',
             outcome: 'error',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     }
 
     try {
-        const formValues = parseQuestChallengeAssignmentFormValues(formData)
-        const values = prepareQuestChallengeAssignmentValues(formValues)
+        const formValues = parseCampaignChallengeAssignmentFormValues(formData)
+        const values = prepareCampaignChallengeAssignmentValues(formValues)
         const challenge = await prisma.challenge.findUnique({
             select: {
                 id: true,
@@ -559,24 +559,24 @@ export async function assignQuestChallengeAction(formData: FormData) {
         })
 
         if (!challenge) {
-            throw new QuestAdminError(
+            throw new CampaignAdminError(
                 'challenge-not-found',
                 'That challenge record is no longer available.'
             )
         }
 
-        assertQuestChallengeNotAssigned({
+        assertCampaignChallengeNotAssigned({
             challengeId: values.challengeId,
-            existingChallengeIds: quest.questChallenges.map(
+            existingChallengeIds: campaign.campaignChallenges.map(
                 (assignment) => assignment.challengeId
             ),
         })
 
         await prisma.$transaction(async (transaction) => {
-            const assignment = await transaction.questChallenge.create({
+            const assignment = await transaction.campaignChallenge.create({
                 data: {
                     ...values,
-                    questId: quest.id,
+                    campaignId: campaign.id,
                 },
                 select: {
                     id: true,
@@ -585,18 +585,18 @@ export async function assignQuestChallengeAction(formData: FormData) {
 
             await transaction.auditLog.create({
                 data: {
-                    action: 'quest.challenge-assigned',
+                    action: 'campaign.challenge-assigned',
                     actorUserId: actor.id,
                     challengeId: challenge.id,
                     entityId: assignment.id,
-                    entityType: 'QuestChallenge',
+                    entityType: 'CampaignChallenge',
                     metadata: {
                         challengeTitle: challenge.title,
                         pointValueOverride:
                             values.pointValueOverride?.toString() ?? null,
                         sortOrder: values.sortOrder,
                     },
-                    questId: quest.id,
+                    campaignId: campaign.id,
                 },
             })
         })
@@ -604,7 +604,7 @@ export async function assignQuestChallengeAction(formData: FormData) {
         revalidatePath('/admin/challenges')
         finishAction({
             outcome: 'challenge-assigned',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {
@@ -612,9 +612,9 @@ export async function assignQuestChallengeAction(formData: FormData) {
         }
 
         finishAction({
-            detail: resolveQuestErrorCode(error),
+            detail: resolveCampaignErrorCode(error),
             outcome: 'error',
-            selectedQuestId: quest.id,
+            selectedCampaignId: campaign.id,
         })
     }
 }

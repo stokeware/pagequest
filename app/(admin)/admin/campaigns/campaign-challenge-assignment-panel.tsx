@@ -28,7 +28,7 @@ type AvailableChallenge = {
     title: string
 }
 
-type AssignedQuestChallenge = {
+type AssignedCampaignChallenge = {
     challenge: {
         availability: ChallengeAvailability
         category: string | null
@@ -50,25 +50,25 @@ function formatPoints(value: { toString(): string }) {
         : numericValue.toFixed(2).replace(/\.00$/, '').replace(/0$/, '')
 }
 
-export function QuestChallengeAssignmentsPanel({
+export function CampaignChallengeAssignmentsPanel({
     action,
     availableChallenges,
     assignments,
     canEdit,
-    questId,
+    campaignId,
 }: {
     action: (formData: FormData) => Promise<void>
     availableChallenges: AvailableChallenge[]
-    assignments: AssignedQuestChallenge[]
+    assignments: AssignedCampaignChallenge[]
     canEdit: boolean
-    questId: string
+    campaignId: string
 }) {
     return (
         <Card className='surface-card'>
             <CardHeader>
-                <CardTitle>Quest challenges</CardTitle>
+                <CardTitle>Campaign challenges</CardTitle>
                 <CardDescription>
-                    Attach reusable catalog challenges to this quest with an
+                    Attach reusable catalog challenges to this campaign with an
                     explicit display order and an optional point override.
                 </CardDescription>
             </CardHeader>
@@ -111,14 +111,14 @@ export function QuestChallengeAssignmentsPanel({
                                     Point rule:{' '}
                                     {assignment.pointValueOverride
                                         ? `${formatPoints(assignment.pointValueOverride)} points`
-                                        : 'Quest default challenge points'}
+                                        : 'Campaign default challenge points'}
                                 </p>
                             </div>
                         ))}
                     </div>
                 ) : (
                     <p className='type-muted text-sm'>
-                        No catalog challenges are attached to this quest yet.
+                        No catalog challenges are attached to this campaign yet.
                     </p>
                 )}
 
@@ -130,12 +130,12 @@ export function QuestChallengeAssignmentsPanel({
                         >
                             <input
                                 type='hidden'
-                                name='questId'
-                                value={questId}
+                                name='campaignId'
+                                value={campaignId}
                             />
                             <div className='stack-sm'>
                                 <h3 className='text-sm font-semibold'>
-                                    Add a quest challenge
+                                    Add a campaign challenge
                                 </h3>
                                 <p className='type-muted text-xs'>
                                     Pick from the reusable challenge catalog,
@@ -145,11 +145,11 @@ export function QuestChallengeAssignmentsPanel({
 
                             <FormField
                                 label='Catalog challenge'
-                                htmlFor={`${questId}-challengeId`}
+                                htmlFor={`${campaignId}-challengeId`}
                                 hint='Only unassigned catalog entries appear here.'
                             >
                                 <select
-                                    id={`${questId}-challengeId`}
+                                    id={`${campaignId}-challengeId`}
                                     name='challengeId'
                                     className={selectClassName}
                                     defaultValue={availableChallenges[0]?.id}
@@ -168,11 +168,11 @@ export function QuestChallengeAssignmentsPanel({
                             <div className='grid gap-4 md:grid-cols-2'>
                                 <FormField
                                     label='Sort order'
-                                    htmlFor={`${questId}-sortOrder`}
-                                    hint='Lower numbers appear earlier in the quest challenge list.'
+                                    htmlFor={`${campaignId}-sortOrder`}
+                                    hint='Lower numbers appear earlier in the campaign challenge list.'
                                 >
                                     <Input
-                                        id={`${questId}-sortOrder`}
+                                        id={`${campaignId}-sortOrder`}
                                         name='sortOrder'
                                         type='number'
                                         min='0'
@@ -183,36 +183,36 @@ export function QuestChallengeAssignmentsPanel({
 
                                 <FormField
                                     label='Point override'
-                                    htmlFor={`${questId}-pointValueOverride`}
-                                    hint='Leave blank to use the quest-level challenge scoring rule.'
+                                    htmlFor={`${campaignId}-pointValueOverride`}
+                                    hint='Leave blank to use the campaign-level challenge scoring rule.'
                                 >
                                     <Input
-                                        id={`${questId}-pointValueOverride`}
+                                        id={`${campaignId}-pointValueOverride`}
                                         name='pointValueOverride'
                                         type='number'
                                         min='0'
                                         step='0.01'
-                                        placeholder='Use quest default'
+                                        placeholder='Use campaign default'
                                     />
                                 </FormField>
                             </div>
 
-                            <FormActions note='Assignments stay on the quest record even if the catalog entry is edited later.'>
+                            <FormActions note='Assignments stay on the campaign record even if the catalog entry is edited later.'>
                                 <Button nativeButton type='submit'>
-                                    Add challenge to quest
+                                    Add challenge to campaign
                                 </Button>
                             </FormActions>
                         </form>
                     ) : (
                         <p className='type-muted text-xs'>
                             Every current catalog challenge is already attached
-                            to this quest.
+                            to this campaign.
                         </p>
                     )
                 ) : (
                     <p className='type-muted text-xs'>
-                        Archived quests keep their challenge lineup visible, but
-                        assignments can no longer change from this surface.
+                        Archived campaigns keep their challenge lineup visible,
+                        but assignments can no longer change from this surface.
                     </p>
                 )}
             </CardContent>

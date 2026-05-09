@@ -1,8 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { getDerivedQuestStatusUpdates } from '@/lib/quest-domain'
+import { getDerivedCampaignStatusUpdates } from '@/lib/campaign-domain'
 
-export async function synchronizeDerivedQuestStatuses(now = new Date()) {
-    const quests = await prisma.quest.findMany({
+export async function synchronizeDerivedCampaignStatuses(now = new Date()) {
+    const campaigns = await prisma.campaign.findMany({
         select: {
             archivedAt: true,
             endAt: true,
@@ -19,7 +19,7 @@ export async function synchronizeDerivedQuestStatuses(now = new Date()) {
         },
     })
 
-    const updates = getDerivedQuestStatusUpdates(quests, now)
+    const updates = getDerivedCampaignStatusUpdates(campaigns, now)
 
     if (updates.length === 0) {
         return []
@@ -27,7 +27,7 @@ export async function synchronizeDerivedQuestStatuses(now = new Date()) {
 
     await prisma.$transaction(
         updates.map((update) =>
-            prisma.quest.update({
+            prisma.campaign.update({
                 data: {
                     status: update.nextStatus,
                 },

@@ -2,19 +2,19 @@ import type { ChallengeReviewState } from '@prisma/client'
 import { cache } from 'react'
 
 import {
-    getCompetitorQuestContext,
-    type CompetitorQuestContext,
-    type CompetitorQuestParticipantRecord,
-    type CompetitorQuestStatus,
+    getCompetitorCampaignContext,
+    type CompetitorCampaignContext,
+    type CompetitorCampaignParticipantRecord,
+    type CompetitorCampaignStatus,
     type CompetitorRecentEntryRecord,
 } from '@/lib/competitor-queries'
 import { getReadingEntryMetadataSummary } from '@/lib/log-progress'
 
-export { getCompetitorQuestContext } from '@/lib/competitor-queries'
+export { getCompetitorCampaignContext } from '@/lib/competitor-queries'
 export type {
-    CompetitorQuestContext,
-    CompetitorQuestParticipantRecord,
-    CompetitorQuestStatus,
+    CompetitorCampaignContext,
+    CompetitorCampaignParticipantRecord,
+    CompetitorCampaignStatus,
     CompetitorRecentEntryRecord,
     CompetitorStandingRecord,
 } from '@/lib/competitor-queries'
@@ -46,8 +46,8 @@ type DashboardShellMetric = {
 export type CompetitorDashboardViewModel = {
     hasQuest: boolean
     participantSummary: string
-    questName: string
-    questStatusLabel: string
+    campaignName: string
+    campaignStatusLabel: string
     recentActivity: DashboardRecentActivityItem[]
     shellMetrics: DashboardShellMetric[]
     snapshotCards: DashboardSnapshotCard[]
@@ -64,16 +64,16 @@ type StandingComparable = {
 }
 
 const defaultParticipantSummary =
-    'No active quest participation is linked to this account yet. Your dashboard will fill in once an invitation connects you to a quest.'
+    'No active campaign participation is linked to this account yet. Your dashboard will fill in once an invitation connects you to a campaign.'
 
 const emptyShellMetrics: DashboardShellMetric[] = [
     {
-        detail: 'A quest invite will unlock timing details here.',
-        label: 'Active quest',
+        detail: 'A campaign invite will unlock timing details here.',
+        label: 'Active campaign',
         value: 'Pending',
     },
     {
-        detail: 'Current rank appears after your first quest is linked.',
+        detail: 'Current rank appears after your first campaign is linked.',
         label: 'Current standing',
         value: 'Unranked',
     },
@@ -88,8 +88,8 @@ export const defaultCompetitorDashboardViewModel: CompetitorDashboardViewModel =
     {
         hasQuest: false,
         participantSummary: defaultParticipantSummary,
-        questName: 'Quest assignment pending',
-        questStatusLabel: 'Awaiting invitation',
+        campaignName: 'Campaign assignment pending',
+        campaignStatusLabel: 'Awaiting invitation',
         recentActivity: [],
         shellMetrics: emptyShellMetrics,
         snapshotCards: [],
@@ -98,7 +98,7 @@ export const defaultCompetitorDashboardViewModel: CompetitorDashboardViewModel =
 
 export const getCompetitorDashboardViewModel = cache(
     async (userId: string | null): Promise<CompetitorDashboardViewModel> => {
-        const context = await getCompetitorQuestContext(userId)
+        const context = await getCompetitorCampaignContext(userId)
 
         if (!context) {
             return defaultCompetitorDashboardViewModel
@@ -109,7 +109,7 @@ export const getCompetitorDashboardViewModel = cache(
 )
 
 export function buildCompetitorDashboardViewModel(
-    selection: CompetitorQuestContext | null,
+    selection: CompetitorCampaignContext | null,
     now: Date
 ): CompetitorDashboardViewModel {
     if (!selection) {
@@ -119,7 +119,7 @@ export function buildCompetitorDashboardViewModel(
     const { participant, recentEntries, standings } = selection
     const rankedStandings = rankStandings(standings)
     const recentActivity = recentEntries.map((entry) =>
-        toRecentActivityItem(entry, participant.quest.timezone)
+        toRecentActivityItem(entry, participant.campaign.timezone)
     )
     const participantStanding = rankedStandings.find(
         (entry) => entry.id === participant.id
@@ -162,14 +162,16 @@ export function buildCompetitorDashboardViewModel(
     return {
         hasQuest: true,
         participantSummary: getParticipantSummary(participant),
-        questName: participant.quest.name,
-        questStatusLabel: getQuestStatusLabel(participant.quest.status),
+        campaignName: participant.campaign.name,
+        campaignStatusLabel: getCampaignStatusLabel(
+            participant.campaign.status
+        ),
         recentActivity,
         shellMetrics: [
             {
-                detail: getShellQuestDetail(participant, now),
-                label: 'Active quest',
-                value: participant.quest.name,
+                detail: getShellCampaignDetail(participant, now),
+                label: 'Active campaign',
+                value: participant.campaign.name,
             },
             {
                 detail: snapshotCards[0].description,
@@ -192,7 +194,7 @@ export function buildCompetitorDashboardViewModel(
                 value: formatPoints(participant.totalPoints),
             },
             {
-                detail: 'Page totals logged toward this quest.',
+                detail: 'Page totals logged toward this campaign.',
                 label: 'Pages read',
                 value: formatCount(participant.totalPages),
             },
@@ -207,7 +209,7 @@ export function buildCompetitorDashboardViewModel(
                 value: formatCount(participant.totalAudiobookMinutes),
             },
             {
-                detail: 'Quest challenges recorded for this season.',
+                detail: 'Campaign challenges recorded for this season.',
                 label: 'Challenges completed',
                 value: formatCount(participant.totalChallenges),
             },
@@ -215,64 +217,68 @@ export function buildCompetitorDashboardViewModel(
     }
 }
 
-function getParticipantSummary(participant: CompetitorQuestParticipantRecord) {
+function getParticipantSummary(
+    participant: CompetitorCampaignParticipantRecord
+) {
     const lastActivity = participant.lastActivityAt
-        ? `Last activity ${formatActivityDate(participant.lastActivityAt, participant.quest.timezone)}.`
-        : 'Your first entry will set the pace for this quest.'
+        ? `Last activity ${formatActivityDate(participant.lastActivityAt, participant.campaign.timezone)}.`
+        : 'Your first entry will set the pace for this campaign.'
 
-    switch (participant.quest.status) {
+    switch (participant.campaign.status) {
         case 'ACTIVE':
-            return `${participant.quest.name} is live. ${lastActivity}`
+            return `${participant.campaign.name} is live. ${lastActivity}`
         case 'SCHEDULED':
-            return `${participant.quest.name} has not opened yet. Use this dashboard to plan your first push.`
+            return `${participant.campaign.name} has not opened yet. Use this dashboard to plan your first push.`
         case 'COMPLETED':
-            return `${participant.quest.name} has wrapped up. ${lastActivity}`
+            return `${participant.campaign.name} has wrapped up. ${lastActivity}`
         default:
-            return assertNever(participant.quest.status)
+            return assertNever(participant.campaign.status)
     }
 }
 
-function getQuestStatusLabel(status: CompetitorQuestStatus) {
+function getCampaignStatusLabel(status: CompetitorCampaignStatus) {
     switch (status) {
         case 'ACTIVE':
-            return 'Active quest'
+            return 'Active campaign'
         case 'SCHEDULED':
-            return 'Scheduled quest'
+            return 'Scheduled campaign'
         case 'COMPLETED':
-            return 'Completed quest'
+            return 'Completed campaign'
         default:
             return assertNever(status)
     }
 }
 
 function getTimeRemainingCard(
-    participant: CompetitorQuestParticipantRecord,
+    participant: CompetitorCampaignParticipantRecord,
     now: Date
 ): DashboardSnapshotCard {
-    if (participant.quest.status === 'SCHEDULED') {
+    if (participant.campaign.status === 'SCHEDULED') {
         return {
-            description: `Quest starts ${formatBoundaryDate(participant.quest.startAt, participant.quest.timezone)}.`,
+            description: `Campaign starts ${formatBoundaryDate(participant.campaign.startAt, participant.campaign.timezone)}.`,
             title: 'Time until start',
-            value: getDurationLabel(participant.quest.startAt, now),
+            value: getDurationLabel(participant.campaign.startAt, now),
         }
     }
 
-    if (participant.quest.status === 'COMPLETED') {
+    if (participant.campaign.status === 'COMPLETED') {
         return {
-            description: `Quest closed ${formatBoundaryDate(participant.quest.endAt, participant.quest.timezone)}.`,
-            title: 'Quest status',
+            description: `Campaign closed ${formatBoundaryDate(participant.campaign.endAt, participant.campaign.timezone)}.`,
+            title: 'Campaign status',
             value: 'Completed',
         }
     }
 
     return {
-        description: `Quest closes ${formatBoundaryDate(participant.quest.endAt, participant.quest.timezone)}.`,
+        description: `Campaign closes ${formatBoundaryDate(participant.campaign.endAt, participant.campaign.timezone)}.`,
         title: 'Time remaining',
-        value: getDurationLabel(participant.quest.endAt, now),
+        value: getDurationLabel(participant.campaign.endAt, now),
     }
 }
 
-function getPointsDescription(participant: CompetitorQuestParticipantRecord) {
+function getPointsDescription(
+    participant: CompetitorCampaignParticipantRecord
+) {
     const parts = [
         `${formatCount(participant.totalPages)} pages`,
         `${formatCount(participant.totalAudiobookMinutes)} audiobook minutes`,
@@ -307,7 +313,7 @@ function getRankDescription({
     readerCount: number
 }) {
     if (!rankNumber || readerCount === 0) {
-        return 'Leaderboard placement appears after this quest has active participants.'
+        return 'Leaderboard placement appears after this campaign has active participants.'
     }
 
     if (readerCount === 1) {
@@ -319,25 +325,25 @@ function getRankDescription({
     }
 
     if (pointsBehindLeader === 0 && leaderPoints === participantPoints) {
-        return `Tied on points with the quest leader across ${readerCount} readers.`
+        return `Tied on points with the campaign leader across ${readerCount} readers.`
     }
 
     return `${formatPointsFromNumber(pointsBehindLeader)} behind first place out of ${readerCount} readers.`
 }
 
-function getShellQuestDetail(
-    participant: CompetitorQuestParticipantRecord,
+function getShellCampaignDetail(
+    participant: CompetitorCampaignParticipantRecord,
     now: Date
 ) {
-    switch (participant.quest.status) {
+    switch (participant.campaign.status) {
         case 'ACTIVE':
-            return `${getDurationLabel(participant.quest.endAt, now)} remaining`
+            return `${getDurationLabel(participant.campaign.endAt, now)} remaining`
         case 'SCHEDULED':
-            return `Starts in ${getDurationLabel(participant.quest.startAt, now).toLowerCase()}`
+            return `Starts in ${getDurationLabel(participant.campaign.startAt, now).toLowerCase()}`
         case 'COMPLETED':
-            return `Ended ${formatBoundaryDate(participant.quest.endAt, participant.quest.timezone)}`
+            return `Ended ${formatBoundaryDate(participant.campaign.endAt, participant.campaign.timezone)}`
         default:
-            return assertNever(participant.quest.status)
+            return assertNever(participant.campaign.status)
     }
 }
 

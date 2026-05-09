@@ -92,7 +92,8 @@ export function ChallengePolicyPanel({
                 <CardTitle>Catalog rules</CardTitle>
                 <CardDescription>
                     Challenge entries store repeatability, point behavior, and
-                    moderation expectations before they are attached to quests.
+                    moderation expectations before they are attached to
+                    campaigns.
                 </CardDescription>
             </CardHeader>
 
@@ -113,10 +114,10 @@ export function ChallengePolicyPanel({
                     <strong>
                         {defaults.pointValue
                             ? `${defaults.pointValue} points`
-                            : 'Quest default'}
+                            : 'Campaign default'}
                     </strong>
                     <p className='type-muted text-xs'>
-                        Leave point value blank when the quest-wide challenge
+                        Leave point value blank when the campaign-wide challenge
                         scoring rule should apply.
                     </p>
                 </div>
@@ -155,7 +156,7 @@ export function ChallengeForm({
     return (
         <FormCard
             title={title}
-            description='Build the reusable challenge catalog here before assigning entries to specific quests.'
+            description='Build the reusable challenge catalog here before assigning entries to specific campaigns.'
         >
             <form action={action} className='ui-form-shell'>
                 {challengeId ? (
@@ -189,7 +190,7 @@ export function ChallengeForm({
                         name='description'
                         defaultValue={defaultValues.description}
                         className={textareaClassName}
-                        placeholder='Read a biography or memoir during this quest.'
+                        placeholder='Read a biography or memoir during this campaign.'
                     />
                 </FormField>
 
@@ -197,7 +198,7 @@ export function ChallengeForm({
                     <FormField
                         label='Category'
                         htmlFor={`${challengeId ?? 'new'}-category`}
-                        hint='Optional grouping for themed quests, badges, or future filters.'
+                        hint='Optional grouping for themed campaigns, badges, or future filters.'
                     >
                         <Input
                             id={`${challengeId ?? 'new'}-category`}
@@ -210,7 +211,7 @@ export function ChallengeForm({
                     <FormField
                         label='Point value'
                         htmlFor={`${challengeId ?? 'new'}-pointValue`}
-                        hint='Leave blank to use the quest-wide challenge scoring rule.'
+                        hint='Leave blank to use the campaign-wide challenge scoring rule.'
                     >
                         <Input
                             id={`${challengeId ?? 'new'}-pointValue`}

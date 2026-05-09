@@ -1,34 +1,34 @@
 import type {
     ChallengeReviewState,
-    QuestStatus,
+    CampaignStatus,
     ReadingEntryType,
 } from '@prisma/client'
 import { cache } from 'react'
 
 import { prisma } from '@/lib/prisma'
-import type { QuestScoringRules } from '@/lib/quest-domain'
+import type { CampaignScoringRules } from '@/lib/campaign-domain'
 
-export type CompetitorQuestStatus = Extract<
-    QuestStatus,
+export type CompetitorCampaignStatus = Extract<
+    CampaignStatus,
     'ACTIVE' | 'COMPLETED' | 'SCHEDULED'
 >
 
-export type CompetitorHistoryQuestStatus = Extract<
-    QuestStatus,
+export type CompetitorHistoryCampaignStatus = Extract<
+    CampaignStatus,
     'ACTIVE' | 'SCHEDULED' | 'COMPLETED' | 'ARCHIVED'
 >
 
-export type CompetitorQuestParticipantRecord = {
+export type CompetitorCampaignParticipantRecord = {
     createdAt: Date
     id: string
     joinedAt: Date | null
     lastActivityAt: Date | null
-    quest: {
+    campaign: {
         endAt: Date
         id: string
         name: string
         startAt: Date
-        status: CompetitorQuestStatus
+        status: CompetitorCampaignStatus
         timezone: string
     }
     totalAudiobookMinutes: number
@@ -86,28 +86,28 @@ export type CompetitorHistoryEntryRecord = {
     value: number
 }
 
-export type CompetitorQuestContext = {
-    participant: CompetitorQuestParticipantRecord
+export type CompetitorCampaignContext = {
+    participant: CompetitorCampaignParticipantRecord
     recentEntries: CompetitorRecentEntryRecord[]
     standings: CompetitorStandingRecord[]
 }
 
-export type CompetitorQuestContextWithScoring = CompetitorQuestContext & {
-    scoringRules: QuestScoringRules
+export type CompetitorCampaignContextWithScoring = CompetitorCampaignContext & {
+    scoringRules: CampaignScoringRules
 }
 
-export type CompetitorHistoryQuestRecord = {
+export type CompetitorHistoryCampaignRecord = {
     createdAt: Date
     id: string
     lastActivityAt: Date | null
-    quest: {
+    campaign: {
         endAt: Date
         name: string
         startAt: Date
-        status: CompetitorHistoryQuestStatus
+        status: CompetitorHistoryCampaignStatus
         timezone: string
     }
-    scoringRules: QuestScoringRules
+    scoringRules: CampaignScoringRules
     totalAudiobookMinutes: number
     totalBooks: number
     totalChallenges: number
@@ -115,13 +115,20 @@ export type CompetitorHistoryQuestRecord = {
     totalPoints: { toString(): string }
 }
 
-const currentQuestStatuses: CompetitorQuestStatus[] = [
+type CompetitorCurrentCampaignParticipant =
+    CompetitorCampaignParticipantRecord & {
+        scoringRules: CampaignScoringRules
+    }
+
+type CompetitorHistoryCampaignParticipant = CompetitorHistoryCampaignRecord
+
+const currentCampaignStatuses: CompetitorCampaignStatus[] = [
     'ACTIVE',
     'SCHEDULED',
     'COMPLETED',
 ]
 
-const historyQuestStatuses: CompetitorHistoryQuestStatus[] = [
+const historyCampaignStatuses: CompetitorHistoryCampaignStatus[] = [
     'ACTIVE',
     'SCHEDULED',
     'COMPLETED',
@@ -155,11 +162,12 @@ const readingEntriesOrderBy = [
     },
 ]
 
-export const getCompetitorQuestContext = cache(
+export const getCompetitorCampaignContext = cache(
     async (
         userId: string | null
-    ): Promise<CompetitorQuestContextWithScoring | null> => {
-        const participants = await getCompetitorCurrentQuestParticipants(userId)
+    ): Promise<CompetitorCampaignContextWithScoring | null> => {
+        const participants =
+            await getCompetitorCurrentCampaignParticipants(userId)
         const participant = selectPrimaryCompetitorParticipant(participants)
 
         if (!participant) {
@@ -167,7 +175,7 @@ export const getCompetitorQuestContext = cache(
         }
 
         const [standings, recentEntries] = await Promise.all([
-            getQuestStandings(participant.quest.id),
+            getCampaignStandings(participant.campaign.id),
             getRecentReadingEntries(participant.id, 5),
         ])
 
@@ -180,19 +188,21 @@ export const getCompetitorQuestContext = cache(
     }
 )
 
-export const getCompetitorHistoryQuestRecords = cache(
-    async (userId: string | null): Promise<CompetitorHistoryQuestRecord[]> => {
+export const getCompetitorHistoryCampaignRecords = cache(
+    async (
+        userId: string | null
+    ): Promise<CompetitorHistoryCampaignRecord[]> => {
         if (!userId) {
             return []
         }
 
-        return prisma.questParticipant
+        return prisma.campaignParticipant
             .findMany({
                 select: {
                     createdAt: true,
                     id: true,
                     lastActivityAt: true,
-                    quest: {
+                    campaign: {
                         select: {
                             endAt: true,
                             name: true,
@@ -212,9 +222,9 @@ export const getCompetitorHistoryQuestRecords = cache(
                     totalPoints: true,
                 },
                 where: {
-                    quest: {
+                    campaign: {
                         status: {
-                            in: historyQuestStatuses,
+                            in: historyCampaignStatuses,
                         },
                     },
                     removedAt: null,
@@ -222,24 +232,39 @@ export const getCompetitorHistoryQuestRecords = cache(
                 },
             })
             .then((participants) =>
-                participants.map((participant) => ({
-                    createdAt: participant.createdAt,
-                    id: participant.id,
-                    lastActivityAt: participant.lastActivityAt,
-                    quest: {
-                        endAt: participant.quest.endAt,
-                        name: participant.quest.name,
-                        startAt: participant.quest.startAt,
-                        status: participant.quest.status,
-                        timezone: participant.quest.timezone,
-                    },
-                    scoringRules: toQuestScoringRules(participant.quest),
-                    totalAudiobookMinutes: participant.totalAudiobookMinutes,
-                    totalBooks: participant.totalBooks,
-                    totalChallenges: participant.totalChallenges,
-                    totalPages: participant.totalPages,
-                    totalPoints: participant.totalPoints,
-                }))
+                participants.flatMap((participant) => {
+                    if (
+                        !isCompetitorHistoryCampaignStatus(
+                            participant.campaign.status
+                        )
+                    ) {
+                        return []
+                    }
+
+                    return [
+                        {
+                            createdAt: participant.createdAt,
+                            id: participant.id,
+                            lastActivityAt: participant.lastActivityAt,
+                            campaign: {
+                                endAt: participant.campaign.endAt,
+                                name: participant.campaign.name,
+                                startAt: participant.campaign.startAt,
+                                status: participant.campaign.status,
+                                timezone: participant.campaign.timezone,
+                            },
+                            scoringRules: toCampaignScoringRules(
+                                participant.campaign
+                            ),
+                            totalAudiobookMinutes:
+                                participant.totalAudiobookMinutes,
+                            totalBooks: participant.totalBooks,
+                            totalChallenges: participant.totalChallenges,
+                            totalPages: participant.totalPages,
+                            totalPoints: participant.totalPoints,
+                        } satisfies CompetitorHistoryCampaignParticipant,
+                    ]
+                })
             )
     }
 )
@@ -271,7 +296,7 @@ export const getParticipantReadingEntries = cache(
             },
             where: {
                 deletedAt: null,
-                questParticipantId: participantId,
+                campaignParticipantId: participantId,
             },
         })
     }
@@ -279,24 +304,24 @@ export const getParticipantReadingEntries = cache(
 
 export function selectPrimaryCompetitorParticipant<
     T extends {
-        quest: {
-            status: CompetitorQuestStatus
+        campaign: {
+            status: CompetitorCampaignStatus
         }
     },
 >(participants: T[]) {
     return (
-        participants.find((entry) => entry.quest.status === 'ACTIVE') ??
+        participants.find((entry) => entry.campaign.status === 'ACTIVE') ??
         participants[0] ??
         null
     )
 }
 
-async function getCompetitorCurrentQuestParticipants(userId: string | null) {
+async function getCompetitorCurrentCampaignParticipants(userId: string | null) {
     if (!userId) {
         return []
     }
 
-    return prisma.questParticipant
+    return prisma.campaignParticipant
         .findMany({
             orderBy: {
                 createdAt: 'desc',
@@ -306,7 +331,7 @@ async function getCompetitorCurrentQuestParticipants(userId: string | null) {
                 id: true,
                 joinedAt: true,
                 lastActivityAt: true,
-                quest: {
+                campaign: {
                     select: {
                         endAt: true,
                         id: true,
@@ -328,9 +353,9 @@ async function getCompetitorCurrentQuestParticipants(userId: string | null) {
             },
             take: 5,
             where: {
-                quest: {
+                campaign: {
                     status: {
-                        in: currentQuestStatuses,
+                        in: currentCampaignStatuses,
                     },
                 },
                 removedAt: null,
@@ -338,31 +363,56 @@ async function getCompetitorCurrentQuestParticipants(userId: string | null) {
             },
         })
         .then((participants) =>
-            participants.map((participant) => ({
-                createdAt: participant.createdAt,
-                id: participant.id,
-                joinedAt: participant.joinedAt,
-                lastActivityAt: participant.lastActivityAt,
-                quest: {
-                    endAt: participant.quest.endAt,
-                    id: participant.quest.id,
-                    name: participant.quest.name,
-                    startAt: participant.quest.startAt,
-                    status: participant.quest.status,
-                    timezone: participant.quest.timezone,
-                },
-                scoringRules: toQuestScoringRules(participant.quest),
-                totalAudiobookMinutes: participant.totalAudiobookMinutes,
-                totalBooks: participant.totalBooks,
-                totalChallenges: participant.totalChallenges,
-                totalPages: participant.totalPages,
-                totalPoints: participant.totalPoints,
-            }))
+            participants.flatMap((participant) => {
+                if (!isCompetitorCampaignStatus(participant.campaign.status)) {
+                    return []
+                }
+
+                return [
+                    {
+                        createdAt: participant.createdAt,
+                        id: participant.id,
+                        joinedAt: participant.joinedAt,
+                        lastActivityAt: participant.lastActivityAt,
+                        campaign: {
+                            endAt: participant.campaign.endAt,
+                            id: participant.campaign.id,
+                            name: participant.campaign.name,
+                            startAt: participant.campaign.startAt,
+                            status: participant.campaign.status,
+                            timezone: participant.campaign.timezone,
+                        },
+                        scoringRules: toCampaignScoringRules(
+                            participant.campaign
+                        ),
+                        totalAudiobookMinutes:
+                            participant.totalAudiobookMinutes,
+                        totalBooks: participant.totalBooks,
+                        totalChallenges: participant.totalChallenges,
+                        totalPages: participant.totalPages,
+                        totalPoints: participant.totalPoints,
+                    } satisfies CompetitorCurrentCampaignParticipant,
+                ]
+            })
         )
 }
 
-async function getQuestStandings(questId: string) {
-    return prisma.questParticipant.findMany({
+function isCompetitorCampaignStatus(
+    status: CampaignStatus
+): status is CompetitorCampaignStatus {
+    return currentCampaignStatuses.includes(status as CompetitorCampaignStatus)
+}
+
+function isCompetitorHistoryCampaignStatus(
+    status: CampaignStatus
+): status is CompetitorHistoryCampaignStatus {
+    return historyCampaignStatuses.includes(
+        status as CompetitorHistoryCampaignStatus
+    )
+}
+
+async function getCampaignStandings(campaignId: string) {
+    return prisma.campaignParticipant.findMany({
         orderBy: standingsOrderBy,
         select: {
             createdAt: true,
@@ -381,7 +431,7 @@ async function getQuestStandings(questId: string) {
             },
         },
         where: {
-            questId,
+            campaignId,
             removedAt: null,
         },
     })
@@ -411,22 +461,22 @@ async function getRecentReadingEntries(participantId: string, take: number) {
         take,
         where: {
             deletedAt: null,
-            questParticipantId: participantId,
+            campaignParticipantId: participantId,
         },
     })
 }
 
-function toQuestScoringRules(quest: {
+function toCampaignScoringRules(campaign: {
     pointsPerAudiobookMinute: { toString(): string }
     pointsPerBook: { toString(): string }
     pointsPerChallengeCompletion: { toString(): string }
     pointsPerPage: { toString(): string }
 }) {
     return {
-        pointsPerAudiobookMinute: quest.pointsPerAudiobookMinute.toString(),
-        pointsPerBook: quest.pointsPerBook.toString(),
+        pointsPerAudiobookMinute: campaign.pointsPerAudiobookMinute.toString(),
+        pointsPerBook: campaign.pointsPerBook.toString(),
         pointsPerChallengeCompletion:
-            quest.pointsPerChallengeCompletion.toString(),
-        pointsPerPage: quest.pointsPerPage.toString(),
+            campaign.pointsPerChallengeCompletion.toString(),
+        pointsPerPage: campaign.pointsPerPage.toString(),
     }
 }

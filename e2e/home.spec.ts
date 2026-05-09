@@ -5,7 +5,7 @@ test('renders the home screen', async ({ page }) => {
 
     await expect(
         page.getByRole('heading', {
-            name: 'A storybook home for family reading quests.',
+            name: 'A storybook home for family reading campaigns.',
         })
     ).toBeVisible()
 

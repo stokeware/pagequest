@@ -26,8 +26,8 @@ export default async function LeaderboardPage() {
         return (
             <EmptyState
                 eyebrow='Leaderboard'
-                title='The leaderboard is waiting for a quest.'
-                description={viewModel.questDescription}
+                title='The leaderboard is waiting for a campaign.'
+                description={viewModel.campaignDescription}
                 action={
                     <div className='auth-inline-actions'>
                         <Button render={<Link href='/dashboard' />}>
@@ -49,10 +49,10 @@ export default async function LeaderboardPage() {
         <div className='auth-page-stack'>
             <Card className='surface-card'>
                 <CardHeader>
-                    <CardTitle>{viewModel.questName}</CardTitle>
+                    <CardTitle>{viewModel.campaignName}</CardTitle>
                     <CardDescription>
-                        {viewModel.questStatusLabel}.{' '}
-                        {viewModel.questDescription}
+                        {viewModel.campaignStatusLabel}.{' '}
+                        {viewModel.campaignDescription}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='auth-inline-actions'>

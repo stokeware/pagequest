@@ -89,13 +89,13 @@ describe('admin challenge review audit logging', () => {
                     pointValue: new Prisma.Decimal('40'),
                 },
                 id: 'completion-1',
-                questChallenge: {
+                campaignChallenge: {
                     pointValueOverride: null,
                 },
-                questParticipant: {
+                campaignParticipant: {
                     id: 'participant-1',
-                    quest: {
-                        id: 'quest-1',
+                    campaign: {
+                        id: 'campaign-1',
                         pointsPerChallengeCompletion: new Prisma.Decimal('20'),
                     },
                 },
@@ -130,8 +130,8 @@ describe('admin challenge review audit logging', () => {
                     reviewNotes: 'Verified against the recommendation note.',
                     reviewState: 'APPROVED',
                 },
-                questId: 'quest-1',
-                questParticipantId: 'participant-1',
+                campaignId: 'campaign-1',
+                campaignParticipantId: 'participant-1',
             },
         })
     })

@@ -2,16 +2,16 @@ import type { ChallengeReviewState, ReadingEntryType } from '@prisma/client'
 import { cache } from 'react'
 
 import {
-    getCompetitorHistoryQuestRecords,
+    getCompetitorHistoryCampaignRecords,
     getParticipantReadingEntries,
-    type CompetitorHistoryQuestRecord,
-    type CompetitorHistoryQuestStatus,
+    type CompetitorHistoryCampaignRecord,
+    type CompetitorHistoryCampaignStatus,
 } from '@/lib/competitor-queries'
 import { getReadingEntryMetadataSummary } from '@/lib/log-progress'
 import {
     calculateEntryPoints,
-    type QuestScoringRules,
-} from '@/lib/quest-domain'
+    type CampaignScoringRules,
+} from '@/lib/campaign-domain'
 
 export type CompetitorHistoryEntryRecord = {
     activityDate: Date
@@ -46,19 +46,19 @@ type HistoryMetric = {
     value: string
 }
 
-type HistoryQuestCard = {
+type HistoryCampaignCard = {
     href: string
     isSelected: boolean
     lastActivityLabel: string
     participantId: string
-    questName: string
-    questStatusLabel: string
+    campaignName: string
+    campaignStatusLabel: string
     totalsLabel: string
 }
 
 type CompetitorHistoryInput = {
     participants: Array<
-        CompetitorHistoryQuestRecord & {
+        CompetitorHistoryCampaignRecord & {
             readingEntries: CompetitorHistoryEntryRecord[]
         }
     >
@@ -66,27 +66,27 @@ type CompetitorHistoryInput = {
 }
 
 export type CompetitorHistoryViewModel = {
-    currentQuestCard: HistoryQuestCard | null
-    hasQuestHistory: boolean
-    pastQuestCards: HistoryQuestCard[]
-    selectedQuestMetrics: HistoryMetric[]
-    selectedQuestName: string
-    selectedQuestParticipantId: string | null
-    selectedQuestStatusLabel: string
-    selectedQuestSummary: string
+    currentCampaignCard: HistoryCampaignCard | null
+    hasCampaignHistory: boolean
+    pastCampaignCards: HistoryCampaignCard[]
+    selectedCampaignMetrics: HistoryMetric[]
+    selectedCampaignName: string
+    selectedCampaignParticipantId: string | null
+    selectedCampaignStatusLabel: string
+    selectedCampaignSummary: string
     timelineEntries: CompetitorHistoryItem[]
 }
 
 export const defaultCompetitorHistoryViewModel: CompetitorHistoryViewModel = {
-    currentQuestCard: null,
-    hasQuestHistory: false,
-    pastQuestCards: [],
-    selectedQuestMetrics: [],
-    selectedQuestName: 'Quest assignment pending',
-    selectedQuestParticipantId: null,
-    selectedQuestStatusLabel: 'Awaiting invitation',
-    selectedQuestSummary:
-        'No quest history is linked to this account yet. Your reading timeline will appear here once you join a quest.',
+    currentCampaignCard: null,
+    hasCampaignHistory: false,
+    pastCampaignCards: [],
+    selectedCampaignMetrics: [],
+    selectedCampaignName: 'Campaign assignment pending',
+    selectedCampaignParticipantId: null,
+    selectedCampaignStatusLabel: 'Awaiting invitation',
+    selectedCampaignSummary:
+        'No campaign history is linked to this account yet. Your reading timeline will appear here once you join a campaign.',
     timelineEntries: [],
 }
 
@@ -99,7 +99,7 @@ export const getCompetitorHistoryViewModel = cache(
             return defaultCompetitorHistoryViewModel
         }
 
-        const participants = await getCompetitorHistoryQuestRecords(userId)
+        const participants = await getCompetitorHistoryCampaignRecords(userId)
 
         if (participants.length === 0) {
             return defaultCompetitorHistoryViewModel
@@ -136,15 +136,15 @@ export function buildCompetitorHistoryViewModel(
 
     const sortedParticipants = [...input.participants].sort((left, right) => {
         const statusDifference =
-            getQuestStatusPriority(left.quest.status) -
-            getQuestStatusPriority(right.quest.status)
+            getCampaignStatusPriority(left.campaign.status) -
+            getCampaignStatusPriority(right.campaign.status)
 
         if (statusDifference !== 0) {
             return statusDifference
         }
 
         const endAtDifference =
-            right.quest.endAt.getTime() - left.quest.endAt.getTime()
+            right.campaign.endAt.getTime() - left.campaign.endAt.getTime()
 
         if (endAtDifference !== 0) {
             return endAtDifference
@@ -155,10 +155,10 @@ export function buildCompetitorHistoryViewModel(
 
     const currentParticipant =
         sortedParticipants.find(
-            (participant) => participant.quest.status === 'ACTIVE'
+            (participant) => participant.campaign.status === 'ACTIVE'
         ) ??
         sortedParticipants.find(
-            (participant) => participant.quest.status === 'SCHEDULED'
+            (participant) => participant.campaign.status === 'SCHEDULED'
         ) ??
         null
 
@@ -177,68 +177,70 @@ export function buildCompetitorHistoryViewModel(
     const timelineEntries = formatCompetitorHistoryEntries({
         entries: selectedParticipant.readingEntries,
         scoringRules: selectedParticipant.scoringRules,
-        timezone: selectedParticipant.quest.timezone,
+        timezone: selectedParticipant.campaign.timezone,
     })
-    const pastQuestCards = sortedParticipants
-        .filter((participant) => isPastQuestStatus(participant.quest.status))
+    const pastCampaignCards = sortedParticipants
+        .filter((participant) =>
+            isPastCampaignStatus(participant.campaign.status)
+        )
         .map((participant) =>
-            createHistoryQuestCard({
+            createHistoryCampaignCard({
                 isSelected: participant.id === selectedParticipant.id,
                 participant,
             })
         )
 
     return {
-        currentQuestCard:
+        currentCampaignCard:
             currentParticipant &&
             currentParticipant.id !== selectedParticipant.id
-                ? createHistoryQuestCard({
+                ? createHistoryCampaignCard({
                       isSelected: false,
                       participant: currentParticipant,
                   })
                 : null,
-        hasQuestHistory: true,
-        pastQuestCards,
-        selectedQuestMetrics: [
+        hasCampaignHistory: true,
+        pastCampaignCards,
+        selectedCampaignMetrics: [
             {
-                detail: 'Entries recorded for this quest.',
+                detail: 'Entries recorded for this campaign.',
                 label: 'Entries logged',
                 value: formatCount(timelineEntries.length),
             },
             {
-                detail: 'Total points earned in this quest.',
+                detail: 'Total points earned in this campaign.',
                 label: 'Points',
                 value: formatPoints(selectedParticipant.totalPoints),
             },
             {
                 detail: 'Combined reading, listening, and challenge totals.',
                 label: 'Raw totals',
-                value: getQuestTotalsLabel(selectedParticipant),
+                value: getCampaignTotalsLabel(selectedParticipant),
             },
             {
                 detail:
                     selectedParticipant.lastActivityAt == null
-                        ? 'No activity is logged yet for this quest.'
-                        : 'Most recent activity captured for this quest.',
+                        ? 'No activity is logged yet for this campaign.'
+                        : 'Most recent activity captured for this campaign.',
                 label: 'Last activity',
                 value:
                     selectedParticipant.lastActivityAt == null
                         ? 'No activity yet'
                         : formatCalendarDate(
                               selectedParticipant.lastActivityAt,
-                              selectedParticipant.quest.timezone
+                              selectedParticipant.campaign.timezone
                           ),
             },
         ],
-        selectedQuestName: selectedParticipant.quest.name,
-        selectedQuestParticipantId: selectedParticipant.id,
-        selectedQuestStatusLabel: getQuestStatusLabel(
-            selectedParticipant.quest.status
+        selectedCampaignName: selectedParticipant.campaign.name,
+        selectedCampaignParticipantId: selectedParticipant.id,
+        selectedCampaignStatusLabel: getCampaignStatusLabel(
+            selectedParticipant.campaign.status
         ),
-        selectedQuestSummary:
+        selectedCampaignSummary:
             timelineEntries.length > 0
-                ? `You have ${formatCount(timelineEntries.length)} ${pluralize('entry', timelineEntries.length)} recorded for ${selectedParticipant.quest.name}.`
-                : `You have not logged any reading for ${selectedParticipant.quest.name} yet.`,
+                ? `You have ${formatCount(timelineEntries.length)} ${pluralize('entry', timelineEntries.length)} recorded for ${selectedParticipant.campaign.name}.`
+                : `You have not logged any reading for ${selectedParticipant.campaign.name} yet.`,
         timelineEntries,
     }
 }
@@ -249,7 +251,7 @@ export function formatCompetitorHistoryEntries({
     timezone,
 }: {
     entries: CompetitorHistoryEntryRecord[]
-    scoringRules: QuestScoringRules
+    scoringRules: CampaignScoringRules
     timezone: string
 }) {
     return entries.map((entry) =>
@@ -267,7 +269,7 @@ function formatCompetitorHistoryEntry({
     timezone,
 }: {
     entry: CompetitorHistoryEntryRecord
-    scoringRules: QuestScoringRules
+    scoringRules: CampaignScoringRules
     timezone: string
 }): CompetitorHistoryItem {
     const metadataSummary = getReadingEntryMetadataSummary({
@@ -375,41 +377,43 @@ function buildHistoryDescription({
         : `Logged ${activityDateLabel}.`
 }
 
-function createHistoryQuestCard({
+function createHistoryCampaignCard({
     isSelected,
     participant,
 }: {
     isSelected: boolean
-    participant: CompetitorHistoryQuestRecord
-}): HistoryQuestCard {
+    participant: CompetitorHistoryCampaignRecord
+}): HistoryCampaignCard {
     return {
-        href: `/history?quest=${encodeURIComponent(participant.id)}`,
+        href: `/history?campaign=${encodeURIComponent(participant.id)}`,
         isSelected,
         lastActivityLabel:
             participant.lastActivityAt == null
                 ? 'No activity yet'
-                : `Last activity ${formatCalendarDate(participant.lastActivityAt, participant.quest.timezone)}`,
+                : `Last activity ${formatCalendarDate(participant.lastActivityAt, participant.campaign.timezone)}`,
         participantId: participant.id,
-        questName: participant.quest.name,
-        questStatusLabel: getQuestStatusLabel(participant.quest.status),
-        totalsLabel: getQuestTotalsLabel(participant),
+        campaignName: participant.campaign.name,
+        campaignStatusLabel: getCampaignStatusLabel(
+            participant.campaign.status
+        ),
+        totalsLabel: getCampaignTotalsLabel(participant),
     }
 }
 
 function selectHistoryParticipant(
-    participants: CompetitorHistoryQuestRecord[]
+    participants: CompetitorHistoryCampaignRecord[]
 ) {
     const sortedParticipants = [...participants].sort((left, right) => {
         const statusDifference =
-            getQuestStatusPriority(left.quest.status) -
-            getQuestStatusPriority(right.quest.status)
+            getCampaignStatusPriority(left.campaign.status) -
+            getCampaignStatusPriority(right.campaign.status)
 
         if (statusDifference !== 0) {
             return statusDifference
         }
 
         const endAtDifference =
-            right.quest.endAt.getTime() - left.quest.endAt.getTime()
+            right.campaign.endAt.getTime() - left.campaign.endAt.getTime()
 
         if (endAtDifference !== 0) {
             return endAtDifference
@@ -420,10 +424,10 @@ function selectHistoryParticipant(
 
     return (
         sortedParticipants.find(
-            (participant) => participant.quest.status === 'ACTIVE'
+            (participant) => participant.campaign.status === 'ACTIVE'
         ) ??
         sortedParticipants.find(
-            (participant) => participant.quest.status === 'SCHEDULED'
+            (participant) => participant.campaign.status === 'SCHEDULED'
         ) ??
         sortedParticipants[0] ??
         null
@@ -432,7 +436,7 @@ function selectHistoryParticipant(
 
 function getChallengePointsLabel(
     entry: CompetitorHistoryEntryRecord,
-    scoringRules: QuestScoringRules
+    scoringRules: CampaignScoringRules
 ) {
     const reviewState = entry.challengeCompletion?.reviewState
 
@@ -476,22 +480,22 @@ function getChallengeStatusLabel(
     }
 }
 
-function getQuestStatusLabel(status: CompetitorHistoryQuestStatus) {
+function getCampaignStatusLabel(status: CompetitorHistoryCampaignStatus) {
     switch (status) {
         case 'ACTIVE':
-            return 'Active quest'
+            return 'Active campaign'
         case 'SCHEDULED':
-            return 'Upcoming quest'
+            return 'Upcoming campaign'
         case 'COMPLETED':
-            return 'Completed quest'
+            return 'Completed campaign'
         case 'ARCHIVED':
-            return 'Archived quest'
+            return 'Archived campaign'
         default:
             return assertNever(status)
     }
 }
 
-function getQuestStatusPriority(status: CompetitorHistoryQuestStatus) {
+function getCampaignStatusPriority(status: CompetitorHistoryCampaignStatus) {
     switch (status) {
         case 'ACTIVE':
             return 0
@@ -506,7 +510,7 @@ function getQuestStatusPriority(status: CompetitorHistoryQuestStatus) {
     }
 }
 
-function getQuestTotalsLabel(participant: {
+function getCampaignTotalsLabel(participant: {
     totalAudiobookMinutes: number
     totalBooks: number
     totalChallenges: number
@@ -520,7 +524,7 @@ function getQuestTotalsLabel(participant: {
     ].join(' • ')
 }
 
-function isPastQuestStatus(status: CompetitorHistoryQuestStatus) {
+function isPastCampaignStatus(status: CompetitorHistoryCampaignStatus) {
     return status === 'COMPLETED' || status === 'ARCHIVED'
 }
 

@@ -2,10 +2,10 @@
 CREATE TYPE "AppRole" AS ENUM ('ADMIN', 'COMPETITOR');
 
 -- CreateEnum
-CREATE TYPE "QuestStatus" AS ENUM ('DRAFT', 'SCHEDULED', 'ACTIVE', 'COMPLETED', 'ARCHIVED');
+CREATE TYPE "CampaignStatus" AS ENUM ('DRAFT', 'SCHEDULED', 'ACTIVE', 'COMPLETED', 'ARCHIVED');
 
 -- CreateEnum
-CREATE TYPE "QuestVisibility" AS ENUM ('INVITE_ONLY');
+CREATE TYPE "CampaignVisibility" AS ENUM ('INVITE_ONLY');
 
 -- CreateEnum
 CREATE TYPE "InvitationStatus" AS ENUM ('PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED');
@@ -45,15 +45,15 @@ CREATE TABLE "RoleAssignment" (
 );
 
 -- CreateTable
-CREATE TABLE "Quest" (
+CREATE TABLE "Campaign" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "startAt" TIMESTAMP(3) NOT NULL,
     "endAt" TIMESTAMP(3) NOT NULL,
     "timezone" TEXT NOT NULL,
-    "status" "QuestStatus" NOT NULL DEFAULT 'DRAFT',
-    "visibility" "QuestVisibility" NOT NULL DEFAULT 'INVITE_ONLY',
+    "status" "CampaignStatus" NOT NULL DEFAULT 'DRAFT',
+    "visibility" "CampaignVisibility" NOT NULL DEFAULT 'INVITE_ONLY',
     "pointsPerBook" DECIMAL(12,4) NOT NULL DEFAULT 1,
     "pointsPerPage" DECIMAL(12,4) NOT NULL DEFAULT 1,
     "pointsPerAudiobookMinute" DECIMAL(12,4) NOT NULL DEFAULT 0.75,
@@ -71,9 +71,9 @@ CREATE TABLE "Quest" (
 );
 
 -- CreateTable
-CREATE TABLE "QuestParticipant" (
+CREATE TABLE "CampaignParticipant" (
     "id" TEXT NOT NULL,
-    "questId" TEXT NOT NULL,
+    "campaignId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "joinedAt" TIMESTAMP(3),
     "removedAt" TIMESTAMP(3),
@@ -86,13 +86,13 @@ CREATE TABLE "QuestParticipant" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "QuestParticipant_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "CampaignParticipant_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Invitation" (
     "id" TEXT NOT NULL,
-    "questId" TEXT NOT NULL,
+    "campaignId" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "status" "InvitationStatus" NOT NULL DEFAULT 'PENDING',
     "tokenHash" TEXT NOT NULL,
@@ -127,9 +127,9 @@ CREATE TABLE "Challenge" (
 );
 
 -- CreateTable
-CREATE TABLE "QuestChallenge" (
+CREATE TABLE "CampaignChallenge" (
     "id" TEXT NOT NULL,
-    "questId" TEXT NOT NULL,
+    "campaignId" TEXT NOT NULL,
     "challengeId" TEXT NOT NULL,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "pointValueOverride" DECIMAL(12,4),
@@ -137,13 +137,13 @@ CREATE TABLE "QuestChallenge" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "QuestChallenge_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "CampaignChallenge_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "ReadingEntry" (
     "id" TEXT NOT NULL,
-    "questParticipantId" TEXT NOT NULL,
+    "campaignParticipantId" TEXT NOT NULL,
     "type" "ReadingEntryType" NOT NULL,
     "value" INTEGER NOT NULL,
     "activityDate" TIMESTAMP(3) NOT NULL,
@@ -163,9 +163,9 @@ CREATE TABLE "ReadingEntry" (
 CREATE TABLE "ChallengeCompletion" (
     "id" TEXT NOT NULL,
     "readingEntryId" TEXT NOT NULL,
-    "questParticipantId" TEXT NOT NULL,
+    "campaignParticipantId" TEXT NOT NULL,
     "challengeId" TEXT NOT NULL,
-    "questChallengeId" TEXT,
+    "campaignChallengeId" TEXT,
     "reviewState" "ChallengeReviewState" NOT NULL DEFAULT 'PENDING',
     "evidenceText" TEXT,
     "reviewNotes" TEXT,
@@ -182,8 +182,8 @@ CREATE TABLE "ChallengeCompletion" (
 CREATE TABLE "AuditLog" (
     "id" TEXT NOT NULL,
     "actorUserId" TEXT,
-    "questId" TEXT,
-    "questParticipantId" TEXT,
+    "campaignId" TEXT,
+    "campaignParticipantId" TEXT,
     "invitationId" TEXT,
     "challengeId" TEXT,
     "challengeCompletionId" TEXT,
@@ -204,13 +204,13 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "RoleAssignment_userId_role_key" ON "RoleAssignment"("userId", "role");
 
 -- CreateIndex
-CREATE INDEX "QuestParticipant_questId_totalPoints_lastActivityAt_idx" ON "QuestParticipant"("questId", "totalPoints", "lastActivityAt");
+CREATE INDEX "CampaignParticipant_campaignId_totalPoints_lastActivityAt_idx" ON "CampaignParticipant"("campaignId", "totalPoints", "lastActivityAt");
 
 -- CreateIndex
-CREATE INDEX "QuestParticipant_userId_lastActivityAt_idx" ON "QuestParticipant"("userId", "lastActivityAt");
+CREATE INDEX "CampaignParticipant_userId_lastActivityAt_idx" ON "CampaignParticipant"("userId", "lastActivityAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "QuestParticipant_questId_userId_key" ON "QuestParticipant"("questId", "userId");
+CREATE UNIQUE INDEX "CampaignParticipant_campaignId_userId_key" ON "CampaignParticipant"("campaignId", "userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Invitation_tokenHash_key" ON "Invitation"("tokenHash");
@@ -219,13 +219,13 @@ CREATE UNIQUE INDEX "Invitation_tokenHash_key" ON "Invitation"("tokenHash");
 CREATE UNIQUE INDEX "Invitation_acceptedParticipantId_key" ON "Invitation"("acceptedParticipantId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Invitation_questId_email_key" ON "Invitation"("questId", "email");
+CREATE UNIQUE INDEX "Invitation_campaignId_email_key" ON "Invitation"("campaignId", "email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "QuestChallenge_questId_challengeId_key" ON "QuestChallenge"("questId", "challengeId");
+CREATE UNIQUE INDEX "CampaignChallenge_campaignId_challengeId_key" ON "CampaignChallenge"("campaignId", "challengeId");
 
 -- CreateIndex
-CREATE INDEX "ReadingEntry_questParticipantId_deletedAt_activityDate_idx" ON "ReadingEntry"("questParticipantId", "deletedAt", "activityDate");
+CREATE INDEX "ReadingEntry_campaignParticipantId_deletedAt_activityDate_idx" ON "ReadingEntry"("campaignParticipantId", "deletedAt", "activityDate");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ChallengeCompletion_readingEntryId_key" ON "ChallengeCompletion"("readingEntryId");
@@ -234,40 +234,40 @@ CREATE UNIQUE INDEX "ChallengeCompletion_readingEntryId_key" ON "ChallengeComple
 ALTER TABLE "RoleAssignment" ADD CONSTRAINT "RoleAssignment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Quest" ADD CONSTRAINT "Quest_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Campaign" ADD CONSTRAINT "Quest_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "QuestParticipant" ADD CONSTRAINT "QuestParticipant_questId_fkey" FOREIGN KEY ("questId") REFERENCES "Quest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CampaignParticipant" ADD CONSTRAINT "CampaignParticipant_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "QuestParticipant" ADD CONSTRAINT "QuestParticipant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CampaignParticipant" ADD CONSTRAINT "CampaignParticipant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_acceptedByUserId_fkey" FOREIGN KEY ("acceptedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_acceptedParticipantId_fkey" FOREIGN KEY ("acceptedParticipantId") REFERENCES "QuestParticipant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_acceptedParticipantId_fkey" FOREIGN KEY ("acceptedParticipantId") REFERENCES "CampaignParticipant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_invitedByUserId_fkey" FOREIGN KEY ("invitedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_questId_fkey" FOREIGN KEY ("questId") REFERENCES "Quest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Challenge" ADD CONSTRAINT "Challenge_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "QuestChallenge" ADD CONSTRAINT "QuestChallenge_challengeId_fkey" FOREIGN KEY ("challengeId") REFERENCES "Challenge"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CampaignChallenge" ADD CONSTRAINT "CampaignChallenge_challengeId_fkey" FOREIGN KEY ("challengeId") REFERENCES "Challenge"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "QuestChallenge" ADD CONSTRAINT "QuestChallenge_questId_fkey" FOREIGN KEY ("questId") REFERENCES "Quest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CampaignChallenge" ADD CONSTRAINT "CampaignChallenge_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ReadingEntry" ADD CONSTRAINT "ReadingEntry_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ReadingEntry" ADD CONSTRAINT "ReadingEntry_questParticipantId_fkey" FOREIGN KEY ("questParticipantId") REFERENCES "QuestParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReadingEntry" ADD CONSTRAINT "ReadingEntry_campaignParticipantId_fkey" FOREIGN KEY ("campaignParticipantId") REFERENCES "CampaignParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ReadingEntry" ADD CONSTRAINT "ReadingEntry_updatedByUserId_fkey" FOREIGN KEY ("updatedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -276,10 +276,10 @@ ALTER TABLE "ReadingEntry" ADD CONSTRAINT "ReadingEntry_updatedByUserId_fkey" FO
 ALTER TABLE "ChallengeCompletion" ADD CONSTRAINT "ChallengeCompletion_challengeId_fkey" FOREIGN KEY ("challengeId") REFERENCES "Challenge"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ChallengeCompletion" ADD CONSTRAINT "ChallengeCompletion_questChallengeId_fkey" FOREIGN KEY ("questChallengeId") REFERENCES "QuestChallenge"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ChallengeCompletion" ADD CONSTRAINT "ChallengeCompletion_campaignChallengeId_fkey" FOREIGN KEY ("campaignChallengeId") REFERENCES "CampaignChallenge"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ChallengeCompletion" ADD CONSTRAINT "ChallengeCompletion_questParticipantId_fkey" FOREIGN KEY ("questParticipantId") REFERENCES "QuestParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ChallengeCompletion" ADD CONSTRAINT "ChallengeCompletion_campaignParticipantId_fkey" FOREIGN KEY ("campaignParticipantId") REFERENCES "CampaignParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ChallengeCompletion" ADD CONSTRAINT "ChallengeCompletion_readingEntryId_fkey" FOREIGN KEY ("readingEntryId") REFERENCES "ReadingEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -300,10 +300,10 @@ ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_challengeCompletionId_fkey" FORE
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_invitationId_fkey" FOREIGN KEY ("invitationId") REFERENCES "Invitation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_questId_fkey" FOREIGN KEY ("questId") REFERENCES "Quest"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_questParticipantId_fkey" FOREIGN KEY ("questParticipantId") REFERENCES "QuestParticipant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_campaignParticipantId_fkey" FOREIGN KEY ("campaignParticipantId") REFERENCES "CampaignParticipant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_readingEntryId_fkey" FOREIGN KEY ("readingEntryId") REFERENCES "ReadingEntry"("id") ON DELETE SET NULL ON UPDATE CASCADE;

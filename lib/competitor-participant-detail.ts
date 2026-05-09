@@ -2,8 +2,8 @@ import { cache } from 'react'
 
 import {
     rankStandings,
-    type CompetitorQuestContext,
-    type CompetitorQuestStatus,
+    type CompetitorCampaignContext,
+    type CompetitorCampaignStatus,
 } from '@/lib/competitor-dashboard'
 import {
     formatCalendarDate,
@@ -11,13 +11,14 @@ import {
     formatCount,
     formatPoints,
     pluralize,
+    type CompetitorHistoryItem,
     type CompetitorHistoryEntryRecord,
 } from '@/lib/competitor-history'
 import {
-    getCompetitorQuestContext,
+    getCompetitorCampaignContext,
     getParticipantReadingEntries,
 } from '@/lib/competitor-queries'
-import { type QuestScoringRules } from '@/lib/quest-domain'
+import { type CampaignScoringRules } from '@/lib/campaign-domain'
 
 type ParticipantDetailMetric = {
     detail: string
@@ -26,22 +27,22 @@ type ParticipantDetailMetric = {
 }
 
 type ParticipantDetailInput = {
-    context: CompetitorQuestContext
+    context: CompetitorCampaignContext
     historyEntries: CompetitorHistoryEntryRecord[]
     participantId: string
-    scoringRules: QuestScoringRules
+    scoringRules: CampaignScoringRules
 }
 
 export type CompetitorParticipantDetailViewModel = {
     hasParticipant: boolean
-    historyEntries: ParticipantHistoryItem[]
+    historyEntries: CompetitorHistoryItem[]
     isViewer: boolean
     participantLabel: string
     participantSummary: string
     participantId: string | null
     rankLabel: string
-    questName: string
-    questStatusLabel: string
+    campaignName: string
+    campaignStatusLabel: string
     summaryMetrics: ParticipantDetailMetric[]
 }
 
@@ -55,8 +56,8 @@ export const defaultCompetitorParticipantDetailViewModel: CompetitorParticipantD
         participantSummary:
             'This participant is not available on the current leaderboard.',
         rankLabel: 'Unranked',
-        questName: 'Quest assignment pending',
-        questStatusLabel: 'Awaiting invitation',
+        campaignName: 'Campaign assignment pending',
+        campaignStatusLabel: 'Awaiting invitation',
         summaryMetrics: [],
     }
 
@@ -65,7 +66,7 @@ export const getCompetitorParticipantDetailViewModel = cache(
         userId: string | null,
         participantId: string
     ): Promise<CompetitorParticipantDetailViewModel> => {
-        const context = await getCompetitorQuestContext(userId)
+        const context = await getCompetitorCampaignContext(userId)
 
         if (!context) {
             return defaultCompetitorParticipantDetailViewModel
@@ -113,7 +114,7 @@ export function buildCompetitorParticipantDetailViewModel(
     const historyItems = formatCompetitorHistoryEntries({
         entries: historyEntries,
         scoringRules,
-        timezone: context.participant.quest.timezone,
+        timezone: context.participant.campaign.timezone,
     })
 
     return {
@@ -124,19 +125,21 @@ export function buildCompetitorParticipantDetailViewModel(
         participantLabel,
         participantSummary:
             historyItems.length > 0
-                ? `${participantLabel} has ${formatCount(historyItems.length)} ${pluralize('entry', historyItems.length)} recorded for this quest.`
-                : `${participantLabel} has not logged any reading for this quest yet.`,
+                ? `${participantLabel} has ${formatCount(historyItems.length)} ${pluralize('entry', historyItems.length)} recorded for this campaign.`
+                : `${participantLabel} has not logged any reading for this campaign yet.`,
         rankLabel: `#${participant.rankNumber}`,
-        questName: context.participant.quest.name,
-        questStatusLabel: getQuestStatusLabel(context.participant.quest.status),
+        campaignName: context.participant.campaign.name,
+        campaignStatusLabel: getCampaignStatusLabel(
+            context.participant.campaign.status
+        ),
         summaryMetrics: [
             {
-                detail: 'Current placement on this quest leaderboard.',
+                detail: 'Current placement on this campaign leaderboard.',
                 label: 'Rank',
                 value: `#${participant.rankNumber}`,
             },
             {
-                detail: 'Total scored points for this quest.',
+                detail: 'Total scored points for this campaign.',
                 label: 'Points',
                 value: formatPoints(participant.totalPoints),
             },
@@ -152,13 +155,13 @@ export function buildCompetitorParticipantDetailViewModel(
             },
             {
                 detail: participant.lastActivityAt
-                    ? 'Most recent activity captured for this quest.'
+                    ? 'Most recent activity captured for this campaign.'
                     : 'No activity has been logged for this participant yet.',
                 label: 'Last activity',
                 value: participant.lastActivityAt
                     ? formatCalendarDate(
                           participant.lastActivityAt,
-                          context.participant.quest.timezone
+                          context.participant.campaign.timezone
                       )
                     : 'No activity yet',
             },
@@ -166,7 +169,7 @@ export function buildCompetitorParticipantDetailViewModel(
     }
 }
 
-function getQuestStatusLabel(status: CompetitorQuestStatus) {
+function getCampaignStatusLabel(status: CompetitorCampaignStatus) {
     switch (status) {
         case 'ACTIVE':
             return 'Participant detail'
@@ -179,7 +182,9 @@ function getQuestStatusLabel(status: CompetitorQuestStatus) {
     }
 }
 
-function getReaderLabel(standing: CompetitorQuestContext['standings'][number]) {
+function getReaderLabel(
+    standing: CompetitorCampaignContext['standings'][number]
+) {
     return standing.user.name || standing.user.email
 }
 

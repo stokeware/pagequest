@@ -11,7 +11,7 @@ enum AppRole {
     COMPETITOR
 }
 
-enum QuestStatus {
+enum CampaignStatus {
     DRAFT
     SCHEDULED
     ACTIVE
@@ -19,7 +19,7 @@ enum QuestStatus {
     ARCHIVED
 }
 
-enum QuestVisibility {
+enum CampaignVisibility {
     INVITE_ONLY
 }
 
@@ -64,8 +64,8 @@ model User {
     challengesCreated Challenge[]     @relation("ChallengeCreatedBy")
     invitationsAccepted Invitation[]  @relation("InvitationAcceptedBy")
     invitationsSent  Invitation[]     @relation("InvitationInvitedBy")
-    questParticipants QuestParticipant[]
-    questsCreated    Quest[]          @relation("QuestCreatedBy")
+    campaignParticipants CampaignParticipant[]
+    campaignsCreated    Campaign[]          @relation("CampaignCreatedBy")
     readingEntriesCreated ReadingEntry[] @relation("ReadingEntryCreatedBy")
     readingEntriesUpdated ReadingEntry[] @relation("ReadingEntryUpdatedBy")
     roleAssignments  RoleAssignment[]
@@ -81,15 +81,15 @@ model RoleAssignment {
     @@unique([userId, role])
 }
 
-model Quest {
+model Campaign {
     id                          String           @id @default(cuid())
     name                        String
     description                 String?
     startAt                     DateTime
     endAt                       DateTime
     timezone                    String
-    status                      QuestStatus      @default(DRAFT)
-    visibility                  QuestVisibility  @default(INVITE_ONLY)
+    status                      CampaignStatus      @default(DRAFT)
+    visibility                  CampaignVisibility  @default(INVITE_ONLY)
     pointsPerBook               Decimal          @default(1) @db.Decimal(12, 4)
     pointsPerPage               Decimal          @default(1) @db.Decimal(12, 4)
     pointsPerAudiobookMinute    Decimal          @default(0.75) @db.Decimal(12, 4)
@@ -103,15 +103,15 @@ model Quest {
     createdAt                   DateTime         @default(now())
     updatedAt                   DateTime         @updatedAt
     auditLogs                   AuditLog[]
-    createdBy                   User?            @relation("QuestCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+    createdBy                   User?            @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
     invitations                 Invitation[]
-    participants                QuestParticipant[]
-    questChallenges             QuestChallenge[]
+    participants                CampaignParticipant[]
+    campaignChallenges             CampaignChallenge[]
 }
 
-model QuestParticipant {
+model CampaignParticipant {
     id                     String              @id @default(cuid())
-    questId                String
+    campaignId                String
     userId                 String
     joinedAt               DateTime?
     removedAt              DateTime?
@@ -126,18 +126,18 @@ model QuestParticipant {
     acceptedInvitation     Invitation?         @relation("AcceptedParticipant")
     auditLogs              AuditLog[]
     challengeCompletions   ChallengeCompletion[]
-    quest                  Quest               @relation(fields: [questId], references: [id], onDelete: Cascade)
+    campaign                  Campaign               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
     readingEntries         ReadingEntry[]
     user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([questId, totalPoints, lastActivityAt])
+    @@index([campaignId, totalPoints, lastActivityAt])
     @@index([userId, lastActivityAt])
-    @@unique([questId, userId])
+    @@unique([campaignId, userId])
 }
 
 model Invitation {
     id                       String           @id @default(cuid())
-    questId                  String
+    campaignId                  String
     email                    String
     status                   InvitationStatus @default(PENDING)
     tokenHash                String           @unique
@@ -151,12 +151,12 @@ model Invitation {
     createdAt                DateTime         @default(now())
     updatedAt                DateTime         @updatedAt
     acceptedBy               User?            @relation("InvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
-    acceptedParticipant      QuestParticipant? @relation("AcceptedParticipant", fields: [acceptedParticipantId], references: [id], onDelete: SetNull)
+    acceptedParticipant      CampaignParticipant? @relation("AcceptedParticipant", fields: [acceptedParticipantId], references: [id], onDelete: SetNull)
     auditLogs                AuditLog[]
     invitedBy                User?            @relation("InvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: SetNull)
-    quest                    Quest            @relation(fields: [questId], references: [id], onDelete: Cascade)
+    campaign                    Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-    @@unique([questId, email])
+    @@unique([campaignId, email])
 }
 
 model Challenge {
@@ -174,12 +174,12 @@ model Challenge {
     auditLogs          AuditLog[]
     challengeCompletions ChallengeCompletion[]
     createdBy          User?                 @relation("ChallengeCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-    questChallenges    QuestChallenge[]
+    campaignChallenges    CampaignChallenge[]
 }
 
-model QuestChallenge {
+model CampaignChallenge {
     id                 String                @id @default(cuid())
-    questId            String
+    campaignId            String
     challengeId        String
     sortOrder          Int                   @default(0)
     pointValueOverride Decimal?              @db.Decimal(12, 4)
@@ -188,14 +188,14 @@ model QuestChallenge {
     updatedAt          DateTime              @updatedAt
     challenge          Challenge             @relation(fields: [challengeId], references: [id], onDelete: Cascade)
     challengeCompletions ChallengeCompletion[]
-    quest              Quest                 @relation(fields: [questId], references: [id], onDelete: Cascade)
+    campaign              Campaign                 @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-    @@unique([questId, challengeId])
+    @@unique([campaignId, challengeId])
 }
 
 model ReadingEntry {
     id                 String            @id @default(cuid())
-    questParticipantId String
+    campaignParticipantId String
     type               ReadingEntryType
     value              Int
     activityDate       DateTime
@@ -210,18 +210,18 @@ model ReadingEntry {
     auditLogs          AuditLog[]
     challengeCompletion ChallengeCompletion?
     createdBy          User?             @relation("ReadingEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-    questParticipant   QuestParticipant  @relation(fields: [questParticipantId], references: [id], onDelete: Cascade)
+    campaignParticipant   CampaignParticipant  @relation(fields: [campaignParticipantId], references: [id], onDelete: Cascade)
     updatedBy          User?             @relation("ReadingEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
-    @@index([questParticipantId, deletedAt, activityDate])
+    @@index([campaignParticipantId, deletedAt, activityDate])
 }
 
 model ChallengeCompletion {
     id                 String               @id @default(cuid())
     readingEntryId     String               @unique
-    questParticipantId String
+    campaignParticipantId String
     challengeId        String
-    questChallengeId   String?
+    campaignChallengeId   String?
     reviewState        ChallengeReviewState @default(PENDING)
     evidenceText       String?
     reviewNotes        String?
@@ -232,8 +232,8 @@ model ChallengeCompletion {
     updatedAt          DateTime             @updatedAt
     auditLogs          AuditLog[]
     challenge          Challenge            @relation(fields: [challengeId], references: [id], onDelete: Restrict)
-    questChallenge     QuestChallenge?      @relation(fields: [questChallengeId], references: [id], onDelete: SetNull)
-    questParticipant   QuestParticipant     @relation(fields: [questParticipantId], references: [id], onDelete: Cascade)
+    campaignChallenge     CampaignChallenge?      @relation(fields: [campaignChallengeId], references: [id], onDelete: SetNull)
+    campaignParticipant   CampaignParticipant     @relation(fields: [campaignParticipantId], references: [id], onDelete: Cascade)
     readingEntry       ReadingEntry         @relation(fields: [readingEntryId], references: [id], onDelete: Cascade)
     reviewedBy         User?                @relation("ChallengeReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
 }
@@ -241,8 +241,8 @@ model ChallengeCompletion {
 model AuditLog {
     id                   String               @id @default(cuid())
     actorUserId          String?
-    questId              String?
-    questParticipantId   String?
+    campaignId              String?
+    campaignParticipantId   String?
     invitationId         String?
     challengeId          String?
     challengeCompletionId String?
@@ -256,7 +256,7 @@ model AuditLog {
     challenge            Challenge?           @relation(fields: [challengeId], references: [id], onDelete: SetNull)
     challengeCompletion  ChallengeCompletion? @relation(fields: [challengeCompletionId], references: [id], onDelete: SetNull)
     invitation           Invitation?          @relation(fields: [invitationId], references: [id], onDelete: SetNull)
-    quest                Quest?               @relation(fields: [questId], references: [id], onDelete: SetNull)
-    questParticipant     QuestParticipant?    @relation(fields: [questParticipantId], references: [id], onDelete: SetNull)
+    campaign                Campaign?               @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+    campaignParticipant     CampaignParticipant?    @relation(fields: [campaignParticipantId], references: [id], onDelete: SetNull)
     readingEntry         ReadingEntry?        @relation(fields: [readingEntryId], references: [id], onDelete: SetNull)
 }

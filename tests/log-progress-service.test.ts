@@ -20,16 +20,16 @@ function buildParticipantSnapshot({
         id: 'participant-1',
         removedAt: null,
         userId: 'user-1',
-        quest: {
+        campaign: {
             entryDeleteWindowMinutes: 60,
             entryEditWindowMinutes: 180,
             endAt: new Date('2026-05-31T23:59:59.000Z'),
-            id: 'quest-1',
+            id: 'campaign-1',
             pointsPerAudiobookMinute: { toString: () => '0.75' },
             pointsPerBook: { toString: () => '10' },
             pointsPerChallengeCompletion: { toString: () => '25' },
             pointsPerPage: { toString: () => '1' },
-            questChallenges: [
+            campaignChallenges: [
                 {
                     challenge: {
                         availability: challengeAvailability,
@@ -38,7 +38,7 @@ function buildParticipantSnapshot({
                         title: 'Friend recommendation',
                     },
                     challengeId: 'challenge-1',
-                    id: 'quest-challenge-1',
+                    id: 'campaign-challenge-1',
                     pointValueOverride: pointValueOverride
                         ? { toString: () => pointValueOverride }
                         : null,
@@ -81,7 +81,7 @@ function buildTransaction({
             create: vi.fn(async () => ({ id: 'completion-1' })),
             findMany: vi.fn(async () => existingReviewStates),
         },
-        questParticipant: {
+        campaignParticipant: {
             findUnique: vi.fn(async () => participant),
             update: vi.fn(async () => undefined),
         },
@@ -125,7 +125,7 @@ describe('recordLogProgressEntry', () => {
                 value: '42',
             },
             now: new Date('2026-05-08T20:00:00.000Z'),
-            questParticipantId: 'participant-1',
+            campaignParticipantId: 'participant-1',
         })
 
         expect(transaction.readingEntry.create).toHaveBeenCalledWith({
@@ -135,7 +135,7 @@ describe('recordLogProgressEntry', () => {
                 bookTitle: 'The Giver',
                 createdByUserId: 'user-1',
                 notes: 'Reading sprint entry',
-                questParticipantId: 'participant-1',
+                campaignParticipantId: 'participant-1',
                 type: 'PAGES_READ',
                 updatedByUserId: 'user-1',
                 value: 42,
@@ -158,12 +158,12 @@ describe('recordLogProgressEntry', () => {
                     type: 'PAGES_READ',
                     value: 42,
                 },
-                questId: 'quest-1',
-                questParticipantId: 'participant-1',
+                campaignId: 'campaign-1',
+                campaignParticipantId: 'participant-1',
                 readingEntryId: 'entry-1',
             },
         })
-        expect(transaction.questParticipant.update).toHaveBeenCalledWith({
+        expect(transaction.campaignParticipant.update).toHaveBeenCalledWith({
             data: {
                 lastActivityAt: new Date('2026-05-08T12:00:00.000Z'),
                 totalAudiobookMinutes: 0,
@@ -202,20 +202,20 @@ describe('recordLogProgressEntry', () => {
                 activityDate: '2026-05-08',
                 bookAuthor: '',
                 bookTitle: '',
-                challengeId: 'quest-challenge-1',
+                challengeId: 'campaign-challenge-1',
                 notes: 'Completed the recommendation prompt',
                 type: 'CHALLENGE_COMPLETION',
                 value: '1',
             },
             now: new Date('2026-05-08T20:00:00.000Z'),
-            questParticipantId: 'participant-1',
+            campaignParticipantId: 'participant-1',
         })
 
         expect(transaction.challengeCompletion.create).toHaveBeenCalledWith({
             data: expect.objectContaining({
                 challengeId: 'challenge-1',
-                questChallengeId: 'quest-challenge-1',
-                questParticipantId: 'participant-1',
+                campaignChallengeId: 'campaign-challenge-1',
+                campaignParticipantId: 'participant-1',
                 reviewState: 'AUTO_APPROVED',
             }),
             select: {
@@ -243,8 +243,8 @@ describe('recordLogProgressEntry', () => {
                     reviewState: 'AUTO_APPROVED',
                     value: 1,
                 },
-                questId: 'quest-1',
-                questParticipantId: 'participant-1',
+                campaignId: 'campaign-1',
+                campaignParticipantId: 'participant-1',
                 readingEntryId: 'entry-1',
             },
         })
@@ -283,13 +283,13 @@ describe('recordLogProgressEntry', () => {
                 activityDate: '2026-05-08',
                 bookAuthor: '',
                 bookTitle: '',
-                challengeId: 'quest-challenge-1',
+                challengeId: 'campaign-challenge-1',
                 notes: 'Needs admin review',
                 type: 'CHALLENGE_COMPLETION',
                 value: '1',
             },
             now: new Date('2026-05-08T20:00:00.000Z'),
-            questParticipantId: 'participant-1',
+            campaignParticipantId: 'participant-1',
         })
 
         expect(transaction.challengeCompletion.create).toHaveBeenCalledWith({
@@ -313,8 +313,8 @@ describe('recordLogProgressEntry', () => {
                     reviewState: 'PENDING',
                     value: 1,
                 },
-                questId: 'quest-1',
-                questParticipantId: 'participant-1',
+                campaignId: 'campaign-1',
+                campaignParticipantId: 'participant-1',
                 readingEntryId: 'entry-1',
             },
         })
@@ -352,7 +352,7 @@ describe('updateReadingEntryAsAdmin', () => {
             deletedAt: null,
             id: 'entry-1',
             notes: 'Original note',
-            questParticipant: participant,
+            campaignParticipant: participant,
             type: 'PAGES_READ',
             value: 42,
         })
@@ -410,12 +410,12 @@ describe('updateReadingEntryAsAdmin', () => {
                         value: 24,
                     },
                 },
-                questId: 'quest-1',
-                questParticipantId: 'participant-1',
+                campaignId: 'campaign-1',
+                campaignParticipantId: 'participant-1',
                 readingEntryId: 'entry-1',
             },
         })
-        expect(transaction.questParticipant.update).toHaveBeenCalledWith({
+        expect(transaction.campaignParticipant.update).toHaveBeenCalledWith({
             data: {
                 lastActivityAt: new Date('2026-05-08T12:00:00.000Z'),
                 totalAudiobookMinutes: 0,

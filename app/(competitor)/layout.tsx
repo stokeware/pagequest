@@ -59,7 +59,7 @@ export default async function CompetitorLayout({
             shellVariant='competitor'
             audienceLabel='Competitor experience'
             title='A focused reading hub for logging progress and checking the race.'
-            description='Track your quest standing, latest entries, and next move from one place.'
+            description='Track your campaign standing, latest entries, and next move from one place.'
             navItems={competitorNavItems}
             metrics={competitorMetrics}
             viewer={viewer}

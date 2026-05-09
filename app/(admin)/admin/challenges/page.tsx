@@ -42,13 +42,13 @@ type ChallengesPageProps = {
 const noticeContent = {
     created: {
         description:
-            'The challenge is now part of the reusable catalog and can be assigned to quests in the next phase.',
+            'The challenge is now part of the reusable catalog and can be assigned to campaigns in the next phase.',
         title: 'Challenge created.',
         tone: 'success',
     },
     deleted: {
         description:
-            'The challenge was removed from the catalog because it had no quest assignments or historical completions.',
+            'The challenge was removed from the catalog because it had no campaign assignments or historical completions.',
         title: 'Challenge deleted.',
         tone: 'success',
     },
@@ -60,7 +60,7 @@ const noticeContent = {
     },
     'review-approved': {
         description:
-            'The submission is now approved, reviewer metadata is stored, and its awarded points are fixed for quest scoring.',
+            'The submission is now approved, reviewer metadata is stored, and its awarded points are fixed for campaign scoring.',
         title: 'Challenge submission approved.',
         tone: 'success',
     },
@@ -80,7 +80,7 @@ const noticeContent = {
 
 const errorDetailMessages: Record<string, string> = {
     'challenge-in-use':
-        'Challenges with quest assignments or historical completions stay in the catalog so reporting and references remain intact.',
+        'Challenges with campaign assignments or historical completions stay in the catalog so reporting and references remain intact.',
     'challenge-completion-not-found':
         'That challenge completion record is no longer available.',
     'challenge-not-found': 'That challenge record is no longer available.',
@@ -91,7 +91,7 @@ const errorDetailMessages: Record<string, string> = {
     'invalid-availability':
         'Choose whether the challenge can be completed once or repeated.',
     'invalid-point-value':
-        'Point rule must be a valid number that is zero or greater, or left blank to use quest defaults.',
+        'Point rule must be a valid number that is zero or greater, or left blank to use campaign defaults.',
     'invalid-review-decision':
         'Choose whether the submission should be approved or rejected.',
     'missing-challenge-completion':
@@ -114,7 +114,7 @@ function getFirstSearchParamValue(
 
 function formatPoints(value: { toString(): string } | null) {
     if (!value) {
-        return 'Quest default'
+        return 'Campaign default'
     }
 
     const numericValue = Number(value.toString())
@@ -192,7 +192,7 @@ export default async function AdminChallengesPage({
                 _count: {
                     select: {
                         challengeCompletions: true,
-                        questChallenges: true,
+                        campaignChallenges: true,
                     },
                 },
             },
@@ -210,14 +210,14 @@ export default async function AdminChallengesPage({
                         title: true,
                     },
                 },
-                questChallenge: {
+                campaignChallenge: {
                     select: {
                         pointValueOverride: true,
                     },
                 },
-                questParticipant: {
+                campaignParticipant: {
                     include: {
-                        quest: {
+                        campaign: {
                             select: {
                                 pointsPerChallengeCompletion: true,
                                 name: true,
@@ -254,9 +254,9 @@ export default async function AdminChallengesPage({
                         title: true,
                     },
                 },
-                questParticipant: {
+                campaignParticipant: {
                     include: {
-                        quest: {
+                        campaign: {
                             select: {
                                 name: true,
                                 pointsPerChallengeCompletion: true,
@@ -307,11 +307,11 @@ export default async function AdminChallengesPage({
         (challenge) => challenge.requiresReview
     ).length
     const assignedCount = challenges.filter(
-        (challenge) => challenge._count.questChallenges > 0
+        (challenge) => challenge._count.campaignChallenges > 0
     ).length
     const pendingReviewCount = pendingReviews.length
-    const pendingReviewQuestCount = new Set(
-        pendingReviews.map((review) => review.questParticipant.quest.name)
+    const pendingReviewCampaignCount = new Set(
+        pendingReviews.map((review) => review.campaignParticipant.campaign.name)
     ).size
 
     const reviewQueueItems = pendingReviews.map((review) => {
@@ -331,18 +331,19 @@ export default async function AdminChallengesPage({
             }).format(review.createdAt),
             defaultAwardedPoints: resolveChallengeCompletionDefaultPoints({
                 challengePointValue: review.challenge.pointValue,
-                questChallengePointValueOverride:
-                    review.questChallenge?.pointValueOverride ?? null,
-                questPointsPerChallengeCompletion:
-                    review.questParticipant.quest.pointsPerChallengeCompletion,
+                campaignChallengePointValueOverride:
+                    review.campaignChallenge?.pointValueOverride ?? null,
+                campaignPointsPerChallengeCompletion:
+                    review.campaignParticipant.campaign
+                        .pointsPerChallengeCompletion,
             }),
             evidenceText: review.evidenceText,
             href: `/admin/challenges?${params.toString()}`,
             id: review.id,
             participantLabel:
-                review.questParticipant.user.name ||
-                review.questParticipant.user.email,
-            questLabel: review.questParticipant.quest.name,
+                review.campaignParticipant.user.name ||
+                review.campaignParticipant.user.email,
+            campaignLabel: review.campaignParticipant.campaign.name,
             reviewNotes: review.reviewNotes,
             readingEntryNotes: review.readingEntry.notes,
             submittedActivityLabel: new Intl.DateTimeFormat('en-US', {
@@ -355,12 +356,12 @@ export default async function AdminChallengesPage({
     const resolvedReviewItems = resolvedReviews.map((review) => ({
         awardedPoints:
             review.awardedPoints ??
-            review.questParticipant.quest.pointsPerChallengeCompletion,
+            review.campaignParticipant.campaign.pointsPerChallengeCompletion,
         challengeTitle: review.challenge.title,
         participantLabel:
-            review.questParticipant.user.name ||
-            review.questParticipant.user.email,
-        questLabel: review.questParticipant.quest.name,
+            review.campaignParticipant.user.name ||
+            review.campaignParticipant.user.email,
+        campaignLabel: review.campaignParticipant.campaign.name,
         reviewStateLabel: getChallengeReviewStateLabel(review.reviewState),
         reviewedAtLabel: new Intl.DateTimeFormat('en-US', {
             dateStyle: 'medium',
@@ -375,7 +376,7 @@ export default async function AdminChallengesPage({
     const rows = challenges.map((challenge) => {
         const canDelete =
             challenge._count.challengeCompletions === 0 &&
-            challenge._count.questChallenges === 0
+            challenge._count.campaignChallenges === 0
 
         return {
             cells: [
@@ -419,7 +420,8 @@ export default async function AdminChallengesPage({
                 </div>,
                 <div key='usage' className='stack-sm'>
                     <p className='type-muted text-xs'>
-                        {challenge._count.questChallenges} quest assignments
+                        {challenge._count.campaignChallenges} campaign
+                        assignments
                     </p>
                     <p className='type-muted text-xs'>
                         {challenge._count.challengeCompletions} completions
@@ -458,7 +460,7 @@ export default async function AdminChallengesPage({
 
                     {!canDelete ? (
                         <p className='type-muted text-xs'>
-                            Remove quest assignments and keep history intact
+                            Remove campaign assignments and keep history intact
                             before deleting.
                         </p>
                     ) : null}
@@ -490,7 +492,7 @@ export default async function AdminChallengesPage({
                     eyebrow='Catalog size'
                     title='Tracked challenges'
                     value={totalCount}
-                    description='Every reusable challenge definition lives here before quest assignment.'
+                    description='Every reusable challenge definition lives here before campaign assignment.'
                 />
                 <StatCard
                     eyebrow='Flexible repeats'
@@ -505,10 +507,10 @@ export default async function AdminChallengesPage({
                     description='These catalog entries will queue for admin approval once completions are wired.'
                 />
                 <StatCard
-                    eyebrow='Quest usage'
+                    eyebrow='Campaign usage'
                     title='Assigned'
                     value={assignedCount}
-                    description='Assigned entries are already attached to at least one quest configuration.'
+                    description='Assigned entries are already attached to at least one campaign configuration.'
                 />
             </div>
 
@@ -520,10 +522,10 @@ export default async function AdminChallengesPage({
                     description='Manual-review challenge completions waiting for an admin decision.'
                 />
                 <StatCard
-                    eyebrow='Quest spread'
-                    title='Queued quests'
-                    value={pendingReviewQuestCount}
-                    description='Number of quests currently represented in the pending review queue.'
+                    eyebrow='Campaign spread'
+                    title='Queued campaigns'
+                    value={pendingReviewCampaignCount}
+                    description='Number of campaigns currently represented in the pending review queue.'
                 />
             </div>
 
@@ -543,7 +545,7 @@ export default async function AdminChallengesPage({
                     <ChallengeForm
                         action={createChallengeAction}
                         defaultValues={getChallengeFormDefaults()}
-                        note='Create stores a reusable catalog entry immediately. Quest-specific assignment and overrides land in the next phase step.'
+                        note='Create stores a reusable catalog entry immediately. Campaign-specific assignment and overrides land in the next phase step.'
                         submitLabel='Create challenge'
                         title='Create a challenge'
                     />
@@ -562,7 +564,7 @@ export default async function AdminChallengesPage({
                             defaultValues={getChallengeFormDefaults(
                                 selectedChallenge
                             )}
-                            note='Editing keeps the same catalog record so future quest assignments and review behavior stay consistent.'
+                            note='Editing keeps the same catalog record so future campaign assignments and review behavior stay consistent.'
                             submitLabel='Save challenge'
                             title={`Edit ${selectedChallenge.title}`}
                         />
@@ -571,7 +573,7 @@ export default async function AdminChallengesPage({
                     <EmptyState
                         eyebrow='Challenge catalog'
                         title='Create the first reusable challenge.'
-                        description='Once a catalog entry exists, you can edit it here and attach it to quests in the next challenge-management task.'
+                        description='Once a catalog entry exists, you can edit it here and attach it to campaigns in the next challenge-management task.'
                     />
                 )}
             </div>
@@ -579,7 +581,7 @@ export default async function AdminChallengesPage({
             {rows.length > 0 ? (
                 <TableCard
                     title='Challenge catalog'
-                    description='The catalog stays reusable across quests, with delete reserved for definitions that are still unused.'
+                    description='The catalog stays reusable across campaigns, with delete reserved for definitions that are still unused.'
                     columns={[
                         'Challenge',
                         'Category and evidence',
@@ -594,7 +596,7 @@ export default async function AdminChallengesPage({
                 <EmptyState
                     eyebrow='Challenge catalog'
                     title='No challenges are tracked yet.'
-                    description='Use the form to define the first reusable challenge so later quest-assignment work has a real catalog to target.'
+                    description='Use the form to define the first reusable challenge so later campaign-assignment work has a real catalog to target.'
                 />
             )}
         </div>

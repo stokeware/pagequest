@@ -1,23 +1,23 @@
-import type { AppRole, InvitationStatus, QuestStatus } from '@prisma/client'
+import type { AppRole, InvitationStatus, CampaignStatus } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
 
-type InvitationQuestRecord = {
+type InvitationCampaignRecord = {
     id: string
     name: string
-    status: QuestStatus
+    status: CampaignStatus
 }
 
 type InvitationRecord = {
     email: string
     expiresAt: Date
-    quest: InvitationQuestRecord
+    campaign: InvitationCampaignRecord
     status: InvitationStatus
 }
 
 type ParticipantRecord = {
     joinedAt: Date | null
-    quest: InvitationQuestRecord
+    campaign: InvitationCampaignRecord
 }
 
 export type InvitationAccessState =
@@ -31,13 +31,13 @@ export type InvitationAccessState =
 export type InvitationAccessProfile = {
     allowCompetitorRoutes: boolean
     invitationEmail: string | null
-    questName: string | null
+    campaignName: string | null
     redirectPath: string | null
     state: InvitationAccessState
     summary: string
 }
 
-const protectedQuestStatuses: QuestStatus[] = [
+const protectedCampaignStatuses: CampaignStatus[] = [
     'ACTIVE',
     'COMPLETED',
     'SCHEDULED',
@@ -58,11 +58,11 @@ function deriveInvitationAccessProfile({
         return {
             allowCompetitorRoutes: false,
             invitationEmail: null,
-            questName: null,
+            campaignName: null,
             redirectPath: '/sign-in?callbackUrl=%2Faccept-invitation',
             state: 'signed-out',
             summary:
-                'Sign in first so Page Quest can check whether you have an invitation for the current private quest.',
+                'Sign in first so Page Quest can check whether you have an invitation for the current private campaign.',
         }
     }
 
@@ -70,10 +70,10 @@ function deriveInvitationAccessProfile({
         return {
             allowCompetitorRoutes: true,
             invitationEmail: email,
-            questName: participant.quest.name,
+            campaignName: participant.campaign.name,
             redirectPath: null,
             state: 'accepted',
-            summary: `Invitation already accepted for ${participant.quest.name}. You can open the competitor experience directly.`,
+            summary: `Invitation already accepted for ${participant.campaign.name}. You can open the competitor experience directly.`,
         }
     }
 
@@ -81,11 +81,11 @@ function deriveInvitationAccessProfile({
         return {
             allowCompetitorRoutes: false,
             invitationEmail: email,
-            questName: null,
+            campaignName: null,
             redirectPath: '/accept-invitation',
             state: 'missing',
             summary:
-                'No active invitation was found for this account, so the private quest remains locked until an administrator invites you.',
+                'No active invitation was found for this account, so the private campaign remains locked until an administrator invites you.',
         }
     }
 
@@ -93,10 +93,10 @@ function deriveInvitationAccessProfile({
         return {
             allowCompetitorRoutes: false,
             invitationEmail: email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             redirectPath: '/accept-invitation',
             state: 'revoked',
-            summary: `The invitation for ${invitation.quest.name} has been revoked. Ask an administrator to send a new invitation if you should still join.`,
+            summary: `The invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to send a new invitation if you should still join.`,
         }
     }
 
@@ -104,20 +104,20 @@ function deriveInvitationAccessProfile({
         return {
             allowCompetitorRoutes: false,
             invitationEmail: email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             redirectPath: '/accept-invitation',
             state: 'expired',
-            summary: `The invitation for ${invitation.quest.name} is no longer valid. An administrator will need to resend it before you can join.`,
+            summary: `The invitation for ${invitation.campaign.name} is no longer valid. An administrator will need to resend it before you can join.`,
         }
     }
 
     return {
         allowCompetitorRoutes: false,
         invitationEmail: email,
-        questName: invitation.quest.name,
+        campaignName: invitation.campaign.name,
         redirectPath: '/accept-invitation',
         state: 'pending',
-        summary: `Invitation recognized for ${invitation.quest.name}. Finish the acceptance flow before Page Quest unlocks competitor routes for this account.`,
+        summary: `Invitation recognized for ${invitation.campaign.name}. Finish the acceptance flow before Page Quest unlocks competitor routes for this account.`,
     }
 }
 
@@ -138,9 +138,9 @@ export async function getInvitationAccessProfile({
     }
 
     const [participant, invitation] = await Promise.all([
-        prisma.questParticipant.findFirst({
+        prisma.campaignParticipant.findFirst({
             include: {
-                quest: {
+                campaign: {
                     select: {
                         id: true,
                         name: true,
@@ -152,9 +152,9 @@ export async function getInvitationAccessProfile({
                 createdAt: 'desc',
             },
             where: {
-                quest: {
+                campaign: {
                     status: {
-                        in: protectedQuestStatuses,
+                        in: protectedCampaignStatuses,
                     },
                     visibility: 'INVITE_ONLY',
                 },
@@ -164,7 +164,7 @@ export async function getInvitationAccessProfile({
         }),
         prisma.invitation.findFirst({
             include: {
-                quest: {
+                campaign: {
                     select: {
                         id: true,
                         name: true,
@@ -177,9 +177,9 @@ export async function getInvitationAccessProfile({
             },
             where: {
                 email: userEmail,
-                quest: {
+                campaign: {
                     status: {
-                        in: protectedQuestStatuses,
+                        in: protectedCampaignStatuses,
                     },
                     visibility: 'INVITE_ONLY',
                 },

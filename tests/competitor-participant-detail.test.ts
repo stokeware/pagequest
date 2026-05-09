@@ -6,7 +6,7 @@ import {
 } from '@/lib/competitor-participant-detail'
 
 describe('competitor participant detail view model', () => {
-    it('builds a full quest history view for a participant on the current leaderboard', () => {
+    it('builds a full campaign history view for a participant on the current leaderboard', () => {
         const viewModel = buildCompetitorParticipantDetailViewModel({
             context: {
                 participant: {
@@ -14,9 +14,9 @@ describe('competitor participant detail view model', () => {
                     id: 'participant-2',
                     joinedAt: new Date('2026-04-01T12:00:00Z'),
                     lastActivityAt: new Date('2026-05-06T12:00:00Z'),
-                    quest: {
+                    campaign: {
                         endAt: new Date('2026-05-20T23:00:00Z'),
-                        id: 'quest-1',
+                        id: 'campaign-1',
                         name: 'Spring Story Sprint',
                         startAt: new Date('2026-04-20T12:00:00Z'),
                         status: 'ACTIVE',
@@ -121,7 +121,7 @@ describe('competitor participant detail view model', () => {
             isViewer: true,
             participantId: 'participant-2',
             participantLabel: 'Avery',
-            questName: 'Spring Story Sprint',
+            campaignName: 'Spring Story Sprint',
             rankLabel: '#2',
         })
         expect(viewModel.summaryMetrics[0]).toMatchObject({

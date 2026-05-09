@@ -110,7 +110,7 @@ describe('deriveInvitationTokenSummary', () => {
             invitation: {
                 email: 'reader@example.com',
                 expiresAt: new Date('2026-05-15T12:00:00.000Z'),
-                quest: {
+                campaign: {
                     name: 'Spring Story Sprint 2026',
                 },
                 status: 'PENDING',

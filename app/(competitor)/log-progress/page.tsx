@@ -1,4 +1,4 @@
-import type { QuestStatus } from '@prisma/client'
+import type { CampaignStatus } from '@prisma/client'
 
 import { getRoleAwareSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/prisma'
@@ -8,7 +8,7 @@ import {
     type LogProgressViewModel,
 } from './log-progress-screen'
 
-const loggableQuestStatuses: QuestStatus[] = [
+const loggableCampaignStatuses: CampaignStatus[] = [
     'ACTIVE',
     'SCHEDULED',
     'COMPLETED',
@@ -18,10 +18,10 @@ const defaultViewModel: LogProgressViewModel = {
     challengeOptions: [],
     hasLiveQuest: false,
     participantSummary:
-        'No active quest participation is linked to this account yet. This screen is ready for reading entries once a quest is available.',
-    questParticipantId: null,
-    questPolicy: null,
-    questName: 'Quest assignment pending',
+        'No active campaign participation is linked to this account yet. This screen is ready for reading entries once a campaign is available.',
+    campaignParticipantId: null,
+    campaignPolicy: null,
+    campaignName: 'Campaign assignment pending',
     scoringSummary: {
         audiobookMinutes: '0.75 points per minute',
         bookCompletion: '1 point per book',
@@ -37,13 +37,13 @@ async function getLogProgressViewModel(
         return defaultViewModel
     }
 
-    const participants = await prisma.questParticipant.findMany({
+    const participants = await prisma.campaignParticipant.findMany({
         orderBy: {
             createdAt: 'desc',
         },
         select: {
             id: true,
-            quest: {
+            campaign: {
                 select: {
                     entryDeleteWindowMinutes: true,
                     entryEditWindowMinutes: true,
@@ -54,7 +54,7 @@ async function getLogProgressViewModel(
                     pointsPerChallengeCompletion: true,
                     pointsPerPage: true,
                     startAt: true,
-                    questChallenges: {
+                    campaignChallenges: {
                         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
                         select: {
                             challenge: {
@@ -83,9 +83,9 @@ async function getLogProgressViewModel(
         },
         take: 5,
         where: {
-            quest: {
+            campaign: {
                 status: {
-                    in: loggableQuestStatuses,
+                    in: loggableCampaignStatuses,
                 },
             },
             removedAt: null,
@@ -94,7 +94,7 @@ async function getLogProgressViewModel(
     })
 
     const participant =
-        participants.find((entry) => entry.quest.status === 'ACTIVE') ??
+        participants.find((entry) => entry.campaign.status === 'ACTIVE') ??
         participants[0] ??
         null
 
@@ -103,7 +103,7 @@ async function getLogProgressViewModel(
     }
 
     return {
-        challengeOptions: participant.quest.questChallenges.map(
+        challengeOptions: participant.campaign.campaignChallenges.map(
             ({ challenge, id, pointValueOverride }) => ({
                 availability: challenge.availability,
                 description: challenge.description,
@@ -112,32 +112,32 @@ async function getLogProgressViewModel(
                 pointsLabel: `${(
                     pointValueOverride ??
                     challenge.pointValue ??
-                    participant.quest.pointsPerChallengeCompletion
+                    participant.campaign.pointsPerChallengeCompletion
                 ).toString()} points`,
                 requiresReview: challenge.requiresReview,
                 title: challenge.title,
             })
         ),
-        hasLiveQuest: participant.quest.status === 'ACTIVE',
+        hasLiveQuest: participant.campaign.status === 'ACTIVE',
         participantSummary:
-            participant.quest.status === 'ACTIVE'
-                ? 'Your current quest is live, so this form is ready for book, page, audio, and challenge entries.'
-                : 'Your most recent quest context is loaded here while active quest logging is still pending for this account.',
-        questParticipantId: participant.id,
-        questPolicy: {
+            participant.campaign.status === 'ACTIVE'
+                ? 'Your current campaign is live, so this form is ready for book, page, audio, and challenge entries.'
+                : 'Your most recent campaign context is loaded here while active campaign logging is still pending for this account.',
+        campaignParticipantId: participant.id,
+        campaignPolicy: {
             entryDeleteWindowMinutes:
-                participant.quest.entryDeleteWindowMinutes,
-            entryEditWindowMinutes: participant.quest.entryEditWindowMinutes,
-            questEndAt: participant.quest.endAt.toISOString(),
-            questStartAt: participant.quest.startAt.toISOString(),
-            timezone: participant.quest.timezone,
+                participant.campaign.entryDeleteWindowMinutes,
+            entryEditWindowMinutes: participant.campaign.entryEditWindowMinutes,
+            campaignEndAt: participant.campaign.endAt.toISOString(),
+            campaignStartAt: participant.campaign.startAt.toISOString(),
+            timezone: participant.campaign.timezone,
         },
-        questName: participant.quest.name,
+        campaignName: participant.campaign.name,
         scoringSummary: {
-            audiobookMinutes: `${participant.quest.pointsPerAudiobookMinute.toString()} points per minute`,
-            bookCompletion: `${participant.quest.pointsPerBook.toString()} points per book`,
-            challengeCompletion: `${participant.quest.pointsPerChallengeCompletion.toString()} points per completion`,
-            pagesRead: `${participant.quest.pointsPerPage.toString()} points per page`,
+            audiobookMinutes: `${participant.campaign.pointsPerAudiobookMinute.toString()} points per minute`,
+            bookCompletion: `${participant.campaign.pointsPerBook.toString()} points per book`,
+            challengeCompletion: `${participant.campaign.pointsPerChallengeCompletion.toString()} points per completion`,
+            pagesRead: `${participant.campaign.pointsPerPage.toString()} points per page`,
         },
     }
 }

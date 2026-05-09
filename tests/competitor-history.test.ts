@@ -6,14 +6,14 @@ import {
 } from '@/lib/competitor-history'
 
 describe('competitor history view model', () => {
-    it('defaults to the active quest timeline and exposes past quests', () => {
+    it('defaults to the active campaign timeline and exposes past campaigns', () => {
         const viewModel = buildCompetitorHistoryViewModel({
             participants: [
                 {
                     createdAt: new Date('2026-04-01T12:00:00Z'),
                     id: 'participant-active',
                     lastActivityAt: new Date('2026-05-06T12:00:00Z'),
-                    quest: {
+                    campaign: {
                         endAt: new Date('2026-05-20T23:00:00Z'),
                         name: 'Spring Story Sprint',
                         startAt: new Date('2026-04-20T12:00:00Z'),
@@ -48,7 +48,7 @@ describe('competitor history view model', () => {
                     createdAt: new Date('2025-10-01T12:00:00Z'),
                     id: 'participant-past',
                     lastActivityAt: new Date('2025-12-10T12:00:00Z'),
-                    quest: {
+                    campaign: {
                         endAt: new Date('2025-12-20T23:00:00Z'),
                         name: 'Winter Reading Rally',
                         startAt: new Date('2025-11-01T12:00:00Z'),
@@ -83,27 +83,27 @@ describe('competitor history view model', () => {
             selectedParticipantId: null,
         })
 
-        expect(viewModel.hasQuestHistory).toBe(true)
-        expect(viewModel.selectedQuestName).toBe('Spring Story Sprint')
-        expect(viewModel.currentQuestCard).toBeNull()
+        expect(viewModel.hasCampaignHistory).toBe(true)
+        expect(viewModel.selectedCampaignName).toBe('Spring Story Sprint')
+        expect(viewModel.currentCampaignCard).toBeNull()
         expect(viewModel.timelineEntries[0]).toMatchObject({
             title: 'Audiobook minutes · 45 minutes',
             pointsLabel: '33.75 points',
         })
-        expect(viewModel.pastQuestCards[0]).toMatchObject({
-            questName: 'Winter Reading Rally',
-            href: '/history?quest=participant-past',
+        expect(viewModel.pastCampaignCards[0]).toMatchObject({
+            campaignName: 'Winter Reading Rally',
+            href: '/history?campaign=participant-past',
         })
     })
 
-    it('lets the viewer switch to a past quest timeline', () => {
+    it('lets the viewer switch to a past campaign timeline', () => {
         const viewModel = buildCompetitorHistoryViewModel({
             participants: [
                 {
                     createdAt: new Date('2026-04-01T12:00:00Z'),
                     id: 'participant-active',
                     lastActivityAt: new Date('2026-05-06T12:00:00Z'),
-                    quest: {
+                    campaign: {
                         endAt: new Date('2026-05-20T23:00:00Z'),
                         name: 'Spring Story Sprint',
                         startAt: new Date('2026-04-20T12:00:00Z'),
@@ -127,7 +127,7 @@ describe('competitor history view model', () => {
                     createdAt: new Date('2025-10-01T12:00:00Z'),
                     id: 'participant-past',
                     lastActivityAt: new Date('2025-12-10T12:00:00Z'),
-                    quest: {
+                    campaign: {
                         endAt: new Date('2025-12-20T23:00:00Z'),
                         name: 'Winter Reading Rally',
                         startAt: new Date('2025-11-01T12:00:00Z'),
@@ -169,13 +169,13 @@ describe('competitor history view model', () => {
             selectedParticipantId: 'participant-past',
         })
 
-        expect(viewModel.selectedQuestName).toBe('Winter Reading Rally')
-        expect(viewModel.selectedQuestStatusLabel).toBe('Completed quest')
-        expect(viewModel.currentQuestCard).toMatchObject({
-            questName: 'Spring Story Sprint',
-            href: '/history?quest=participant-active',
+        expect(viewModel.selectedCampaignName).toBe('Winter Reading Rally')
+        expect(viewModel.selectedCampaignStatusLabel).toBe('Completed campaign')
+        expect(viewModel.currentCampaignCard).toMatchObject({
+            campaignName: 'Spring Story Sprint',
+            href: '/history?campaign=participant-active',
         })
-        expect(viewModel.pastQuestCards[0]).toMatchObject({
+        expect(viewModel.pastCampaignCards[0]).toMatchObject({
             isSelected: true,
             participantId: 'participant-past',
         })

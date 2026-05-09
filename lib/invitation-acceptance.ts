@@ -1,21 +1,21 @@
-import type { QuestStatus, QuestVisibility } from '@prisma/client'
+import type { CampaignStatus, CampaignVisibility } from '@prisma/client'
 
 import {
     getInvitationTokenState,
     normalizeInvitationEmail,
 } from '@/lib/invitation-admin'
 
-type InvitationAcceptanceQuestRecord = {
+type InvitationAcceptanceCampaignRecord = {
     name: string
-    status: QuestStatus
-    visibility: QuestVisibility
+    status: CampaignStatus
+    visibility: CampaignVisibility
 }
 
 export type InvitationAcceptanceRecord = {
     acceptedByUserId?: string | null
     email: string
     expiresAt: Date
-    quest: InvitationAcceptanceQuestRecord
+    campaign: InvitationAcceptanceCampaignRecord
     revokedAt?: Date | null
     status: 'ACCEPTED' | 'EXPIRED' | 'PENDING' | 'REVOKED'
 }
@@ -37,7 +37,7 @@ export type InvitationAcceptanceState =
 export type InvitationAcceptanceProfile = {
     canAccept: boolean
     expectedEmail: string | null
-    questName: string | null
+    campaignName: string | null
     state: InvitationAcceptanceState
     summary: string
 }
@@ -55,7 +55,7 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: null,
-            questName: null,
+            campaignName: null,
             state: 'invalid',
             summary:
                 'This invitation link is not recognized. Ask an administrator for a fresh invite.',
@@ -63,16 +63,16 @@ export function deriveInvitationAcceptanceProfile({
     }
 
     if (
-        invitation.quest.status === 'ARCHIVED' ||
-        invitation.quest.visibility !== 'INVITE_ONLY'
+        invitation.campaign.status === 'ARCHIVED' ||
+        invitation.campaign.visibility !== 'INVITE_ONLY'
     ) {
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state: 'invalid',
             summary:
-                'This invitation is no longer available for onboarding. Ask an administrator for an updated invite if the quest is still open.',
+                'This invitation is no longer available for onboarding. Ask an administrator for an updated invite if the campaign is still open.',
         }
     }
 
@@ -82,9 +82,9 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state: 'accepted',
-            summary: `This invitation for ${invitation.quest.name} has already been accepted. Open the competitor dashboard with the linked account to continue.`,
+            summary: `This invitation for ${invitation.campaign.name} has already been accepted. Open the competitor dashboard with the linked account to continue.`,
         }
     }
 
@@ -92,9 +92,9 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state: 'revoked',
-            summary: `This invitation for ${invitation.quest.name} has been revoked. Ask an administrator to resend it if you should still join.`,
+            summary: `This invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to resend it if you should still join.`,
         }
     }
 
@@ -102,9 +102,9 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state: 'expired',
-            summary: `This invitation for ${invitation.quest.name} has expired. An administrator will need to resend it before you can join.`,
+            summary: `This invitation for ${invitation.campaign.name} has expired. An administrator will need to resend it before you can join.`,
         }
     }
 
@@ -112,9 +112,9 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state: 'sign-in-required',
-            summary: `Sign in with ${invitation.email} to link your account and accept the invitation for ${invitation.quest.name}.`,
+            summary: `Sign in with ${invitation.email} to link your account and accept the invitation for ${invitation.campaign.name}.`,
         }
     }
 
@@ -125,17 +125,17 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            questName: invitation.quest.name,
+            campaignName: invitation.campaign.name,
             state: 'wrong-account',
-            summary: `You are signed in as ${viewer.userEmail}, but this invitation belongs to ${invitation.email}. Sign in with the invited account before accepting ${invitation.quest.name}.`,
+            summary: `You are signed in as ${viewer.userEmail}, but this invitation belongs to ${invitation.email}. Sign in with the invited account before accepting ${invitation.campaign.name}.`,
         }
     }
 
     return {
         canAccept: true,
         expectedEmail: invitation.email,
-        questName: invitation.quest.name,
+        campaignName: invitation.campaign.name,
         state: 'ready',
-        summary: `Everything is ready. Accept the invitation to link ${viewer.userEmail} to ${invitation.quest.name} and unlock the competitor dashboard.`,
+        summary: `Everything is ready. Accept the invitation to link ${viewer.userEmail} to ${invitation.campaign.name} and unlock the competitor dashboard.`,
     }
 }

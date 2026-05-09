@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-import { QuestChallengeAssignmentsPanel } from '@/app/(admin)/admin/quests/quest-challenge-assignment-panel'
+import { CampaignChallengeAssignmentsPanel } from '@/app/(admin)/admin/campaigns/campaign-challenge-assignment-panel'
 
-describe('quest challenge assignment admin UI', () => {
+describe('campaign challenge assignment admin UI', () => {
     it('renders current assignments and the add-assignment form', () => {
         const html = renderToStaticMarkup(
-            <QuestChallengeAssignmentsPanel
+            <CampaignChallengeAssignmentsPanel
                 action={vi.fn(async () => undefined)}
                 availableChallenges={[
                     {
@@ -30,28 +30,28 @@ describe('quest challenge assignment admin UI', () => {
                     },
                 ]}
                 canEdit={true}
-                questId='quest-1'
+                campaignId='campaign-1'
             />
         )
 
-        expect(html).toContain('Quest challenges')
+        expect(html).toContain('Campaign challenges')
         expect(html).toContain('Biography bonus')
         expect(html).toContain('15 points')
         expect(html).toContain('Catalog challenge')
         expect(html).toContain('Sort order')
         expect(html).toContain('Point override')
-        expect(html).toContain('Add challenge to quest')
+        expect(html).toContain('Add challenge to campaign')
         expect(html).toContain('Mystery pick')
     })
 
     it('renders the archived read-only note when editing is disabled', () => {
         const html = renderToStaticMarkup(
-            <QuestChallengeAssignmentsPanel
+            <CampaignChallengeAssignmentsPanel
                 action={vi.fn(async () => undefined)}
                 availableChallenges={[]}
                 assignments={[]}
                 canEdit={false}
-                questId='quest-1'
+                campaignId='campaign-1'
             />
         )
 

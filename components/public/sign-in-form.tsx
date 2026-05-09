@@ -110,7 +110,7 @@ export function SignInForm({
     return (
         <FormCard
             title='Sign in'
-            description='Use one of the seeded local readers or an invited account before continuing into a private quest.'
+            description='Use one of the seeded local readers or an invited account before continuing into a private campaign.'
         >
             <form onSubmit={handleSubmit} method='post' className='space-y-4'>
                 <FormField label='Email address' htmlFor='email'>

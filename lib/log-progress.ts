@@ -16,11 +16,11 @@ export type ReadingEntryMetadata = {
     bookTitle: string | null
 }
 
-export type LogProgressQuestPolicy = {
+export type LogProgressCampaignPolicy = {
     entryDeleteWindowMinutes: number | null
     entryEditWindowMinutes: number | null
-    questEndAt: string
-    questStartAt: string
+    campaignEndAt: string
+    campaignStartAt: string
     timezone: string
 }
 
@@ -42,7 +42,7 @@ export type ReadingMetadataFieldCopy = {
 
 type ValidateLogProgressOptions = {
     availableChallengeIds: string[]
-    questPolicy: LogProgressQuestPolicy | null
+    campaignPolicy: LogProgressCampaignPolicy | null
 }
 
 const readingEntryTypes = [
@@ -91,15 +91,15 @@ export function getLogProgressFormDefaults(
 
 export function validateLogProgressFormValues(
     values: LogProgressFormValues,
-    { availableChallengeIds, questPolicy }: ValidateLogProgressOptions
+    { availableChallengeIds, campaignPolicy }: ValidateLogProgressOptions
 ) {
     return logProgressFormSchema
         .superRefine((candidate, context) => {
-            if (!questPolicy) {
+            if (!campaignPolicy) {
                 context.addIssue({
                     code: 'custom',
                     message:
-                        'A quest assignment is required before you can log progress.',
+                        'A campaign assignment is required before you can log progress.',
                     path: ['activityDate'],
                 })
             } else if (!candidate.activityDate) {
@@ -115,14 +115,14 @@ export function validateLogProgressFormValues(
                     path: ['activityDate'],
                 })
             } else if (
-                !isActivityDateWithinQuestWindow(
+                !isActivityDateWithinCampaignWindow(
                     candidate.activityDate,
-                    questPolicy
+                    campaignPolicy
                 )
             ) {
                 context.addIssue({
                     code: 'custom',
-                    message: `Choose a date from ${getQuestDateWindowLabel(questPolicy)} for this quest.`,
+                    message: `Choose a date from ${getCampaignDateWindowLabel(campaignPolicy)} for this campaign.`,
                     path: ['activityDate'],
                 })
             }
@@ -132,7 +132,7 @@ export function validateLogProgressFormValues(
                     context.addIssue({
                         code: 'custom',
                         message:
-                            'This quest does not have any active challenges to log yet.',
+                            'This campaign does not have any active challenges to log yet.',
                         path: ['challengeId'],
                     })
 
@@ -152,7 +152,7 @@ export function validateLogProgressFormValues(
                 if (!availableChallengeIds.includes(candidate.challengeId)) {
                     context.addIssue({
                         code: 'custom',
-                        message: 'Choose a challenge from this quest.',
+                        message: 'Choose a challenge from this campaign.',
                         path: ['challengeId'],
                     })
                 }
@@ -171,8 +171,8 @@ export function validateLogProgressFormValues(
         .safeParse(values)
 }
 
-export function getQuestDateWindowLabel(policy: LogProgressQuestPolicy) {
-    return `${getQuestBoundaryDateValue(policy.questStartAt)} through ${getQuestBoundaryDateValue(policy.questEndAt)}`
+export function getCampaignDateWindowLabel(policy: LogProgressCampaignPolicy) {
+    return `${getCampaignBoundaryDateValue(policy.campaignStartAt)} through ${getCampaignBoundaryDateValue(policy.campaignEndAt)}`
 }
 
 export function getReadingMetadataFieldCopy(
@@ -253,12 +253,14 @@ export function getReadingEntryMetadataSummary(
     return null
 }
 
-export function getQuestDateWindowHint(policy: LogProgressQuestPolicy | null) {
+export function getCampaignDateWindowHint(
+    policy: LogProgressCampaignPolicy | null
+) {
     if (!policy) {
-        return 'Quest dates become available after your account joins a quest.'
+        return 'Campaign dates become available after your account joins a campaign.'
     }
 
-    return `Quest dates: ${getQuestDateWindowLabel(policy)} (${policy.timezone}).`
+    return `Campaign dates: ${getCampaignDateWindowLabel(policy)} (${policy.timezone}).`
 }
 
 export function getEntryWindowPolicyLabel({
@@ -271,7 +273,7 @@ export function getEntryWindowPolicyLabel({
     const actionLabel = action === 'edit' ? 'Edits' : 'Deletes'
 
     if (windowMinutes == null) {
-        return `${actionLabel} remain open until the quest policy changes.`
+        return `${actionLabel} remain open until the campaign policy changes.`
     }
 
     if (windowMinutes === 0) {
@@ -327,12 +329,12 @@ function isPositiveWholeNumber(value: string) {
     return /^\d+$/.test(value) && Number(value) >= 1
 }
 
-function isActivityDateWithinQuestWindow(
+function isActivityDateWithinCampaignWindow(
     activityDate: string,
-    policy: LogProgressQuestPolicy
+    policy: LogProgressCampaignPolicy
 ) {
-    const minimumDate = getQuestBoundaryDateValue(policy.questStartAt)
-    const maximumDate = getQuestBoundaryDateValue(policy.questEndAt)
+    const minimumDate = getCampaignBoundaryDateValue(policy.campaignStartAt)
+    const maximumDate = getCampaignBoundaryDateValue(policy.campaignEndAt)
 
     return activityDate >= minimumDate && activityDate <= maximumDate
 }
@@ -355,7 +357,7 @@ function getTodayDateInputValue(now = new Date()) {
     return `${year}-${month}-${day}`
 }
 
-function getQuestBoundaryDateValue(value: string) {
+function getCampaignBoundaryDateValue(value: string) {
     const parsedValue = toDate(value)
 
     return `${parsedValue.getUTCFullYear()}-${String(parsedValue.getUTCMonth() + 1).padStart(2, '0')}-${String(parsedValue.getUTCDate()).padStart(2, '0')}`

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 import { Prisma } from '@prisma/client'
-import type { QuestStatus, QuestVisibility } from '@prisma/client'
+import type { CampaignStatus, CampaignVisibility } from '@prisma/client'
 
 import {
     Button,
@@ -19,30 +19,30 @@ import {
     TableCard,
 } from '@/components/ui'
 import { prisma } from '@/lib/prisma'
-import { synchronizeDerivedQuestStatuses } from '@/lib/quest-status'
+import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
 
 import {
-    buildQuestScoringPreviewItems,
-    describeQuestLifecycle,
-    getQuestStatusLabel,
-    getQuestVisibilityLabel,
-} from '@/lib/quest-admin'
+    buildCampaignScoringPreviewItems,
+    describeCampaignLifecycle,
+    getCampaignStatusLabel,
+    getCampaignVisibilityLabel,
+} from '@/lib/campaign-admin'
 
 import {
-    archiveQuestAction,
-    assignQuestChallengeAction,
-    createQuestAction,
-    duplicateQuestAction,
-    publishQuestAction,
-    updateQuestAction,
+    archiveCampaignAction,
+    assignCampaignChallengeAction,
+    createCampaignAction,
+    duplicateCampaignAction,
+    publishCampaignAction,
+    updateCampaignAction,
 } from './actions'
-import { QuestChallengeAssignmentsPanel } from './quest-challenge-assignment-panel'
+import { CampaignChallengeAssignmentsPanel } from './campaign-challenge-assignment-panel'
 
-type QuestsPageProps = {
+type CampaignsPageProps = {
     searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-type QuestFormDefaults = {
+type CampaignFormDefaults = {
     description: string
     endAt: string
     entryDeleteWindowMinutes: string
@@ -57,13 +57,13 @@ type QuestFormDefaults = {
     visibility: 'INVITE_ONLY'
 }
 
-type QuestLifecycleView = {
+type CampaignLifecycleView = {
     archivedAt: Date | null
     endAt: Date
     publishedAt: Date | null
     startAt: Date
-    status: QuestStatus
-    visibility: QuestVisibility
+    status: CampaignStatus
+    visibility: CampaignVisibility
 }
 
 const selectClassName = [
@@ -83,58 +83,58 @@ const textareaClassName = [
 const noticeContent = {
     archived: {
         description:
-            'The quest is now preserved as historical context and no longer appears as a live competition surface.',
-        title: 'Quest archived.',
+            'The campaign is now preserved as historical context and no longer appears as a live competition surface.',
+        title: 'Campaign archived.',
         tone: 'success',
     },
     created: {
         description:
-            'The quest record is now available for editing, publication, and future participant setup.',
-        title: 'Quest created.',
+            'The campaign record is now available for editing, publication, and future participant setup.',
+        title: 'Campaign created.',
         tone: 'success',
     },
     'challenge-assigned': {
         description:
-            'The selected catalog challenge is now attached to this quest with its quest-specific sort order and optional point override.',
+            'The selected catalog challenge is now attached to this campaign with its campaign-specific sort order and optional point override.',
         title: 'Challenge assigned.',
         tone: 'success',
     },
     duplicated: {
         description:
             'A new draft copy was created with the same core configuration but without participants, invitations, or history.',
-        title: 'Quest duplicated.',
+        title: 'Campaign duplicated.',
         tone: 'success',
     },
     error: {
         description:
-            'The quest change could not be completed. Review the detail below and try again.',
-        title: 'Quest update blocked.',
+            'The campaign change could not be completed. Review the detail below and try again.',
+        title: 'Campaign update blocked.',
         tone: 'error',
     },
     published: {
         description:
-            'The quest is now published and its lifecycle status reflects the configured date window.',
-        title: 'Quest published.',
+            'The campaign is now published and its lifecycle status reflects the configured date window.',
+        title: 'Campaign published.',
         tone: 'success',
     },
     updated: {
         description:
-            'The quest configuration was saved and its stored lifecycle status was recalculated.',
-        title: 'Quest updated.',
+            'The campaign configuration was saved and its stored lifecycle status was recalculated.',
+        title: 'Campaign updated.',
         tone: 'success',
     },
 } as const
 
 const errorDetailMessages: Record<string, string> = {
-    'active-quest-conflict':
-        'Only one quest can be active at a time. Archive or let the current live quest complete before activating another one.',
+    'active-campaign-conflict':
+        'Only one campaign can be active at a time. Archive or let the current live campaign complete before activating another one.',
     'challenge-not-found': 'That challenge record is no longer available.',
-    'duplicate-quest-challenge':
-        'That challenge is already attached to this quest. Adjust its quest-specific settings from the current assignment list instead of adding it again.',
+    'duplicate-campaign-challenge':
+        'That challenge is already attached to this campaign. Adjust its campaign-specific settings from the current assignment list instead of adding it again.',
     'invalid-challenge-point-override':
-        'Quest challenge point overrides must be a valid number that is zero or greater, or left blank to use the quest default.',
+        'Campaign challenge point overrides must be a valid number that is zero or greater, or left blank to use the campaign default.',
     'invalid-challenge-sort-order':
-        'Quest challenge sort order must be a whole number that is zero or greater.',
+        'Campaign challenge sort order must be a whole number that is zero or greater.',
     'invalid-entry-delete-window':
         'Entry delete window must be a whole number of minutes or left blank.',
     'invalid-entry-edit-window':
@@ -147,22 +147,23 @@ const errorDetailMessages: Record<string, string> = {
         'Challenge completion scoring must be a valid number that is zero or greater.',
     'invalid-points-per-page':
         'Page scoring must be a valid number that is zero or greater.',
-    'invalid-quest-window': 'Quest start must be on or before the end time.',
+    'invalid-campaign-window':
+        'Campaign start must be on or before the end time.',
     'invalid-visibility':
-        'Only invite-only quests are available in the current MVP.',
-    'missing-end-at': 'Choose an end date and time for the quest.',
+        'Only invite-only campaigns are available in the current MVP.',
+    'missing-end-at': 'Choose an end date and time for the campaign.',
     'missing-challenge': 'Choose a catalog challenge before adding it.',
-    'missing-name': 'Enter a quest name before saving.',
-    'missing-quest': 'Choose a valid quest before running that action.',
-    'missing-start-at': 'Choose a start date and time for the quest.',
-    'missing-timezone': 'Enter a timezone for the quest schedule.',
-    'quest-already-archived':
-        'Archived quests cannot return to a published state from this surface.',
-    'quest-not-editable':
-        'Archived quests are read-only here. Duplicate the quest to create a new draft.',
-    'quest-not-found': 'That quest record is no longer available.',
+    'missing-name': 'Enter a campaign name before saving.',
+    'missing-campaign': 'Choose a valid campaign before running that action.',
+    'missing-start-at': 'Choose a start date and time for the campaign.',
+    'missing-timezone': 'Enter a timezone for the campaign schedule.',
+    'campaign-already-archived':
+        'Archived campaigns cannot return to a published state from this surface.',
+    'campaign-not-editable':
+        'Archived campaigns are read-only here. Duplicate the campaign to create a new draft.',
+    'campaign-not-found': 'That campaign record is no longer available.',
     'unexpected-error':
-        'An unexpected error interrupted the quest action. Check the server logs if this keeps happening.',
+        'An unexpected error interrupted the campaign action. Check the server logs if this keeps happening.',
 }
 
 function getFirstSearchParamValue(
@@ -186,7 +187,7 @@ function formatDateTime(value: Date | null) {
     }).format(value)
 }
 
-function formatQuestWindow(startAt: Date, endAt: Date) {
+function formatCampaignWindow(startAt: Date, endAt: Date) {
     const formatter = new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
     })
@@ -212,7 +213,7 @@ function formatPoints(value: { toString(): string }) {
         : numericValue.toFixed(2).replace(/\.00$/, '').replace(/0$/, '')
 }
 
-function getQuestStatusPillClass(status: QuestStatus) {
+function getCampaignStatusPillClass(status: CampaignStatus) {
     const baseClassName =
         'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]'
 
@@ -235,7 +236,7 @@ function getQuestStatusPillClass(status: QuestStatus) {
     return `${baseClassName} bg-muted text-foreground`
 }
 
-function getVisibilityPillClass(visibility: QuestVisibility) {
+function getVisibilityPillClass(visibility: CampaignVisibility) {
     const baseClassName =
         'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]'
 
@@ -272,8 +273,8 @@ function getNotice(
     }
 }
 
-function getQuestFormDefaults(
-    quest?: {
+function getCampaignFormDefaults(
+    campaign?: {
         description: string | null
         endAt: Date
         entryDeleteWindowMinutes: number | null
@@ -287,8 +288,8 @@ function getQuestFormDefaults(
         timezone: string
         visibility: 'INVITE_ONLY'
     } | null
-): QuestFormDefaults {
-    if (!quest) {
+): CampaignFormDefaults {
+    if (!campaign) {
         return {
             description: '',
             endAt: '',
@@ -306,25 +307,26 @@ function getQuestFormDefaults(
     }
 
     return {
-        description: quest.description ?? '',
-        endAt: formatDateTimeInput(quest.endAt),
+        description: campaign.description ?? '',
+        endAt: formatDateTimeInput(campaign.endAt),
         entryDeleteWindowMinutes:
-            quest.entryDeleteWindowMinutes?.toString() ?? '',
-        entryEditWindowMinutes: quest.entryEditWindowMinutes?.toString() ?? '',
-        name: quest.name,
-        pointsPerAudiobookMinute: quest.pointsPerAudiobookMinute.toString(),
-        pointsPerBook: quest.pointsPerBook.toString(),
+            campaign.entryDeleteWindowMinutes?.toString() ?? '',
+        entryEditWindowMinutes:
+            campaign.entryEditWindowMinutes?.toString() ?? '',
+        name: campaign.name,
+        pointsPerAudiobookMinute: campaign.pointsPerAudiobookMinute.toString(),
+        pointsPerBook: campaign.pointsPerBook.toString(),
         pointsPerChallengeCompletion:
-            quest.pointsPerChallengeCompletion.toString(),
-        pointsPerPage: quest.pointsPerPage.toString(),
-        startAt: formatDateTimeInput(quest.startAt),
-        timezone: quest.timezone,
-        visibility: quest.visibility,
+            campaign.pointsPerChallengeCompletion.toString(),
+        pointsPerPage: campaign.pointsPerPage.toString(),
+        startAt: formatDateTimeInput(campaign.startAt),
+        timezone: campaign.timezone,
+        visibility: campaign.visibility,
     }
 }
 
-function formatLifecycleDescription(lifecycle: QuestLifecycleView) {
-    let description = describeQuestLifecycle(lifecycle)
+function formatLifecycleDescription(lifecycle: CampaignLifecycleView) {
+    let description = describeCampaignLifecycle(lifecycle)
         .replaceAll(
             lifecycle.startAt.toISOString(),
             formatDateTime(lifecycle.startAt)
@@ -344,15 +346,15 @@ function formatLifecycleDescription(lifecycle: QuestLifecycleView) {
     return description
 }
 
-function QuestLifecyclePanel({
+function CampaignLifecyclePanel({
     lifecycle,
-    questId,
+    campaignId,
 }: {
-    lifecycle: QuestLifecycleView
-    questId?: string
+    lifecycle: CampaignLifecycleView
+    campaignId?: string
 }) {
-    const statusLabel = getQuestStatusLabel(lifecycle.status)
-    const visibilityLabel = getQuestVisibilityLabel(lifecycle.visibility)
+    const statusLabel = getCampaignStatusLabel(lifecycle.status)
+    const visibilityLabel = getCampaignVisibilityLabel(lifecycle.visibility)
     const lifecycleDescription = formatLifecycleDescription(lifecycle)
 
     return (
@@ -361,12 +363,15 @@ function QuestLifecyclePanel({
                 <CardTitle>Lifecycle and access</CardTitle>
                 <CardDescription>
                     Status is derived from publication and archive events plus
-                    the configured quest dates. Visibility defines who can join.
+                    the configured campaign dates. Visibility defines who can
+                    join.
                 </CardDescription>
             </CardHeader>
             <CardContent className='grid gap-4'>
                 <div className='flex flex-wrap gap-3'>
-                    <span className={getQuestStatusPillClass(lifecycle.status)}>
+                    <span
+                        className={getCampaignStatusPillClass(lifecycle.status)}
+                    >
                         {statusLabel}
                     </span>
                     <span
@@ -388,7 +393,7 @@ function QuestLifecyclePanel({
                         <p className='type-muted text-xs'>Visibility</p>
                         <strong>{visibilityLabel}</strong>
                         <p className='type-muted text-xs'>
-                            Invite-only quests require the invitation flow
+                            Invite-only campaigns require the invitation flow
                             before a competitor can join.
                         </p>
                     </div>
@@ -405,14 +410,14 @@ function QuestLifecyclePanel({
                     </div>
                 </div>
 
-                {questId ? (
+                {campaignId ? (
                     <div className='flex flex-wrap gap-2'>
                         {!lifecycle.archivedAt && !lifecycle.publishedAt ? (
-                            <form action={publishQuestAction}>
+                            <form action={publishCampaignAction}>
                                 <input
                                     type='hidden'
-                                    name='questId'
-                                    value={questId}
+                                    name='campaignId'
+                                    value={campaignId}
                                 />
                                 <Button nativeButton type='submit' size='sm'>
                                     Publish from configuration
@@ -421,11 +426,11 @@ function QuestLifecyclePanel({
                         ) : null}
 
                         {!lifecycle.archivedAt ? (
-                            <form action={archiveQuestAction}>
+                            <form action={archiveCampaignAction}>
                                 <input
                                     type='hidden'
-                                    name='questId'
-                                    value={questId}
+                                    name='campaignId'
+                                    value={campaignId}
                                 />
                                 <Button
                                     nativeButton
@@ -440,8 +445,8 @@ function QuestLifecyclePanel({
                     </div>
                 ) : (
                     <p className='type-muted text-xs'>
-                        New quests begin as draft and stay invite-only until you
-                        create the record and publish it.
+                        New campaigns begin as draft and stay invite-only until
+                        you create the record and publish it.
                     </p>
                 )}
             </CardContent>
@@ -449,18 +454,18 @@ function QuestLifecyclePanel({
     )
 }
 
-function QuestScoringPanel({
+function CampaignScoringPanel({
     scoringRules,
 }: {
     scoringRules: Pick<
-        QuestFormDefaults,
+        CampaignFormDefaults,
         | 'pointsPerAudiobookMinute'
         | 'pointsPerBook'
         | 'pointsPerChallengeCompletion'
         | 'pointsPerPage'
     >
 }) {
-    const previewItems = buildQuestScoringPreviewItems({
+    const previewItems = buildCampaignScoringPreviewItems({
         pointsPerAudiobookMinute: new Prisma.Decimal(
             scoringRules.pointsPerAudiobookMinute
         ),
@@ -476,7 +481,7 @@ function QuestScoringPanel({
             <CardHeader>
                 <CardTitle>Scoring rules</CardTitle>
                 <CardDescription>
-                    Configure how the quest awards points for books, pages,
+                    Configure how the campaign awards points for books, pages,
                     audiobook minutes, and challenge completions.
                 </CardDescription>
             </CardHeader>
@@ -497,28 +502,28 @@ function QuestScoringPanel({
                 </div>
                 <p className='type-muted text-xs'>
                     Use zero to keep an entry type available without awarding
-                    points yet. Negative scoring is blocked to keep quest totals
-                    predictable.
+                    points yet. Negative scoring is blocked to keep campaign
+                    totals predictable.
                 </p>
             </CardContent>
         </Card>
     )
 }
 
-function QuestForm({
+function CampaignForm({
     action,
     defaultValues,
     lifecycle,
     note,
-    questId,
+    campaignId,
     submitLabel,
     title,
 }: {
     action: (formData: FormData) => Promise<void>
-    defaultValues: QuestFormDefaults
-    lifecycle: QuestLifecycleView
+    defaultValues: CampaignFormDefaults
+    lifecycle: CampaignLifecycleView
     note: string
-    questId?: string
+    campaignId?: string
     submitLabel: string
     title: string
 }) {
@@ -528,17 +533,17 @@ function QuestForm({
             description='Dates, scoring, and entry windows can be tuned here before or after publication.'
         >
             <form action={action} className='ui-form-shell'>
-                {questId ? (
-                    <input type='hidden' name='questId' value={questId} />
+                {campaignId ? (
+                    <input type='hidden' name='campaignId' value={campaignId} />
                 ) : null}
 
                 <FormField
-                    label='Quest name'
-                    htmlFor={`${questId ?? 'new'}-name`}
+                    label='Campaign name'
+                    htmlFor={`${campaignId ?? 'new'}-name`}
                     hint='Use a clear seasonal or thematic name that reads well in invitations and standings.'
                 >
                     <Input
-                        id={`${questId ?? 'new'}-name`}
+                        id={`${campaignId ?? 'new'}-name`}
                         name='name'
                         defaultValue={defaultValues.name}
                         placeholder='Summer Reading Rally'
@@ -547,26 +552,26 @@ function QuestForm({
 
                 <FormField
                     label='Description'
-                    htmlFor={`${questId ?? 'new'}-description`}
+                    htmlFor={`${campaignId ?? 'new'}-description`}
                     hint='Optional context for admins and future competitor-facing surfaces.'
                 >
                     <textarea
-                        id={`${questId ?? 'new'}-description`}
+                        id={`${campaignId ?? 'new'}-description`}
                         name='description'
                         defaultValue={defaultValues.description}
                         className={textareaClassName}
-                        placeholder='A short summary of the quest theme, audience, or pacing.'
+                        placeholder='A short summary of the campaign theme, audience, or pacing.'
                     />
                 </FormField>
 
                 <div className='grid gap-4 md:grid-cols-2'>
                     <FormField
                         label='Start at'
-                        htmlFor={`${questId ?? 'new'}-startAt`}
+                        htmlFor={`${campaignId ?? 'new'}-startAt`}
                         hint='Publication status and the date window together determine draft, scheduled, active, or completed states.'
                     >
                         <Input
-                            id={`${questId ?? 'new'}-startAt`}
+                            id={`${campaignId ?? 'new'}-startAt`}
                             name='startAt'
                             type='datetime-local'
                             defaultValue={defaultValues.startAt}
@@ -575,11 +580,11 @@ function QuestForm({
 
                     <FormField
                         label='End at'
-                        htmlFor={`${questId ?? 'new'}-endAt`}
+                        htmlFor={`${campaignId ?? 'new'}-endAt`}
                         hint='Use the same timezone reference you plan to communicate to participants.'
                     >
                         <Input
-                            id={`${questId ?? 'new'}-endAt`}
+                            id={`${campaignId ?? 'new'}-endAt`}
                             name='endAt'
                             type='datetime-local'
                             defaultValue={defaultValues.endAt}
@@ -590,11 +595,11 @@ function QuestForm({
                 <div className='grid gap-4 md:grid-cols-2'>
                     <FormField
                         label='Timezone'
-                        htmlFor={`${questId ?? 'new'}-timezone`}
-                        hint='Store the IANA timezone that should anchor the quest schedule.'
+                        htmlFor={`${campaignId ?? 'new'}-timezone`}
+                        hint='Store the IANA timezone that should anchor the campaign schedule.'
                     >
                         <Input
-                            id={`${questId ?? 'new'}-timezone`}
+                            id={`${campaignId ?? 'new'}-timezone`}
                             name='timezone'
                             defaultValue={defaultValues.timezone}
                             placeholder='America/Chicago'
@@ -603,11 +608,11 @@ function QuestForm({
 
                     <FormField
                         label='Visibility'
-                        htmlFor={`${questId ?? 'new'}-visibility`}
+                        htmlFor={`${campaignId ?? 'new'}-visibility`}
                         hint='This is explicit configuration even though the MVP currently supports only one visibility mode.'
                     >
                         <select
-                            id={`${questId ?? 'new'}-visibility`}
+                            id={`${campaignId ?? 'new'}-visibility`}
                             name='visibility'
                             className={selectClassName}
                             defaultValue={defaultValues.visibility}
@@ -618,19 +623,19 @@ function QuestForm({
 
                     <FormField
                         label='Status'
-                        htmlFor={`${questId ?? 'new'}-status`}
-                        hint='Status is calculated from publish and archive events plus the quest dates, so it is informative rather than directly editable.'
+                        htmlFor={`${campaignId ?? 'new'}-status`}
+                        hint='Status is calculated from publish and archive events plus the campaign dates, so it is informative rather than directly editable.'
                     >
                         <div
-                            id={`${questId ?? 'new'}-status`}
+                            id={`${campaignId ?? 'new'}-status`}
                             className='flex min-h-10 items-center rounded-[calc(var(--radius-lg)-2px)] border border-input bg-card/72 px-3 py-2'
                         >
                             <span
-                                className={getQuestStatusPillClass(
+                                className={getCampaignStatusPillClass(
                                     lifecycle.status
                                 )}
                             >
-                                {getQuestStatusLabel(lifecycle.status)}
+                                {getCampaignStatusLabel(lifecycle.status)}
                             </span>
                         </div>
                     </FormField>
@@ -651,11 +656,11 @@ function QuestForm({
                     <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
                         <FormField
                             label='Points per book'
-                            htmlFor={`${questId ?? 'new'}-pointsPerBook`}
+                            htmlFor={`${campaignId ?? 'new'}-pointsPerBook`}
                             hint='Applied to each completed book entry.'
                         >
                             <Input
-                                id={`${questId ?? 'new'}-pointsPerBook`}
+                                id={`${campaignId ?? 'new'}-pointsPerBook`}
                                 name='pointsPerBook'
                                 type='number'
                                 min='0'
@@ -666,11 +671,11 @@ function QuestForm({
 
                         <FormField
                             label='Points per page'
-                            htmlFor={`${questId ?? 'new'}-pointsPerPage`}
+                            htmlFor={`${campaignId ?? 'new'}-pointsPerPage`}
                             hint='Applied to each logged page.'
                         >
                             <Input
-                                id={`${questId ?? 'new'}-pointsPerPage`}
+                                id={`${campaignId ?? 'new'}-pointsPerPage`}
                                 name='pointsPerPage'
                                 type='number'
                                 min='0'
@@ -681,11 +686,11 @@ function QuestForm({
 
                         <FormField
                             label='Points per audiobook minute'
-                            htmlFor={`${questId ?? 'new'}-pointsPerAudiobookMinute`}
+                            htmlFor={`${campaignId ?? 'new'}-pointsPerAudiobookMinute`}
                             hint='Applied to every minute logged.'
                         >
                             <Input
-                                id={`${questId ?? 'new'}-pointsPerAudiobookMinute`}
+                                id={`${campaignId ?? 'new'}-pointsPerAudiobookMinute`}
                                 name='pointsPerAudiobookMinute'
                                 type='number'
                                 min='0'
@@ -698,11 +703,11 @@ function QuestForm({
 
                         <FormField
                             label='Points per challenge'
-                            htmlFor={`${questId ?? 'new'}-pointsPerChallengeCompletion`}
+                            htmlFor={`${campaignId ?? 'new'}-pointsPerChallengeCompletion`}
                             hint='Default points for a completed challenge.'
                         >
                             <Input
-                                id={`${questId ?? 'new'}-pointsPerChallengeCompletion`}
+                                id={`${campaignId ?? 'new'}-pointsPerChallengeCompletion`}
                                 name='pointsPerChallengeCompletion'
                                 type='number'
                                 min='0'
@@ -718,11 +723,11 @@ function QuestForm({
                 <div className='grid gap-4 md:grid-cols-2'>
                     <FormField
                         label='Entry edit window (minutes)'
-                        htmlFor={`${questId ?? 'new'}-entryEditWindowMinutes`}
+                        htmlFor={`${campaignId ?? 'new'}-entryEditWindowMinutes`}
                         hint='Leave blank to keep edits open until the tighter phase-7 rules land.'
                     >
                         <Input
-                            id={`${questId ?? 'new'}-entryEditWindowMinutes`}
+                            id={`${campaignId ?? 'new'}-entryEditWindowMinutes`}
                             name='entryEditWindowMinutes'
                             type='number'
                             min='0'
@@ -733,11 +738,11 @@ function QuestForm({
 
                     <FormField
                         label='Entry delete window (minutes)'
-                        htmlFor={`${questId ?? 'new'}-entryDeleteWindowMinutes`}
+                        htmlFor={`${campaignId ?? 'new'}-entryDeleteWindowMinutes`}
                         hint='Leave blank to defer hard delete-window rules until entry logging is active.'
                     >
                         <Input
-                            id={`${questId ?? 'new'}-entryDeleteWindowMinutes`}
+                            id={`${campaignId ?? 'new'}-entryDeleteWindowMinutes`}
                             name='entryDeleteWindowMinutes'
                             type='number'
                             min='0'
@@ -759,28 +764,28 @@ function QuestForm({
     )
 }
 
-export default async function AdminQuestsPage({
+export default async function AdminCampaignsPage({
     searchParams,
-}: QuestsPageProps) {
+}: CampaignsPageProps) {
     const resolvedSearchParams = searchParams ? await searchParams : {}
     const outcome = getFirstSearchParamValue(resolvedSearchParams.outcome)
     const detail = getFirstSearchParamValue(resolvedSearchParams.detail)
-    const selectedQuestId = getFirstSearchParamValue(
-        resolvedSearchParams.selectedQuestId
+    const selectedCampaignId = getFirstSearchParamValue(
+        resolvedSearchParams.selectedCampaignId
     )
     const notice = getNotice(outcome, detail)
-    await synchronizeDerivedQuestStatuses()
-    const [quests, challenges] = await Promise.all([
-        prisma.quest.findMany({
+    await synchronizeDerivedCampaignStatuses()
+    const [campaigns, challenges] = await Promise.all([
+        prisma.campaign.findMany({
             include: {
                 _count: {
                     select: {
                         invitations: true,
                         participants: true,
-                        questChallenges: true,
+                        campaignChallenges: true,
                     },
                 },
-                questChallenges: {
+                campaignChallenges: {
                     include: {
                         challenge: {
                             select: {
@@ -821,63 +826,69 @@ export default async function AdminQuestsPage({
     ])
 
     const selectedQuest =
-        quests.find((quest) => quest.id === selectedQuestId) ??
-        quests.find((quest) => !quest.archivedAt) ??
-        quests[0] ??
+        campaigns.find((campaign) => campaign.id === selectedCampaignId) ??
+        campaigns.find((campaign) => !campaign.archivedAt) ??
+        campaigns[0] ??
         null
 
-    const totalCount = quests.length
-    const draftCount = quests.filter((quest) => quest.status === 'DRAFT').length
-    const publishedCount = quests.filter((quest) => quest.publishedAt).length
-    const archivedCount = quests.filter(
-        (quest) => quest.status === 'ARCHIVED'
+    const totalCount = campaigns.length
+    const draftCount = campaigns.filter(
+        (campaign) => campaign.status === 'DRAFT'
+    ).length
+    const publishedCount = campaigns.filter(
+        (campaign) => campaign.publishedAt
+    ).length
+    const archivedCount = campaigns.filter(
+        (campaign) => campaign.status === 'ARCHIVED'
     ).length
 
-    const rows = quests.map((quest) => {
-        const canArchive = !quest.archivedAt
-        const canPublish = !quest.archivedAt && !quest.publishedAt
+    const rows = campaigns.map((campaign) => {
+        const canArchive = !campaign.archivedAt
+        const canPublish = !campaign.archivedAt && !campaign.publishedAt
 
         return {
             cells: [
-                <div key='quest' className='stack-sm'>
-                    <strong>{quest.name}</strong>
+                <div key='campaign' className='stack-sm'>
+                    <strong>{campaign.name}</strong>
                     <p className='type-muted text-xs'>
-                        {quest.description || 'No quest description yet.'}
+                        {campaign.description || 'No campaign description yet.'}
                     </p>
                 </div>,
                 <div key='window' className='stack-sm'>
                     <strong>
-                        {formatQuestWindow(quest.startAt, quest.endAt)}
+                        {formatCampaignWindow(campaign.startAt, campaign.endAt)}
                     </strong>
                     <p className='type-muted text-xs'>
-                        Timezone: {quest.timezone}
+                        Timezone: {campaign.timezone}
                     </p>
                 </div>,
                 <div key='status' className='stack-sm'>
-                    <span className={getQuestStatusPillClass(quest.status)}>
-                        {getQuestStatusLabel(quest.status)}
+                    <span
+                        className={getCampaignStatusPillClass(campaign.status)}
+                    >
+                        {getCampaignStatusLabel(campaign.status)}
                     </span>
                     <p className='type-muted text-xs'>
-                        Published {formatDateTime(quest.publishedAt)}
+                        Published {formatDateTime(campaign.publishedAt)}
                     </p>
                     <p className='type-muted text-xs'>
-                        Archived {formatDateTime(quest.archivedAt)}
+                        Archived {formatDateTime(campaign.archivedAt)}
                     </p>
                 </div>,
                 <div key='rules' className='stack-sm'>
                     <p className='type-muted text-xs'>
-                        Book {quest.pointsPerBook.toString()} | Page{' '}
-                        {quest.pointsPerPage.toString()}
+                        Book {campaign.pointsPerBook.toString()} | Page{' '}
+                        {campaign.pointsPerPage.toString()}
                     </p>
                     <p className='type-muted text-xs'>
-                        Audio {quest.pointsPerAudiobookMinute.toString()} |
+                        Audio {campaign.pointsPerAudiobookMinute.toString()} |
                         Challenge{' '}
-                        {quest.pointsPerChallengeCompletion.toString()}
+                        {campaign.pointsPerChallengeCompletion.toString()}
                     </p>
                     <p className='type-muted text-xs'>
-                        {quest._count.participants} participants |{' '}
-                        {quest._count.invitations} invitations |{' '}
-                        {quest._count.questChallenges} challenges
+                        {campaign._count.participants} participants |{' '}
+                        {campaign._count.invitations} invitations |{' '}
+                        {campaign._count.campaignChallenges} challenges
                     </p>
                 </div>,
                 <div key='actions' className='flex flex-wrap gap-2'>
@@ -886,15 +897,19 @@ export default async function AdminQuestsPage({
                         variant='outline'
                         render={
                             <Link
-                                href={`/admin/quests?selectedQuestId=${quest.id}`}
+                                href={`/admin/campaigns?selectedCampaignId=${campaign.id}`}
                             />
                         }
                     >
                         Edit
                     </Button>
 
-                    <form action={duplicateQuestAction}>
-                        <input type='hidden' name='questId' value={quest.id} />
+                    <form action={duplicateCampaignAction}>
+                        <input
+                            type='hidden'
+                            name='campaignId'
+                            value={campaign.id}
+                        />
                         <Button
                             nativeButton
                             type='submit'
@@ -906,11 +921,11 @@ export default async function AdminQuestsPage({
                     </form>
 
                     {canPublish ? (
-                        <form action={publishQuestAction}>
+                        <form action={publishCampaignAction}>
                             <input
                                 type='hidden'
-                                name='questId'
-                                value={quest.id}
+                                name='campaignId'
+                                value={campaign.id}
                             />
                             <Button nativeButton type='submit' size='sm'>
                                 Publish
@@ -919,11 +934,11 @@ export default async function AdminQuestsPage({
                     ) : null}
 
                     {canArchive ? (
-                        <form action={archiveQuestAction}>
+                        <form action={archiveCampaignAction}>
                             <input
                                 type='hidden'
-                                name='questId'
-                                value={quest.id}
+                                name='campaignId'
+                                value={campaign.id}
                             />
                             <Button
                                 nativeButton
@@ -938,12 +953,12 @@ export default async function AdminQuestsPage({
 
                     {!canPublish && !canArchive ? (
                         <p className='type-muted text-xs'>
-                            Lifecycle settled for this quest.
+                            Lifecycle settled for this campaign.
                         </p>
                     ) : null}
                 </div>,
             ],
-            key: quest.id,
+            key: campaign.id,
         }
     })
 
@@ -966,37 +981,39 @@ export default async function AdminQuestsPage({
 
             <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
                 <StatCard
-                    eyebrow='Quest roster'
-                    title='Tracked quests'
+                    eyebrow='Campaign roster'
+                    title='Tracked campaigns'
                     value={totalCount}
-                    description='Every draft, published, and archived quest configuration lives here.'
+                    description='Every draft, published, and archived campaign configuration lives here.'
                 />
                 <StatCard
                     eyebrow='Needs configuration'
-                    title='Draft quests'
+                    title='Draft campaigns'
                     value={draftCount}
                     description='Drafts can still change freely before they enter a published lifecycle state.'
                 />
                 <StatCard
                     eyebrow='Publication surface'
-                    title='Published quests'
+                    title='Published campaigns'
                     value={publishedCount}
-                    description='Published quests derive scheduled, active, or completed states from their dates.'
+                    description='Published campaigns derive scheduled, active, or completed states from their dates.'
                 />
                 <StatCard
                     eyebrow='Historical archive'
-                    title='Archived quests'
+                    title='Archived campaigns'
                     value={archivedCount}
-                    description='Archived quests remain visible for reporting, duplication, and historical context.'
+                    description='Archived campaigns remain visible for reporting, duplication, and historical context.'
                 />
             </div>
 
             <div className='grid gap-6 xl:grid-cols-2'>
                 <div className='grid gap-6'>
-                    <QuestScoringPanel scoringRules={getQuestFormDefaults()} />
-                    <QuestForm
-                        action={createQuestAction}
-                        defaultValues={getQuestFormDefaults()}
+                    <CampaignScoringPanel
+                        scoringRules={getCampaignFormDefaults()}
+                    />
+                    <CampaignForm
+                        action={createCampaignAction}
+                        defaultValues={getCampaignFormDefaults()}
                         lifecycle={{
                             archivedAt: null,
                             endAt: new Date(),
@@ -1005,21 +1022,21 @@ export default async function AdminQuestsPage({
                             status: 'DRAFT',
                             visibility: 'INVITE_ONLY',
                         }}
-                        note='Create stores the quest immediately as a draft. Publish and archive controls appear in the table once the quest exists.'
-                        submitLabel='Create quest'
-                        title='Create a quest'
+                        note='Create stores the campaign immediately as a draft. Publish and archive controls appear in the table once the campaign exists.'
+                        submitLabel='Create campaign'
+                        title='Create a campaign'
                     />
                 </div>
 
                 {selectedQuest ? (
                     selectedQuest.archivedAt ? (
                         <div className='grid gap-6'>
-                            <QuestLifecyclePanel
+                            <CampaignLifecyclePanel
                                 lifecycle={selectedQuest}
-                                questId={selectedQuest.id}
+                                campaignId={selectedQuest.id}
                             />
-                            <QuestScoringPanel
-                                scoringRules={getQuestFormDefaults(
+                            <CampaignScoringPanel
+                                scoringRules={getCampaignFormDefaults(
                                     selectedQuest
                                 )}
                             />
@@ -1029,9 +1046,9 @@ export default async function AdminQuestsPage({
                                         {selectedQuest.name} is archived
                                     </CardTitle>
                                     <CardDescription>
-                                        Archived quests stay read-only in this
-                                        editor. Duplicate this record to spin up
-                                        a fresh draft with the same
+                                        Archived campaigns stay read-only in
+                                        this editor. Duplicate this record to
+                                        spin up a fresh draft with the same
                                         configuration.
                                     </CardDescription>
                                 </CardHeader>
@@ -1048,26 +1065,26 @@ export default async function AdminQuestsPage({
                                             selectedQuest.archivedAt
                                         )}
                                     </p>
-                                    <QuestChallengeAssignmentsPanel
-                                        action={assignQuestChallengeAction}
+                                    <CampaignChallengeAssignmentsPanel
+                                        action={assignCampaignChallengeAction}
                                         availableChallenges={challenges.filter(
                                             (challenge) =>
-                                                !selectedQuest.questChallenges.some(
+                                                !selectedQuest.campaignChallenges.some(
                                                     (assignment) =>
                                                         assignment.challengeId ===
                                                         challenge.id
                                                 )
                                         )}
                                         assignments={
-                                            selectedQuest.questChallenges
+                                            selectedQuest.campaignChallenges
                                         }
                                         canEdit={false}
-                                        questId={selectedQuest.id}
+                                        campaignId={selectedQuest.id}
                                     />
-                                    <form action={duplicateQuestAction}>
+                                    <form action={duplicateCampaignAction}>
                                         <input
                                             type='hidden'
-                                            name='questId'
+                                            name='campaignId'
                                             value={selectedQuest.id}
                                         />
                                         <Button
@@ -1075,7 +1092,7 @@ export default async function AdminQuestsPage({
                                             type='submit'
                                             variant='secondary'
                                         >
-                                            Duplicate archived quest
+                                            Duplicate archived campaign
                                         </Button>
                                     </form>
                                 </CardContent>
@@ -1083,64 +1100,70 @@ export default async function AdminQuestsPage({
                         </div>
                     ) : (
                         <div className='grid gap-6'>
-                            <QuestLifecyclePanel
+                            <CampaignLifecyclePanel
                                 lifecycle={selectedQuest}
-                                questId={selectedQuest.id}
+                                campaignId={selectedQuest.id}
                             />
-                            <QuestScoringPanel
-                                scoringRules={getQuestFormDefaults(
+                            <CampaignScoringPanel
+                                scoringRules={getCampaignFormDefaults(
                                     selectedQuest
                                 )}
                             />
-                            <QuestForm
-                                action={updateQuestAction}
-                                defaultValues={getQuestFormDefaults(
+                            <CampaignForm
+                                action={updateCampaignAction}
+                                defaultValues={getCampaignFormDefaults(
                                     selectedQuest
                                 )}
                                 lifecycle={selectedQuest}
                                 note='Edits recalculate the stored lifecycle status while preserving publication history.'
-                                questId={selectedQuest.id}
-                                submitLabel='Save quest changes'
+                                campaignId={selectedQuest.id}
+                                submitLabel='Save campaign changes'
                                 title={`Edit ${selectedQuest.name}`}
                             />
-                            <QuestChallengeAssignmentsPanel
-                                action={assignQuestChallengeAction}
+                            <CampaignChallengeAssignmentsPanel
+                                action={assignCampaignChallengeAction}
                                 availableChallenges={challenges.filter(
                                     (challenge) =>
-                                        !selectedQuest.questChallenges.some(
+                                        !selectedQuest.campaignChallenges.some(
                                             (assignment) =>
                                                 assignment.challengeId ===
                                                 challenge.id
                                         )
                                 )}
-                                assignments={selectedQuest.questChallenges}
+                                assignments={selectedQuest.campaignChallenges}
                                 canEdit={true}
-                                questId={selectedQuest.id}
+                                campaignId={selectedQuest.id}
                             />
                         </div>
                     )
                 ) : (
                     <EmptyState
-                        eyebrow='Quest editor'
-                        title='No quest has been selected yet.'
-                        description='Create the first quest to unlock edit, publish, archive, and duplicate controls.'
+                        eyebrow='Campaign editor'
+                        title='No campaign has been selected yet.'
+                        description='Create the first campaign to unlock edit, publish, archive, and duplicate controls.'
                     />
                 )}
             </div>
 
             {rows.length > 0 ? (
                 <TableCard
-                    title='Quest management'
-                    description='This admin table supports listing, editing, publishing, archiving, and duplicating quest records without touching participant history.'
-                    columns={['Quest', 'Window', 'Status', 'Rules', 'Actions']}
+                    title='Campaign management'
+                    description='This admin table supports listing, editing, publishing, archiving, and duplicating campaign records without touching participant history.'
+                    columns={[
+                        'Campaign',
+                        'Window',
+                        'Status',
+                        'Rules',
+                        'Actions',
+                    ]}
                     rows={rows}
-                    ariaLabel='Quest management table'
+                    ariaLabel='Campaign management table'
                 />
             ) : (
                 <EmptyState
-                    eyebrow='Quest history'
-                    title='No quests have been created yet.'
-                    description='Use the create form to add the first quest. Publish, archive, and duplicate controls will appear as soon as there is at least one record.'
+                    eyebrow='Campaign history'
+                    title='No campaigns have been created yet.'
+                    description='Use the create form to add the first campaign. Publish, archive, and duplicate controls will appear as soon as there is at least one record.'
                 />
             )}
         </div>

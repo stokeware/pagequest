@@ -24,7 +24,7 @@ export type ChallengeWriteValues = ChallengeFormValues
 
 export type ChallengeUsageSnapshot = {
     challengeCompletions: number
-    questChallenges: number
+    campaignChallenges: number
 }
 
 const challengeAvailabilityLabels: Record<ChallengeAvailability, string> = {
@@ -82,10 +82,10 @@ export function describeChallengeReviewRequirement(requiresReview: boolean) {
 }
 
 export function assertChallengeCanDelete(snapshot: ChallengeUsageSnapshot) {
-    if (snapshot.questChallenges > 0 || snapshot.challengeCompletions > 0) {
+    if (snapshot.campaignChallenges > 0 || snapshot.challengeCompletions > 0) {
         throw new ChallengeAdminError(
             'challenge-in-use',
-            'Challenges linked to quests or historical completions cannot be deleted.'
+            'Challenges linked to campaigns or historical completions cannot be deleted.'
         )
     }
 }

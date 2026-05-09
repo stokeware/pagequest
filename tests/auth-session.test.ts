@@ -69,6 +69,6 @@ describe('deriveRoleAwareSession', () => {
         })
 
         expect(viewer.accessState).toBe('wrong-role')
-        expect(viewer.summary).toContain('without a quest role assignment')
+        expect(viewer.summary).toContain('without a campaign role assignment')
     })
 })

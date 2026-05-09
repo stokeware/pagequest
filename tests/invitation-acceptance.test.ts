@@ -5,7 +5,7 @@ import { deriveInvitationAcceptanceProfile } from '@/lib/invitation-acceptance'
 const baseInvitation = {
     email: 'reader@example.com',
     expiresAt: new Date('2026-05-15T12:00:00.000Z'),
-    quest: {
+    campaign: {
         name: 'Spring Story Sprint 2026',
         status: 'ACTIVE' as const,
         visibility: 'INVITE_ONLY' as const,
@@ -58,12 +58,12 @@ describe('deriveInvitationAcceptanceProfile', () => {
         expect(profile.canAccept).toBe(true)
     })
 
-    it('blocks archived quests even if the token is otherwise valid', () => {
+    it('blocks archived campaigns even if the token is otherwise valid', () => {
         const profile = deriveInvitationAcceptanceProfile({
             invitation: {
                 ...baseInvitation,
-                quest: {
-                    ...baseInvitation.quest,
+                campaign: {
+                    ...baseInvitation.campaign,
                     status: 'ARCHIVED',
                 },
             },

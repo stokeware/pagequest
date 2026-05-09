@@ -23,15 +23,15 @@ export default async function AdminReportsPage({
     const selectedReadingEntryId = getFirstSearchParamValue(
         resolvedSearchParams?.selectedReadingEntryId
     )
-    const selectedQuestId = getFirstSearchParamValue(
-        resolvedSearchParams?.questId
+    const selectedCampaignId = getFirstSearchParamValue(
+        resolvedSearchParams?.campaignId
     )
     const notice = resolveReportsNotice({
         detail: getFirstSearchParamValue(resolvedSearchParams?.detail),
         outcome: getFirstSearchParamValue(resolvedSearchParams?.outcome),
     })
     const viewModel = await getAdminReportsViewModel(
-        selectedQuestId,
+        selectedCampaignId,
         selectedReadingEntryId
     )
 
@@ -54,7 +54,7 @@ function resolveReportsNotice({
     if (outcome === 'entry-updated') {
         return {
             description:
-                'The corrected entry was saved and participant totals were refreshed from the updated quest history.',
+                'The corrected entry was saved and participant totals were refreshed from the updated campaign history.',
             title: 'Entry corrected.',
             tone: 'success' as const,
         }
@@ -77,10 +77,10 @@ function getReportsErrorDetailMessage(detail: string | null) {
             return 'Challenge completion entries stay read-only in this panel so review state and awarded points remain consistent.'
         case 'invalid-entry':
             return 'Review the correction fields and try again.'
-        case 'missing-quest':
-            return 'Choose a quest report before correcting an entry.'
+        case 'missing-campaign':
+            return 'Choose a campaign report before correcting an entry.'
         case 'participant-removed':
-            return 'That quest participant is no longer active.'
+            return 'That campaign participant is no longer active.'
         case 'reading-entry-not-found':
             return 'That reading entry is no longer available for moderation.'
         default:

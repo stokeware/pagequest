@@ -12,16 +12,16 @@ import {
 
 const overviewCards = [
     {
-        title: 'Quest lifecycle',
+        title: 'Campaign lifecycle',
         value: 'Draft to archive',
         description:
-            'Draft, schedule, publish, and archive quests from a dedicated admin surface.',
+            'Draft, schedule, publish, and archive campaigns from a dedicated admin surface.',
     },
     {
         title: 'Participant onboarding',
         value: 'Invites and joins',
         description:
-            'Invitation workflows and acceptance status will anchor the private-quest model here.',
+            'Invitation workflows and acceptance status will anchor the private-campaign model here.',
     },
     {
         title: 'Challenge catalog',
@@ -56,13 +56,13 @@ export default function AdminOverviewPage() {
                 <CardHeader>
                     <CardTitle>Planned admin entry points</CardTitle>
                     <CardDescription>
-                        The routes below are now stable targets for quest
+                        The routes below are now stable targets for campaign
                         management, challenges, invitations, and reports.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='auth-inline-actions'>
-                    <Button render={<Link href='/admin/quests' />}>
-                        Open quests
+                    <Button render={<Link href='/admin/campaigns' />}>
+                        Open campaigns
                     </Button>
                     <Button
                         variant='secondary'

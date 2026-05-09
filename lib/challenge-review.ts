@@ -66,22 +66,22 @@ export function parseChallengeReviewFormValues(
 
 export function resolveChallengeCompletionDefaultPoints({
     challengePointValue,
-    questChallengePointValueOverride,
-    questPointsPerChallengeCompletion,
+    campaignChallengePointValueOverride,
+    campaignPointsPerChallengeCompletion,
 }: {
     challengePointValue: Prisma.Decimal | number | string | null
-    questChallengePointValueOverride: Prisma.Decimal | number | string | null
-    questPointsPerChallengeCompletion: Prisma.Decimal | number | string
+    campaignChallengePointValueOverride: Prisma.Decimal | number | string | null
+    campaignPointsPerChallengeCompletion: Prisma.Decimal | number | string
 }) {
-    if (questChallengePointValueOverride != null) {
-        return toDecimal(questChallengePointValueOverride)
+    if (campaignChallengePointValueOverride != null) {
+        return toDecimal(campaignChallengePointValueOverride)
     }
 
     if (challengePointValue != null) {
         return toDecimal(challengePointValue)
     }
 
-    return toDecimal(questPointsPerChallengeCompletion)
+    return toDecimal(campaignPointsPerChallengeCompletion)
 }
 
 export function prepareChallengeReviewDecisionValues({

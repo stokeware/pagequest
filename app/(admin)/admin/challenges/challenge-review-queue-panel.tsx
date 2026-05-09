@@ -18,7 +18,7 @@ type PendingChallengeReviewItem = {
     href: string
     id: string
     participantLabel: string
-    questLabel: string
+    campaignLabel: string
     reviewNotes: string | null
     readingEntryNotes: string | null
     submittedActivityLabel: string
@@ -28,7 +28,7 @@ type ResolvedChallengeReviewItem = {
     awardedPoints: { toString(): string }
     challengeTitle: string
     participantLabel: string
-    questLabel: string
+    campaignLabel: string
     reviewStateLabel: string
     reviewedAtLabel: string
     reviewerLabel: string
@@ -36,7 +36,7 @@ type ResolvedChallengeReviewItem = {
 
 function formatPoints(value: { toString(): string } | null) {
     if (!value) {
-        return 'Quest default'
+        return 'Campaign default'
     }
 
     const numericValue = Number(value.toString())
@@ -94,7 +94,7 @@ export function ChallengeReviewQueuePanel({
                                             </strong>
                                             <p className='type-muted text-xs'>
                                                 {review.participantLabel} in{' '}
-                                                {review.questLabel}
+                                                {review.campaignLabel}
                                             </p>
                                             <p className='type-muted text-xs'>
                                                 Activity{' '}
@@ -142,7 +142,7 @@ export function ChallengeReviewQueuePanel({
                             <strong>{selectedReview.challengeTitle}</strong>
                             <p className='type-muted text-xs'>
                                 {selectedReview.participantLabel} in{' '}
-                                {selectedReview.questLabel}
+                                {selectedReview.campaignLabel}
                             </p>
                         </div>
 
@@ -253,9 +253,9 @@ export function ChallengeReviewQueuePanel({
                                 </Button>
                             </div>
                             <p className='ui-form-note'>
-                                Leave the point override blank to use quest and
-                                challenge defaults. Rejections always zero out
-                                awarded points.
+                                Leave the point override blank to use campaign
+                                and challenge defaults. Rejections always zero
+                                out awarded points.
                             </p>
                         </form>
                     </div>
@@ -287,7 +287,7 @@ export function ChallengeReviewQueuePanel({
                                             </strong>
                                             <p className='type-muted text-xs'>
                                                 {review.participantLabel} in{' '}
-                                                {review.questLabel}
+                                                {review.campaignLabel}
                                             </p>
                                         </div>
                                         <div className='stack-sm text-right'>

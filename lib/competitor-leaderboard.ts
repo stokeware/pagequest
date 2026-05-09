@@ -1,10 +1,10 @@
 import { cache } from 'react'
 
 import {
-    getCompetitorQuestContext,
+    getCompetitorCampaignContext,
     rankStandings,
-    type CompetitorQuestContext,
-    type CompetitorQuestStatus,
+    type CompetitorCampaignContext,
+    type CompetitorCampaignStatus,
 } from '@/lib/competitor-dashboard'
 
 type LeaderboardHighlight = {
@@ -27,35 +27,35 @@ type LeaderboardRow = {
 export type CompetitorLeaderboardViewModel = {
     hasQuest: boolean
     highlights: LeaderboardHighlight[]
-    questDescription: string
-    questName: string
-    questStatusLabel: string
+    campaignDescription: string
+    campaignName: string
+    campaignStatusLabel: string
     rows: LeaderboardRow[]
 }
 
-const defaultQuestDescription =
-    'No active quest participation is linked to this account yet. The leaderboard will appear here once an invitation connects you to a quest.'
+const defaultCampaignDescription =
+    'No active campaign participation is linked to this account yet. The leaderboard will appear here once an invitation connects you to a campaign.'
 
 export const defaultCompetitorLeaderboardViewModel: CompetitorLeaderboardViewModel =
     {
         hasQuest: false,
         highlights: [],
-        questDescription: defaultQuestDescription,
-        questName: 'Quest assignment pending',
-        questStatusLabel: 'Awaiting invitation',
+        campaignDescription: defaultCampaignDescription,
+        campaignName: 'Campaign assignment pending',
+        campaignStatusLabel: 'Awaiting invitation',
         rows: [],
     }
 
 export const getCompetitorLeaderboardViewModel = cache(
     async (userId: string | null): Promise<CompetitorLeaderboardViewModel> => {
-        const context = await getCompetitorQuestContext(userId)
+        const context = await getCompetitorCampaignContext(userId)
 
         return buildCompetitorLeaderboardViewModel(context, new Date())
     }
 )
 
 export function buildCompetitorLeaderboardViewModel(
-    context: CompetitorQuestContext | null,
+    context: CompetitorCampaignContext | null,
     now: Date
 ): CompetitorLeaderboardViewModel {
     if (!context) {
@@ -81,26 +81,31 @@ export function buildCompetitorLeaderboardViewModel(
             {
                 detail: leader
                     ? getReaderLabel(leader)
-                    : 'No quest leader yet.',
+                    : 'No campaign leader yet.',
                 label: 'Leading score',
                 value: leader ? formatPoints(leader.totalPoints) : '0 points',
             },
             {
-                detail: getQuestWindowLabel(
-                    context.participant.quest.status,
+                detail: getCampaignWindowLabel(
+                    context.participant.campaign.status,
                     now
                 ),
                 label: 'Readers on board',
                 value: formatCount(rankedStandings.length),
             },
         ],
-        questDescription: getQuestDescription(context, rankedStandings.length),
-        questName: context.participant.quest.name,
-        questStatusLabel: getQuestStatusLabel(context.participant.quest.status),
+        campaignDescription: getCampaignDescription(
+            context,
+            rankedStandings.length
+        ),
+        campaignName: context.participant.campaign.name,
+        campaignStatusLabel: getCampaignStatusLabel(
+            context.participant.campaign.status
+        ),
         rows: rankedStandings.map((standing) => ({
             activityLabel: getActivityLabel(
                 standing.lastActivityAt,
-                context.participant.quest.timezone
+                context.participant.campaign.timezone
             ),
             isViewer: standing.id === context.participant.id,
             metricsLabel: [
@@ -121,14 +126,14 @@ export function buildCompetitorLeaderboardViewModel(
     }
 }
 
-function getQuestDescription(
-    context: CompetitorQuestContext,
+function getCampaignDescription(
+    context: CompetitorCampaignContext,
     readerCount: number
 ) {
-    return `${context.participant.quest.name} is ordered by points first, then pages, audiobook minutes, books, and join order when totals stay tied. ${formatCount(readerCount)} readers are currently on the board.`
+    return `${context.participant.campaign.name} is ordered by points first, then pages, audiobook minutes, books, and join order when totals stay tied. ${formatCount(readerCount)} readers are currently on the board.`
 }
 
-function getQuestStatusLabel(status: CompetitorQuestStatus) {
+function getCampaignStatusLabel(status: CompetitorCampaignStatus) {
     switch (status) {
         case 'ACTIVE':
             return 'Active leaderboard'
@@ -141,14 +146,14 @@ function getQuestStatusLabel(status: CompetitorQuestStatus) {
     }
 }
 
-function getQuestWindowLabel(status: CompetitorQuestStatus, now: Date) {
+function getCampaignWindowLabel(status: CompetitorCampaignStatus, now: Date) {
     switch (status) {
         case 'ACTIVE':
             return `Snapshot updated ${formatCalendarDate(now, 'UTC')}.`
         case 'SCHEDULED':
-            return 'The quest has not opened yet.'
+            return 'The campaign has not opened yet.'
         case 'COMPLETED':
-            return 'These standings are final for this quest.'
+            return 'These standings are final for this campaign.'
         default:
             return assertNever(status)
     }
@@ -162,7 +167,9 @@ function getActivityLabel(value: Date | null, timezone: string) {
     return `Last activity ${formatCalendarDate(value, timezone)}.`
 }
 
-function getReaderLabel(standing: CompetitorQuestContext['standings'][number]) {
+function getReaderLabel(
+    standing: CompetitorCampaignContext['standings'][number]
+) {
     return standing.user.name || standing.user.email
 }
 

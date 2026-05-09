@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { buildInvitationEmailMessage } from '@/lib/email/invitation'
 
 describe('buildInvitationEmailMessage', () => {
-    it('builds a delivery message with the secure join link and quest details', () => {
+    it('builds a delivery message with the secure join link and campaign details', () => {
         vi.stubEnv('EMAIL_FROM', 'Page Quest <noreply@pagequest.local>')
 
         const message = buildInvitationEmailMessage({
             expiresAt: new Date('2026-05-15T05:00:00.000Z'),
             invitationUrl: 'http://127.0.0.1:3000/accept-invitation?token=abc',
-            questName: 'Spring Story Sprint 2026',
+            campaignName: 'Spring Story Sprint 2026',
             recipientEmail: 'reader@example.com',
         })
 

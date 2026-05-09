@@ -3,23 +3,23 @@ import { describe, expect, it } from 'vitest'
 
 import {
     assertSingleActiveQuest,
-    assertQuestChallengeNotAssigned,
-    buildQuestScoringPreviewItems,
-    describeQuestLifecycle,
-    getQuestStatusLabel,
-    getQuestVisibilityLabel,
-    parseQuestChallengeAssignmentFormValues,
-    prepareQuestChallengeAssignmentValues,
-    QuestAdminError,
-    parseQuestFormValues,
-    prepareQuestArchiveValues,
-    prepareQuestCreateValues,
-    prepareQuestDuplicateValues,
-    prepareQuestPublishValues,
-    prepareQuestUpdateValues,
-} from '@/lib/quest-admin'
+    assertCampaignChallengeNotAssigned,
+    buildCampaignScoringPreviewItems,
+    describeCampaignLifecycle,
+    getCampaignStatusLabel,
+    getCampaignVisibilityLabel,
+    parseCampaignChallengeAssignmentFormValues,
+    prepareCampaignChallengeAssignmentValues,
+    CampaignAdminError,
+    parseCampaignFormValues,
+    prepareCampaignArchiveValues,
+    prepareCampaignCreateValues,
+    prepareCampaignDuplicateValues,
+    prepareCampaignPublishValues,
+    prepareCampaignUpdateValues,
+} from '@/lib/campaign-admin'
 
-function buildQuestFormData(overrides?: Record<string, string>) {
+function buildCampaignFormData(overrides?: Record<string, string>) {
     const formData = new FormData()
     const fields = {
         description: 'A playful spring reading sprint.',
@@ -44,7 +44,7 @@ function buildQuestFormData(overrides?: Record<string, string>) {
     return formData
 }
 
-function buildQuestChallengeAssignmentFormData(
+function buildCampaignChallengeAssignmentFormData(
     overrides?: Record<string, string>
 ) {
     const formData = new FormData()
@@ -62,10 +62,10 @@ function buildQuestChallengeAssignmentFormData(
     return formData
 }
 
-describe('quest admin helpers', () => {
-    it('parses quest form values and normalizes optional fields', () => {
-        const values = parseQuestFormValues(
-            buildQuestFormData({
+describe('campaign admin helpers', () => {
+    it('parses campaign form values and normalizes optional fields', () => {
+        const values = parseCampaignFormValues(
+            buildCampaignFormData({
                 description: '   ',
                 name: '  Spring Story Sprint  ',
             })
@@ -80,42 +80,42 @@ describe('quest admin helpers', () => {
         expect(values.entryDeleteWindowMinutes).toBe(60)
     })
 
-    it('rejects an invalid quest window', () => {
+    it('rejects an invalid campaign window', () => {
         expect(() =>
-            parseQuestFormValues(
-                buildQuestFormData({
+            parseCampaignFormValues(
+                buildCampaignFormData({
                     endAt: '2026-05-01T08:00',
                     startAt: '2026-05-30T20:00',
                 })
             )
         ).toThrowError(
-            expect.objectContaining<Partial<QuestAdminError>>({
-                code: 'invalid-quest-window',
+            expect.objectContaining<Partial<CampaignAdminError>>({
+                code: 'invalid-campaign-window',
             })
         )
     })
 
     it('rejects negative scoring rule values', () => {
         expect(() =>
-            parseQuestFormValues(
-                buildQuestFormData({
+            parseCampaignFormValues(
+                buildCampaignFormData({
                     pointsPerPage: '-1',
                 })
             )
         ).toThrowError(
-            expect.objectContaining<Partial<QuestAdminError>>({
+            expect.objectContaining<Partial<CampaignAdminError>>({
                 code: 'invalid-points-per-page',
             })
         )
     })
 
     it('prepares create and update values with derived statuses', () => {
-        const formValues = parseQuestFormValues(buildQuestFormData())
-        const createdValues = prepareQuestCreateValues(
+        const formValues = parseCampaignFormValues(buildCampaignFormData())
+        const createdValues = prepareCampaignCreateValues(
             formValues,
             new Date('2026-04-01T12:00:00.000Z')
         )
-        const updatedValues = prepareQuestUpdateValues({
+        const updatedValues = prepareCampaignUpdateValues({
             archivedAt: null,
             formValues,
             now: new Date('2026-04-25T12:00:00.000Z'),
@@ -131,18 +131,18 @@ describe('quest admin helpers', () => {
     })
 
     it('prepares publish and archive values from lifecycle state', () => {
-        const publishedValues = prepareQuestPublishValues({
+        const publishedValues = prepareCampaignPublishValues({
             now: new Date('2026-05-05T12:00:00.000Z'),
-            quest: {
+            campaign: {
                 archivedAt: null,
                 endAt: new Date('2026-05-30T20:00:00.000Z'),
                 publishedAt: null,
                 startAt: new Date('2026-05-01T08:00:00.000Z'),
             },
         })
-        const archivedValues = prepareQuestArchiveValues({
+        const archivedValues = prepareCampaignArchiveValues({
             now: new Date('2026-05-10T12:00:00.000Z'),
-            quest: {
+            campaign: {
                 archivedAt: null,
                 endAt: new Date('2026-05-30T20:00:00.000Z'),
                 publishedAt: new Date('2026-04-20T09:00:00.000Z'),
@@ -160,8 +160,8 @@ describe('quest admin helpers', () => {
         )
     })
 
-    it('prepares a duplicate quest as a draft copy', () => {
-        const duplicatedValues = prepareQuestDuplicateValues(
+    it('prepares a duplicate campaign as a draft copy', () => {
+        const duplicatedValues = prepareCampaignDuplicateValues(
             {
                 description: 'A playful sprint.',
                 endAt: new Date('2026-05-30T20:00:00.000Z'),
@@ -189,10 +189,10 @@ describe('quest admin helpers', () => {
     })
 
     it('describes status and visibility for the configuration surface', () => {
-        expect(getQuestStatusLabel('SCHEDULED')).toBe('Scheduled')
-        expect(getQuestVisibilityLabel('INVITE_ONLY')).toBe('Invite only')
+        expect(getCampaignStatusLabel('SCHEDULED')).toBe('Scheduled')
+        expect(getCampaignVisibilityLabel('INVITE_ONLY')).toBe('Invite only')
         expect(
-            describeQuestLifecycle({
+            describeCampaignLifecycle({
                 archivedAt: null,
                 endAt: new Date('2026-05-30T20:00:00.000Z'),
                 publishedAt: new Date('2026-04-20T09:00:00.000Z'),
@@ -200,13 +200,13 @@ describe('quest admin helpers', () => {
                 status: 'SCHEDULED',
             })
         ).toContain(
-            'Published quests stay scheduled until the start window opens'
+            'Published campaigns stay scheduled until the start window opens'
         )
     })
 
-    it('builds scoring preview items for all quest entry types', () => {
-        const previewItems = buildQuestScoringPreviewItems(
-            parseQuestFormValues(buildQuestFormData())
+    it('builds scoring preview items for all campaign entry types', () => {
+        const previewItems = buildCampaignScoringPreviewItems(
+            parseCampaignFormValues(buildCampaignFormData())
         )
 
         expect(previewItems).toHaveLength(4)
@@ -222,37 +222,37 @@ describe('quest admin helpers', () => {
         })
     })
 
-    it('blocks a second quest from becoming active', () => {
+    it('blocks a second campaign from becoming active', () => {
         expect(() =>
             assertSingleActiveQuest({
                 activeQuest: {
-                    id: 'quest-1',
+                    id: 'campaign-1',
                     name: 'Spring Story Sprint',
                 },
                 nextStatus: 'ACTIVE',
-                questId: 'quest-2',
+                campaignId: 'campaign-2',
             })
         ).toThrowError(
-            expect.objectContaining<Partial<QuestAdminError>>({
-                code: 'active-quest-conflict',
+            expect.objectContaining<Partial<CampaignAdminError>>({
+                code: 'active-campaign-conflict',
             })
         )
 
         expect(() =>
             assertSingleActiveQuest({
                 activeQuest: {
-                    id: 'quest-1',
+                    id: 'campaign-1',
                     name: 'Spring Story Sprint',
                 },
                 nextStatus: 'ACTIVE',
-                questId: 'quest-1',
+                campaignId: 'campaign-1',
             })
         ).not.toThrow()
     })
 
-    it('parses quest challenge assignment values and allows blank overrides', () => {
-        const values = parseQuestChallengeAssignmentFormValues(
-            buildQuestChallengeAssignmentFormData({
+    it('parses campaign challenge assignment values and allows blank overrides', () => {
+        const values = parseCampaignChallengeAssignmentFormValues(
+            buildCampaignChallengeAssignmentFormData({
                 pointValueOverride: '',
                 sortOrder: '5',
             })
@@ -263,7 +263,7 @@ describe('quest admin helpers', () => {
             pointValueOverride: null,
             sortOrder: 5,
         })
-        expect(prepareQuestChallengeAssignmentValues(values)).toEqual({
+        expect(prepareCampaignChallengeAssignmentValues(values)).toEqual({
             challengeId: 'challenge-1',
             isActive: true,
             pointValueOverride: null,
@@ -271,46 +271,46 @@ describe('quest admin helpers', () => {
         })
     })
 
-    it('rejects invalid quest challenge assignment fields', () => {
+    it('rejects invalid campaign challenge assignment fields', () => {
         expect(() =>
-            parseQuestChallengeAssignmentFormValues(
-                buildQuestChallengeAssignmentFormData({
+            parseCampaignChallengeAssignmentFormValues(
+                buildCampaignChallengeAssignmentFormData({
                     sortOrder: '-1',
                 })
             )
         ).toThrowError(
-            expect.objectContaining<Partial<QuestAdminError>>({
+            expect.objectContaining<Partial<CampaignAdminError>>({
                 code: 'invalid-challenge-sort-order',
             })
         )
 
         expect(() =>
-            parseQuestChallengeAssignmentFormValues(
-                buildQuestChallengeAssignmentFormData({
+            parseCampaignChallengeAssignmentFormValues(
+                buildCampaignChallengeAssignmentFormData({
                     pointValueOverride: '-2',
                 })
             )
         ).toThrowError(
-            expect.objectContaining<Partial<QuestAdminError>>({
+            expect.objectContaining<Partial<CampaignAdminError>>({
                 code: 'invalid-challenge-point-override',
             })
         )
     })
 
-    it('blocks duplicate challenge assignments on the same quest', () => {
+    it('blocks duplicate challenge assignments on the same campaign', () => {
         expect(() =>
-            assertQuestChallengeNotAssigned({
+            assertCampaignChallengeNotAssigned({
                 challengeId: 'challenge-1',
                 existingChallengeIds: ['challenge-1', 'challenge-2'],
             })
         ).toThrowError(
-            expect.objectContaining<Partial<QuestAdminError>>({
-                code: 'duplicate-quest-challenge',
+            expect.objectContaining<Partial<CampaignAdminError>>({
+                code: 'duplicate-campaign-challenge',
             })
         )
 
         expect(() =>
-            assertQuestChallengeNotAssigned({
+            assertCampaignChallengeNotAssigned({
                 challengeId: 'challenge-3',
                 existingChallengeIds: ['challenge-1', 'challenge-2'],
             })

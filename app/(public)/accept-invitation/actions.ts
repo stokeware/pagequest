@@ -44,7 +44,7 @@ export async function acceptInvitationAction(formData: FormData) {
             email: true,
             expiresAt: true,
             id: true,
-            quest: {
+            campaign: {
                 select: {
                     id: true,
                     name: true,

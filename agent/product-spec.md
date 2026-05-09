@@ -6,7 +6,7 @@ Product owner: Administrator of the Page Quest family reading competition
 
 ## 1. Product Summary
 
-Page Quest is a mobile-friendly and desktop-friendly web application for running recurring reading competitions among family and friends. The application allows an administrator to create time-bound quests, invite participants, define special challenges, and monitor competition progress. Competitors can log completed books, pages read, audiobook minutes listened, and challenge completions while following a live scoreboard throughout the quest.
+Page Quest is a mobile-friendly and desktop-friendly web application for running recurring reading competitions among family and friends. The application allows an administrator to create time-bound campaigns, invite participants, define special challenges, and monitor competition progress. Competitors can log completed books, pages read, audiobook minutes listened, and challenge completions while following a live scoreboard throughout the campaign.
 
 The product should feel playful, celebratory, and easy to use while remaining structured enough to support recurring annual competitions.
 
@@ -16,7 +16,7 @@ Create the digital home for a recurring reading competition that feels like a fa
 
 The application should:
 
-- Make it easy for the administrator to launch and manage each new quest.
+- Make it easy for the administrator to launch and manage each new campaign.
 - Make progress logging fast enough that competitors will actually use it consistently.
 - Make the scoreboard compelling and easy to understand.
 - Work well on phones, tablets, and desktop browsers.
@@ -26,15 +26,15 @@ The application should:
 
 ## Administrator goals
 
-- Create and configure quests with start dates, end dates, rules, and special challenges.
+- Create and configure campaigns with start dates, end dates, rules, and special challenges.
 - Invite family and friends to participate.
-- Manage participants, quest settings, and challenge definitions.
+- Manage participants, campaign settings, and challenge definitions.
 - See participation trends and scoreboard standings.
 
 ## Competitor goals
 
 - Sign in securely.
-- Join a quest from an invitation.
+- Join a campaign from an invitation.
 - Quickly record books completed, pages read, audiobook minutes, and challenge completions.
 - See personal progress and how they rank against other competitors.
 
@@ -58,14 +58,14 @@ The following are explicitly out of scope for the first release unless later app
 
 ## Administrator
 
-- Creates and edits quests.
+- Creates and edits campaigns.
 - Defines challenge catalog and scoring rules.
 - Invites and manages participants.
 - Can review or adjust submissions when needed.
 
 ## Competitor
 
-- Accepts invitation and joins active quests.
+- Accepts invitation and joins active campaigns.
 - Logs reading activity and challenge completions.
 - Views standings, history, and personal statistics.
 
@@ -75,9 +75,9 @@ The following are explicitly out of scope for the first release unless later app
 
 ## 6. Core Product Concepts
 
-## Quest
+## Campaign
 
-A quest is a competition period with a name, date range, timezone, status, rules, and scoring configuration.
+A campaign is a competition period with a name, date range, timezone, status, rules, and scoring configuration.
 
 Suggested fields:
 
@@ -105,7 +105,7 @@ Entry types:
 Each entry should store:
 
 - Competitor
-- Quest
+- Campaign
 - Entry type
 - Value
 - Date completed or activity date
@@ -114,7 +114,7 @@ Each entry should store:
 
 ## Challenge
 
-A quest can include special challenges that award points or count toward special quest objectives.
+A campaign can include special challenges that award points or count toward special campaign objectives.
 
 Challenge examples:
 
@@ -143,8 +143,8 @@ The application should support both raw metrics and normalized competition point
 Recommended MVP scoring approach:
 
 - Track raw totals for books completed, pages read, audiobook minutes, and challenges completed.
-- Convert raw metrics into competition points using quest-level scoring rules.
-- Allow the administrator to configure default point values per quest.
+- Convert raw metrics into competition points using campaign-level scoring rules.
+- Allow the administrator to configure default point values per campaign.
 
 Recommended configurable rules:
 
@@ -161,7 +161,7 @@ Recommended initial defaults for the first competition:
 
 Administrative requirement:
 
-- The administrator must be able to adjust the point values for pages, audiobook minutes, books, and challenges on a per-quest basis.
+- The administrator must be able to adjust the point values for pages, audiobook minutes, books, and challenges on a per-campaign basis.
 
 Why this approach:
 
@@ -176,28 +176,28 @@ Why this approach:
 - Users must be able to sign in securely.
 - Invited users must be able to accept an invitation and create or link an account.
 - The system must support role-based access for administrators and competitors.
-- Uninvited users must not be able to join a private quest without approval or a valid invitation.
+- Uninvited users must not be able to join a private campaign without approval or a valid invitation.
 
 ## 8.2 Invitations
 
 - Administrator can invite users by email.
-- Invitation email includes quest name, dates, and secure join link.
+- Invitation email includes campaign name, dates, and secure join link.
 - Invitation status is tracked: pending, accepted, expired, revoked.
 - Administrator can resend or revoke invitations.
 
-## 8.3 Quest management
+## 8.3 Campaign management
 
-- Administrator can create, edit, publish, and archive quests.
-- Administrator can define quest dates, rules, scoring configuration, and challenge list.
-- Administrator can duplicate a previous quest as a starting template for a new one.
-- Quest automatically transitions from scheduled to active to completed based on configured dates.
-- MVP supports one active quest at a time while preserving access to completed past quests.
+- Administrator can create, edit, publish, and archive campaigns.
+- Administrator can define campaign dates, rules, scoring configuration, and challenge list.
+- Administrator can duplicate a previous campaign as a starting template for a new one.
+- Campaign automatically transitions from scheduled to active to completed based on configured dates.
+- MVP supports one active campaign at a time while preserving access to completed past campaigns.
 
 ## 8.4 Participant management
 
-- Administrator can add, remove, and view quest participants.
+- Administrator can add, remove, and view campaign participants.
 - Administrator can see whether each participant has accepted the invitation and submitted activity.
-- Participant profiles show display name, avatar, current quest stats, and past quest history.
+- Participant profiles show display name, avatar, current campaign stats, and past campaign history.
 - All accounts are individual accounts in MVP, with no special child account mode and no shared family account mode.
 
 ## 8.5 Progress logging
@@ -207,28 +207,28 @@ Why this approach:
 - Competitors can log audiobook minutes listened.
 - Competitors can log completed challenges.
 - Users can edit or delete their own recent entries within configurable limits.
-- The system should validate that logged activity dates fall within the quest period unless an admin override is used.
+- The system should validate that logged activity dates fall within the campaign period unless an admin override is used.
 
 ## 8.6 Scoreboard and progress tracking
 
-- Display overall leaderboard for each quest.
+- Display overall leaderboard for each campaign.
 - Display rank, points, books, pages, minutes, challenges, and recent activity.
 - Allow competitors to filter views such as overall standings, friends or family subset, and personal progress.
-- Provide quest summary cards with time remaining, current rank, and progress toward challenges.
+- Provide campaign summary cards with time remaining, current rank, and progress toward challenges.
 - The leaderboard should remain concise and should not embed each participant's full reading log directly in the scoreboard view.
-- Each participant shown on the leaderboard should link to a participant detail page containing that competitor's full reading history for the active or selected completed quest.
+- Each participant shown on the leaderboard should link to a participant detail page containing that competitor's full reading history for the active or selected completed campaign.
 
 ## 8.7 History and reporting
 
 - Competitors can view their own entry history.
 - Competitors can view other participants' full reading history through participant detail pages.
-- Administrator can view quest-wide summaries and export results.
-- Completed quests remain browsable as past seasons.
+- Administrator can view campaign-wide summaries and export results.
+- Completed campaigns remain browsable as past seasons.
 
 ## 8.8 Notifications
 
 - Send invitation emails.
-- Send quest start reminders.
+- Send campaign start reminders.
 - Send periodic reminder emails or nudges to inactive participants.
 - Optional future digest: weekly leaderboard recap.
 
@@ -242,12 +242,12 @@ Why this approach:
 
 ## Design direction
 
-The product should feel whimsical, warm, and competitive, inspired by storybooks, quests, and friendly family rivalry rather than corporate productivity software.
+The product should feel whimsical, warm, and competitive, inspired by storybooks, campaigns, and friendly family rivalry rather than corporate productivity software.
 
 UX principles:
 
 - Fast logging with minimal typing.
-- Clear quest status and current standings at a glance.
+- Clear campaign status and current standings at a glance.
 - Encouraging progress visuals without visual clutter.
 - Mobile-first layout with equally strong desktop experience.
 - Friendly, readable typography and clear calls to action.
@@ -271,20 +271,20 @@ UX principles:
 ## Authenticated competitor experience
 
 - Dashboard
-- Active quest detail
+- Active campaign detail
 - Log progress
 - My entries and history
 - Challenges
 - Leaderboard
 - Participant detail and reading history
 - Profile and account settings
-- Past quests
+- Past campaigns
 
 ## Authenticated administrator experience
 
 - Admin dashboard
-- Quests list
-- Create or edit quest
+- Campaigns list
+- Create or edit campaign
 - Participants and invitations
 - Challenge management
 - Scoring configuration
@@ -303,7 +303,7 @@ Primary navigation for competitors:
 Primary navigation for administrators:
 
 - Overview
-- Quests
+- Campaigns
 - Participants
 - Challenges
 - Reports
@@ -311,22 +311,22 @@ Primary navigation for administrators:
 
 ## 11. Key User Flows
 
-## 11.1 Administrator creates a new quest
+## 11.1 Administrator creates a new campaign
 
 1. Admin signs in.
-2. Admin opens the admin dashboard and selects create quest.
-3. Admin enters quest name, description, dates, timezone, and scoring rules.
+2. Admin opens the admin dashboard and selects create campaign.
+3. Admin enters campaign name, description, dates, timezone, and scoring rules.
 4. Admin adds or selects special challenges.
-5. Admin reviews preview and publishes the quest.
+5. Admin reviews preview and publishes the campaign.
 6. Admin sends invitations to participants.
 
-## 11.2 Competitor joins a quest
+## 11.2 Competitor joins a campaign
 
 1. Competitor receives invitation email.
 2. Competitor opens secure invite link.
 3. Competitor signs in or creates an account.
 4. Competitor accepts the invitation.
-5. Competitor lands on the quest dashboard with onboarding guidance.
+5. Competitor lands on the campaign dashboard with onboarding guidance.
 
 ## 11.3 Competitor logs reading progress
 
@@ -362,7 +362,7 @@ Primary navigation for administrators:
 ## Competitor screens
 
 - Personal dashboard
-- Quest details
+- Campaign details
 - Log progress form
 - Leaderboard
 - Participant detail and reading history
@@ -372,7 +372,7 @@ Primary navigation for administrators:
 ## Administrator screens
 
 - Admin overview
-- Quest create and edit form
+- Campaign create and edit form
 - Invitation management
 - Participant management
 - Challenge management
@@ -384,8 +384,8 @@ Core entities:
 
 - User
 - Role
-- Quest
-- QuestParticipant
+- Campaign
+- CampaignParticipant
 - Invitation
 - Challenge
 - ChallengeCompletion
@@ -395,11 +395,11 @@ Core entities:
 
 Suggested relationships:
 
-- One user can join many quests.
-- One quest has many participants.
-- One quest has many challenges.
-- One participant has many reading entries within a quest.
-- One invitation belongs to one quest and one email recipient.
+- One user can join many campaigns.
+- One campaign has many participants.
+- One campaign has many challenges.
+- One participant has many reading entries within a campaign.
+- One invitation belongs to one campaign and one email recipient.
 
 ## 14. Recommended Technology Stack
 
@@ -440,7 +440,7 @@ Rationale:
 
 Rationale:
 
-- PostgreSQL is a strong fit for relational data such as users, quests, entries, invitations, and rankings.
+- PostgreSQL is a strong fit for relational data such as users, campaigns, entries, invitations, and rankings.
 - Prisma works especially well with PostgreSQL.
 - Azure PostgreSQL is mature, scalable, and operationally aligned with the hosting preference.
 
@@ -491,7 +491,7 @@ Rationale:
   using the stable `next-auth` package line together with either a dedicated
   Microsoft Entra External ID test tenant or a clearly isolated
   development-only sign-in mode for local testing.
-- Background jobs such as reminders and quest status transitions should have a local execution path, such as a manual script, scheduled dev task, or local Azure Functions runtime if adopted.
+- Background jobs such as reminders and campaign status transitions should have a local execution path, such as a manual script, scheduled dev task, or local Azure Functions runtime if adopted.
 - Environment configuration should be managed through local env files for development and Azure-managed configuration for hosted environments.
 
 Rationale:
@@ -540,7 +540,7 @@ Why this hosting model:
 - HTTPS enforced across all environments.
 - Audit log for admin changes and moderation actions.
 - Basic privacy controls for participant names and avatars.
-- Data retention policy for archived quests and deleted accounts should be defined before launch.
+- Data retention policy for archived campaigns and deleted accounts should be defined before launch.
 
 ## 17. Performance Requirements
 
@@ -558,9 +558,9 @@ Why this hosting model:
 - Base design system
 - User roles and profile model
 
-## Milestone 2: Quest administration
+## Milestone 2: Campaign administration
 
-- Quest creation and editing
+- Campaign creation and editing
 - Challenge management
 - Invitations
 - Participant management
@@ -584,7 +584,7 @@ Why this hosting model:
 
 ## Risk: scoring rules become confusing
 
-Mitigation: show both raw stats and computed points, and provide a plain-language explanation of how points are calculated on each quest.
+Mitigation: show both raw stats and computed points, and provide a plain-language explanation of how points are calculated on each campaign.
 
 ## Risk: competitors do not log consistently
 
@@ -603,11 +603,11 @@ Mitigation: use a managed identity provider and invite-driven flows rather than 
 Approved product decisions for MVP:
 
 - Pages and audiobook minutes both count directly toward points, with separate configurable weights.
-- The initial default weighting is 1 point per page and 0.75 points per audiobook minute, with admin control to change these values per quest.
+- The initial default weighting is 1 point per page and 0.75 points per audiobook minute, with admin control to change these values per campaign.
 - Challenge completions do not require proof in MVP.
 - Participants can view each competitor's full reading history from participant detail pages linked from the leaderboard.
 - The leaderboard itself should remain summary-focused and uncluttered.
-- MVP supports one active quest at a time, with historical access to completed quests.
+- MVP supports one active campaign at a time, with historical access to completed campaigns.
 - All participant accounts are individual accounts with no shared-account model in the first release.
 
 Deferred beyond MVP unless later approved:
@@ -618,4 +618,4 @@ Deferred beyond MVP unless later approved:
 
 Build Page Quest as a single full-stack TypeScript application using Next.js, PostgreSQL, Prisma, and Microsoft Entra External ID, deployed to Azure App Service with supporting Azure services for storage, email, secrets, and monitoring.
 
-This is the most suitable modern architecture for the initial release because it keeps the application maintainable, mobile-friendly, visually flexible, and operationally straightforward while fitting naturally into an Azure hosting strategy, while also supporting configurable scoring, participant history pages, recurring single-season quest management, and a practical local development workflow.
+This is the most suitable modern architecture for the initial release because it keeps the application maintainable, mobile-friendly, visually flexible, and operationally straightforward while fitting naturally into an Azure hosting strategy, while also supporting configurable scoring, participant history pages, recurring single-season campaign management, and a practical local development workflow.

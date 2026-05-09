@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest'
 import {
     calculateEntryPoints,
     calculateParticipantScoreTotals,
-    deriveQuestStatus,
-    getDerivedQuestStatusUpdate,
-    getDerivedQuestStatusUpdates,
-    type QuestScoringRules,
-} from '@/lib/quest-domain'
+    deriveCampaignStatus,
+    getDerivedCampaignStatusUpdate,
+    getDerivedCampaignStatusUpdates,
+    type CampaignScoringRules,
+} from '@/lib/campaign-domain'
 
-const scoringRules: QuestScoringRules = {
+const scoringRules: CampaignScoringRules = {
     pointsPerBook: new Prisma.Decimal(25),
     pointsPerPage: new Prisma.Decimal(1),
     pointsPerAudiobookMinute: new Prisma.Decimal('0.75'),
@@ -18,7 +18,7 @@ const scoringRules: QuestScoringRules = {
 }
 
 describe('calculateEntryPoints', () => {
-    it('calculates audiobook minutes using the quest scoring rule', () => {
+    it('calculates audiobook minutes using the campaign scoring rule', () => {
         const points = calculateEntryPoints(
             {
                 type: 'AUDIOBOOK_MINUTES',
@@ -83,24 +83,24 @@ describe('calculateParticipantScoreTotals', () => {
     })
 })
 
-describe('deriveQuestStatus', () => {
+describe('deriveCampaignStatus', () => {
     const baseInput = {
         startAt: new Date('2026-05-10T00:00:00.000Z'),
         endAt: new Date('2026-05-20T00:00:00.000Z'),
     }
 
-    it('keeps unpublished quests in draft status', () => {
+    it('keeps unpublished campaigns in draft status', () => {
         expect(
-            deriveQuestStatus({
+            deriveCampaignStatus({
                 ...baseInput,
                 now: new Date('2026-05-12T00:00:00.000Z'),
             })
         ).toBe('DRAFT')
     })
 
-    it('derives scheduled, active, and completed statuses from the quest window', () => {
+    it('derives scheduled, active, and completed statuses from the campaign window', () => {
         expect(
-            deriveQuestStatus({
+            deriveCampaignStatus({
                 ...baseInput,
                 publishedAt: new Date('2026-05-01T00:00:00.000Z'),
                 now: new Date('2026-05-09T23:59:59.000Z'),
@@ -108,7 +108,7 @@ describe('deriveQuestStatus', () => {
         ).toBe('SCHEDULED')
 
         expect(
-            deriveQuestStatus({
+            deriveCampaignStatus({
                 ...baseInput,
                 publishedAt: new Date('2026-05-01T00:00:00.000Z'),
                 now: new Date('2026-05-15T00:00:00.000Z'),
@@ -116,7 +116,7 @@ describe('deriveQuestStatus', () => {
         ).toBe('ACTIVE')
 
         expect(
-            deriveQuestStatus({
+            deriveCampaignStatus({
                 ...baseInput,
                 publishedAt: new Date('2026-05-01T00:00:00.000Z'),
                 now: new Date('2026-05-21T00:00:00.000Z'),
@@ -124,9 +124,9 @@ describe('deriveQuestStatus', () => {
         ).toBe('COMPLETED')
     })
 
-    it('treats archived quests as archived regardless of the date window', () => {
+    it('treats archived campaigns as archived regardless of the date window', () => {
         expect(
-            deriveQuestStatus({
+            deriveCampaignStatus({
                 ...baseInput,
                 publishedAt: new Date('2026-05-01T00:00:00.000Z'),
                 archivedAt: new Date('2026-05-11T00:00:00.000Z'),
@@ -135,23 +135,23 @@ describe('deriveQuestStatus', () => {
         ).toBe('ARCHIVED')
     })
 
-    it('rejects invalid quest windows', () => {
+    it('rejects invalid campaign windows', () => {
         expect(() =>
-            deriveQuestStatus({
+            deriveCampaignStatus({
                 startAt: new Date('2026-05-20T00:00:00.000Z'),
                 endAt: new Date('2026-05-10T00:00:00.000Z'),
                 publishedAt: new Date('2026-05-01T00:00:00.000Z'),
             })
-        ).toThrow('Quest startAt must be on or before endAt.')
+        ).toThrow('Campaign startAt must be on or before endAt.')
     })
 
-    it('builds derived-status updates when stored quest statuses are stale', () => {
+    it('builds derived-status updates when stored campaign statuses are stale', () => {
         const now = new Date('2026-05-15T00:00:00.000Z')
 
         expect(
-            getDerivedQuestStatusUpdate(
+            getDerivedCampaignStatusUpdate(
                 {
-                    id: 'quest-1',
+                    id: 'campaign-1',
                     status: 'SCHEDULED',
                     startAt: new Date('2026-05-10T00:00:00.000Z'),
                     endAt: new Date('2026-05-20T00:00:00.000Z'),
@@ -161,15 +161,15 @@ describe('deriveQuestStatus', () => {
                 now
             )
         ).toEqual({
-            id: 'quest-1',
+            id: 'campaign-1',
             nextStatus: 'ACTIVE',
             previousStatus: 'SCHEDULED',
         })
 
         expect(
-            getDerivedQuestStatusUpdate(
+            getDerivedCampaignStatusUpdate(
                 {
-                    id: 'quest-2',
+                    id: 'campaign-2',
                     status: 'ACTIVE',
                     startAt: new Date('2026-05-10T00:00:00.000Z'),
                     endAt: new Date('2026-05-20T00:00:00.000Z'),
@@ -181,11 +181,11 @@ describe('deriveQuestStatus', () => {
         ).toBeNull()
     })
 
-    it('collects all stale derived-status updates for a batch of quests', () => {
-        const updates = getDerivedQuestStatusUpdates(
+    it('collects all stale derived-status updates for a batch of campaigns', () => {
+        const updates = getDerivedCampaignStatusUpdates(
             [
                 {
-                    id: 'quest-1',
+                    id: 'campaign-1',
                     status: 'SCHEDULED',
                     startAt: new Date('2026-05-10T00:00:00.000Z'),
                     endAt: new Date('2026-05-20T00:00:00.000Z'),
@@ -193,7 +193,7 @@ describe('deriveQuestStatus', () => {
                     archivedAt: null,
                 },
                 {
-                    id: 'quest-2',
+                    id: 'campaign-2',
                     status: 'ACTIVE',
                     startAt: new Date('2026-05-01T00:00:00.000Z'),
                     endAt: new Date('2026-05-05T00:00:00.000Z'),
@@ -201,7 +201,7 @@ describe('deriveQuestStatus', () => {
                     archivedAt: null,
                 },
                 {
-                    id: 'quest-3',
+                    id: 'campaign-3',
                     status: 'ARCHIVED',
                     startAt: new Date('2026-05-01T00:00:00.000Z'),
                     endAt: new Date('2026-05-05T00:00:00.000Z'),
@@ -214,12 +214,12 @@ describe('deriveQuestStatus', () => {
 
         expect(updates).toEqual([
             {
-                id: 'quest-1',
+                id: 'campaign-1',
                 nextStatus: 'ACTIVE',
                 previousStatus: 'SCHEDULED',
             },
             {
-                id: 'quest-2',
+                id: 'campaign-2',
                 nextStatus: 'COMPLETED',
                 previousStatus: 'ACTIVE',
             },

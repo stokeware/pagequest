@@ -14,9 +14,9 @@ describe('competitor leaderboard view model', () => {
                     id: 'participant-2',
                     joinedAt: new Date('2026-04-01T12:00:00Z'),
                     lastActivityAt: new Date('2026-05-06T12:00:00Z'),
-                    quest: {
+                    campaign: {
                         endAt: new Date('2026-05-20T23:00:00Z'),
-                        id: 'quest-1',
+                        id: 'campaign-1',
                         name: 'Spring Story Sprint',
                         startAt: new Date('2026-04-20T12:00:00Z'),
                         status: 'ACTIVE',
@@ -78,7 +78,7 @@ describe('competitor leaderboard view model', () => {
         )
 
         expect(viewModel.hasQuest).toBe(true)
-        expect(viewModel.questStatusLabel).toBe('Active leaderboard')
+        expect(viewModel.campaignStatusLabel).toBe('Active leaderboard')
         expect(viewModel.highlights[0]).toMatchObject({
             label: 'Your rank',
             value: '#1',
@@ -101,7 +101,7 @@ describe('competitor leaderboard view model', () => {
         })
     })
 
-    it('returns the empty model without a linked quest', () => {
+    it('returns the empty model without a linked campaign', () => {
         const viewModel = buildCompetitorLeaderboardViewModel(
             null,
             new Date('2026-05-08T12:00:00Z')
