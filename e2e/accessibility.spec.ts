@@ -22,3 +22,25 @@ for (const [label, route] of routes) {
         expect(seriousViolations).toEqual([])
     })
 }
+
+const skipLinkRoutes = [
+    ['public home', '/'],
+    ['competitor dashboard', '/dashboard'],
+    ['admin overview', '/admin'],
+] as const
+
+for (const [label, route] of skipLinkRoutes) {
+    test(`${label} exposes a working skip link`, async ({ page }) => {
+        await page.goto(route)
+        await page.keyboard.press('Tab')
+
+        const skipLink = page.getByRole('link', {
+            name: 'Skip to main content',
+        })
+
+        await expect(skipLink).toBeFocused()
+        await page.keyboard.press('Enter')
+
+        await expect(page.locator('main')).toBeFocused()
+    })
+}

@@ -1,6 +1,41 @@
+import type { Locator, Page } from '@playwright/test'
 import { devices, expect, test } from '@playwright/test'
 
 const iPhone13 = devices['iPhone 13']
+const localAuthPassphrase =
+    process.env.LOCAL_AUTH_PASSPHRASE ?? 'pagequest-local'
+
+async function signInWithLocalCredentials({
+    email,
+    page,
+    startPath,
+}: {
+    email: string
+    page: Page
+    startPath: string
+}) {
+    await page.goto(startPath)
+    const signInForm = page.locator('form')
+
+    await expect(page.getByLabel('Email address')).toBeEnabled()
+    await page.getByLabel('Email address').fill(email)
+    await page.getByLabel('Shared passphrase').fill(localAuthPassphrase)
+    await signInForm.getByRole('button', { name: 'Sign in' }).click()
+}
+
+async function expectTouchTargets(locator: Locator, minimumSize = 44) {
+    const count = await locator.count()
+
+    expect(count).toBeGreaterThan(0)
+
+    for (let index = 0; index < count; index += 1) {
+        const box = await locator.nth(index).boundingBox()
+
+        expect(box).not.toBeNull()
+        expect(box!.height).toBeGreaterThanOrEqual(minimumSize)
+        expect(box!.width).toBeGreaterThanOrEqual(minimumSize)
+    }
+}
 
 test.describe('desktop core layouts', () => {
     test('keeps public navigation visible on the sign-in route', async ({
@@ -67,6 +102,19 @@ test.describe('mobile core layouts', () => {
         ).toBeVisible()
     })
 
+    test('keeps public touch targets above the mobile minimum', async ({
+        page,
+    }) => {
+        await page.goto('/sign-in')
+
+        await expectTouchTargets(
+            page
+                .getByRole('navigation', { name: 'Public navigation' })
+                .getByRole('link')
+        )
+        await expectTouchTargets(page.getByRole('button', { name: 'Sign in' }))
+    })
+
     test('redirects signed-out competitor routes on mobile', async ({
         page,
     }) => {
@@ -80,6 +128,26 @@ test.describe('mobile core layouts', () => {
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fdashboard/)
     })
 
+    test('keeps competitor mobile navigation targets large enough', async ({
+        page,
+    }) => {
+        await signInWithLocalCredentials({
+            email: 'alice@pagequest.local',
+            page,
+            startPath: '/dashboard',
+        })
+
+        await expect(page).toHaveURL(/\/dashboard$/)
+
+        await expectTouchTargets(
+            page
+                .getByRole('navigation', {
+                    name: 'Competitor mobile navigation',
+                })
+                .getByRole('link')
+        )
+    })
+
     test('redirects signed-out admin routes on mobile', async ({ page }) => {
         await page.goto('/admin')
 
@@ -89,5 +157,25 @@ test.describe('mobile core layouts', () => {
             })
         ).toBeVisible()
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fadmin/)
+    })
+
+    test('keeps admin mobile quick navigation targets large enough', async ({
+        page,
+    }) => {
+        await signInWithLocalCredentials({
+            email: 'admin@pagequest.local',
+            page,
+            startPath: '/admin',
+        })
+
+        await expect(page).toHaveURL(/\/admin$/)
+
+        await expectTouchTargets(
+            page
+                .getByRole('navigation', {
+                    name: 'Administrator quick navigation',
+                })
+                .getByRole('link')
+        )
     })
 })

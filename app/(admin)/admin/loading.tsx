@@ -1,0 +1,12 @@
+import { LoadingState } from '@/components/ui'
+
+export default function AdminLoading() {
+    return (
+        <LoadingState
+            eyebrow='Admin loading'
+            title='Preparing the campaign control surface.'
+            description='Reports, moderation details, and campaign administration data are loading now.'
+            lines={4}
+        />
+    )
+}

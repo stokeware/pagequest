@@ -2,5 +2,4 @@
 
 source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
 
-run ./scripts/validate-env --target local
-run pnpm exec next dev "$@"
+run pnpm exec tsx scripts/validate-env.mts "$@"

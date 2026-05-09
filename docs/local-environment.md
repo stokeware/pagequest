@@ -6,6 +6,7 @@ Use [.env.example](../.env.example) as the single source of truth for local envi
 
 - Copy [.env.example](../.env.example) to `.env.local` for the Next.js app.
 - Copy [.env.example](../.env.example) to `.env` when running CLI tools such as Prisma or Docker Compose.
+- Local scripts now load both files, with `.env.local` overriding `.env` when the same variable appears in both places.
 
 ## Required Variables
 
@@ -44,3 +45,17 @@ Use [.env.example](../.env.example) as the single source of truth for local envi
 - Local email delivery defaults to `smtp`, which routes invitation emails into Mailpit.
 - Local Auth.js mode expects one of the seeded emails and the shared passphrase from `LOCAL_AUTH_PASSPHRASE`.
 - Hosted identity testing switches `PAGEQUEST_AUTH_MODE` to `entra` and uses the Entra OpenID Connect values above.
+
+## Validation
+
+- Run `pnpm env:validate -- --target local` before routine development if you want an explicit environment check.
+- `./scripts/bootstrap`, `./scripts/dev`, and `./scripts/check` now run the local validation automatically.
+- `./scripts/start` runs production validation automatically before the hosted server starts.
+
+## Production Expectations
+
+- Set both `APP_URL` and `NEXTAUTH_URL` to the same public HTTPS origin.
+- Replace `NEXTAUTH_SECRET` with a deployment secret that is not the local example placeholder and is at least 32 characters long.
+- Use `PAGEQUEST_AUTH_MODE=entra` for hosted environments.
+- Use `PAGEQUEST_EMAIL_DELIVERY_MODE=azure-communication-services` for hosted environments.
+- Do not point `APP_URL` or `NEXTAUTH_URL` at loopback hosts such as `127.0.0.1` or `localhost` in production.

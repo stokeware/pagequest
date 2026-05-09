@@ -7,6 +7,7 @@
         "dev": "./scripts/dev",
         "build": "./scripts/build",
         "start": "./scripts/start",
+        "env:validate": "./scripts/validate-env",
         "lint": "./scripts/lint",
         "format": "./scripts/format",
         "format:check": "./scripts/format-check",

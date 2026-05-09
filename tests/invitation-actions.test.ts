@@ -16,6 +16,7 @@ const invitationActionMocks = vi.hoisted(() => {
     const buildInvitationAcceptUrl = vi.fn()
     const canResendInvitation = vi.fn()
     const canRevokeInvitation = vi.fn()
+    const consumeRateLimit = vi.fn()
     const normalizeInvitationEmail = vi.fn()
     const prepareInvitationCreateValues = vi.fn()
     const prepareInvitationResendValues = vi.fn()
@@ -42,6 +43,7 @@ const invitationActionMocks = vi.hoisted(() => {
         buildInvitationAcceptUrl,
         canResendInvitation,
         canRevokeInvitation,
+        consumeRateLimit,
         deriveRoleAwareSession,
         getAdminRouteRedirectPath,
         getServerSession,
@@ -92,6 +94,10 @@ vi.mock('@/lib/prisma', () => ({
     prisma: invitationActionMocks.prisma,
 }))
 
+vi.mock('@/lib/security/rate-limit', () => ({
+    consumeRateLimit: invitationActionMocks.consumeRateLimit,
+}))
+
 import {
     createInvitationAction,
     resendInvitationAction,
@@ -140,6 +146,11 @@ describe('admin invitation actions audit logging', () => {
         invitationActionMocks.sendInvitationEmail.mockResolvedValue(undefined)
         invitationActionMocks.canResendInvitation.mockReturnValue(true)
         invitationActionMocks.canRevokeInvitation.mockReturnValue(true)
+        invitationActionMocks.consumeRateLimit.mockReturnValue({
+            allowed: true,
+            remaining: 5,
+            retryAfterSeconds: 0,
+        })
         invitationActionMocks.prisma.$transaction.mockImplementation(
             async (
                 callback: (
@@ -199,6 +210,74 @@ describe('admin invitation actions audit logging', () => {
         })
     })
 
+    it('blocks invitation creation when the admin hits the send rate limit', async () => {
+        invitationActionMocks.prisma.campaign.findFirst.mockResolvedValue({
+            id: 'campaign-1',
+            name: 'Spring Story Sprint 2026',
+            status: 'ACTIVE',
+        })
+        invitationActionMocks.consumeRateLimit.mockReturnValue({
+            allowed: false,
+            remaining: 0,
+            retryAfterSeconds: 120,
+        })
+
+        const formData = new FormData()
+        formData.set('campaignId', 'campaign-1')
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=rate-limit-exceeded'),
+        })
+
+        expect(
+            invitationActionMocks.transaction.invitation.create
+        ).not.toHaveBeenCalled()
+    })
+
+    it('records delivery failure when invitation email sending fails', async () => {
+        invitationActionMocks.prisma.campaign.findFirst.mockResolvedValue({
+            id: 'campaign-1',
+            name: 'Spring Story Sprint 2026',
+            status: 'ACTIVE',
+        })
+        invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue(
+            null
+        )
+        invitationActionMocks.sendInvitationEmail.mockRejectedValue(
+            new Error('smtp down')
+        )
+        invitationActionMocks.prisma.auditLog = {
+            create: vi.fn().mockResolvedValue(undefined),
+        }
+
+        const formData = new FormData()
+        formData.set('campaignId', 'campaign-1')
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=email-send-failed'),
+        })
+
+        expect(
+            invitationActionMocks.prisma.auditLog.create
+        ).toHaveBeenCalledWith({
+            data: {
+                action: 'invitation.delivery_failed',
+                actorUserId: 'admin-1',
+                campaignId: 'campaign-1',
+                entityId: 'invite-1',
+                entityType: 'Invitation',
+                invitationId: 'invite-1',
+                metadata: {
+                    campaignName: 'Spring Story Sprint 2026',
+                    email: 'reader@example.com',
+                    stage: 'created',
+                },
+            },
+        })
+    })
+
     it('records an audit log when an admin resends an invitation', async () => {
         invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue({
             acceptedAt: null,
@@ -240,6 +319,39 @@ describe('admin invitation actions audit logging', () => {
                 campaignId: 'campaign-1',
             },
         })
+    })
+
+    it('blocks invitation resend when the resend rate limit is hit', async () => {
+        invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue({
+            acceptedAt: null,
+            email: 'reader@example.com',
+            expiresAt: new Date('2026-05-10T12:00:00.000Z'),
+            id: 'invite-1',
+            campaign: {
+                id: 'campaign-1',
+                name: 'Spring Story Sprint 2026',
+                status: 'ACTIVE',
+                visibility: 'INVITE_ONLY',
+            },
+            revokedAt: null,
+            status: 'PENDING',
+        })
+        invitationActionMocks.consumeRateLimit.mockReturnValue({
+            allowed: false,
+            remaining: 0,
+            retryAfterSeconds: 300,
+        })
+
+        const formData = new FormData()
+        formData.set('invitationId', 'invite-1')
+
+        await expect(resendInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=rate-limit-exceeded'),
+        })
+
+        expect(
+            invitationActionMocks.transaction.invitation.update
+        ).not.toHaveBeenCalled()
     })
 
     it('records an audit log when an admin revokes an invitation', async () => {

@@ -19,11 +19,20 @@ import {
     deriveRoleAwareSession,
     getAdminRouteRedirectPath,
 } from '@/lib/auth/session'
+import { getAppUrl } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
+import { consumeRateLimit } from '@/lib/security/rate-limit'
 
 const adminInvitationsPath = '/admin/invitations'
-const appUrl =
-    process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? 'http://127.0.0.1:3000'
+const appUrl = getAppUrl()
+const invitationCreateRateLimit = {
+    maxAttempts: 12,
+    windowMs: 10 * 60 * 1000,
+} as const
+const invitationResendRateLimit = {
+    maxAttempts: 4,
+    windowMs: 15 * 60 * 1000,
+} as const
 
 function buildRedirectUrl({
     outcome,
@@ -64,6 +73,58 @@ function finishAction({
             invitationLink,
         })
     )
+}
+
+function buildCreateInvitationRateLimitKey({
+    actorUserId,
+    campaignId,
+}: {
+    actorUserId: string
+    campaignId: string
+}) {
+    return `invitation-create:${actorUserId}:${campaignId}`
+}
+
+function buildResendInvitationRateLimitKey({
+    actorUserId,
+    invitationId,
+}: {
+    actorUserId: string
+    invitationId: string
+}) {
+    return `invitation-resend:${actorUserId}:${invitationId}`
+}
+
+async function recordInvitationDeliveryFailureAudit({
+    actorUserId,
+    campaignId,
+    campaignName,
+    email,
+    invitationId,
+    stage,
+}: {
+    actorUserId: string
+    campaignId: string
+    campaignName: string
+    email: string
+    invitationId: string
+    stage: 'created' | 'resent'
+}) {
+    await prisma.auditLog.create({
+        data: {
+            action: 'invitation.delivery_failed',
+            actorUserId,
+            campaignId,
+            entityId: invitationId,
+            entityType: 'Invitation',
+            invitationId,
+            metadata: {
+                campaignName,
+                email,
+                stage,
+            },
+        },
+    })
 }
 
 async function sendInvitationNotification({
@@ -164,6 +225,21 @@ export async function createInvitationAction(formData: FormData) {
         })
     }
 
+    const createRateLimit = consumeRateLimit({
+        key: buildCreateInvitationRateLimitKey({
+            actorUserId: actor.id,
+            campaignId,
+        }),
+        ...invitationCreateRateLimit,
+    })
+
+    if (!createRateLimit.allowed) {
+        finishAction({
+            outcome: 'error',
+            detail: 'rate-limit-exceeded',
+        })
+    }
+
     const existingInvitation = await prisma.invitation.findUnique({
         select: {
             acceptedAt: true,
@@ -196,7 +272,7 @@ export async function createInvitationAction(formData: FormData) {
         token: values.token,
     })
 
-    await prisma.$transaction(async (transaction) => {
+    const createdInvitation = await prisma.$transaction(async (transaction) => {
         const invitation = await transaction.invitation.create({
             data: {
                 email,
@@ -227,6 +303,8 @@ export async function createInvitationAction(formData: FormData) {
                 campaignId,
             },
         })
+
+        return invitation
     })
 
     try {
@@ -237,6 +315,15 @@ export async function createInvitationAction(formData: FormData) {
             recipientEmail: email,
         })
     } catch {
+        await recordInvitationDeliveryFailureAudit({
+            actorUserId: actor.id,
+            campaignId,
+            campaignName: campaign.name,
+            email,
+            invitationId: createdInvitation.id,
+            stage: 'created',
+        })
+
         finishAction({
             outcome: 'error',
             detail: 'email-send-failed',
@@ -307,6 +394,21 @@ export async function resendInvitationAction(formData: FormData) {
         })
     }
 
+    const resendRateLimit = consumeRateLimit({
+        key: buildResendInvitationRateLimitKey({
+            actorUserId: actor.id,
+            invitationId: invitation.id,
+        }),
+        ...invitationResendRateLimit,
+    })
+
+    if (!resendRateLimit.allowed) {
+        finishAction({
+            outcome: 'error',
+            detail: 'rate-limit-exceeded',
+        })
+    }
+
     const now = new Date()
     const values = prepareInvitationResendValues({ now })
     const invitationLink = buildInvitationAcceptUrl({
@@ -355,6 +457,15 @@ export async function resendInvitationAction(formData: FormData) {
             recipientEmail: invitation.email,
         })
     } catch {
+        await recordInvitationDeliveryFailureAudit({
+            actorUserId: actor.id,
+            campaignId: invitation.campaign.id,
+            campaignName: invitation.campaign.name,
+            email: invitation.email,
+            invitationId: invitation.id,
+            stage: 'resent',
+        })
+
         finishAction({
             outcome: 'error',
             detail: 'email-send-failed',

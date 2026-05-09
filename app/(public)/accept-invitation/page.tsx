@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import {
     Button,
+    ErrorState,
     EmptyState,
     FormActions,
     FormCard,
@@ -12,6 +13,7 @@ import { PublicShell } from '@/components/public/public-shell'
 import {
     buildInvitationAcceptPath,
     hashInvitationToken,
+    normalizeInvitationToken,
 } from '@/lib/invitation-admin'
 import { deriveInvitationAcceptanceProfile } from '@/lib/invitation-acceptance'
 import { getRoleAwareSession } from '@/lib/auth/session'
@@ -38,6 +40,57 @@ function getTokenAwareSignInPath(token: string) {
     return `/sign-in?callbackUrl=${encodeURIComponent(
         buildInvitationAcceptPath(token)
     )}`
+}
+
+function getInvitationMutationNotice(
+    outcome: string | null,
+    detail: string | null
+): {
+    description: string
+    title: string
+} | null {
+    if (outcome !== 'error') {
+        return null
+    }
+
+    switch (detail) {
+        case 'acceptance-failed':
+            return {
+                description:
+                    'The invitation stayed unchanged because the acceptance step failed. Reload the secure link and try again. If it keeps failing, ask an administrator to confirm the invitation is still active.',
+                title: 'Invitation acceptance failed.',
+            }
+        case 'invalid-token':
+            return {
+                description:
+                    'This invitation token does not match the secure format issued by Page Quest. Reopen the original invitation link or ask an administrator for a new one.',
+                title: 'Invitation link is not valid.',
+            }
+        case 'invitation-unavailable':
+            return {
+                description:
+                    'This secure link can no longer be accepted in its current state. Review the invitation details below and request a fresh invite if needed.',
+                title: 'This invitation is no longer ready to accept.',
+            }
+        case 'rate-limit-exceeded':
+            return {
+                description:
+                    'Too many acceptance attempts were made in a short window. Wait a few minutes, then try this secure link again.',
+                title: 'Invitation attempts temporarily limited.',
+            }
+        case 'missing-token':
+            return {
+                description:
+                    'Open the full invitation link from the email again so Page Quest can verify the secure token before accepting the campaign.',
+                title: 'Invitation link missing.',
+            }
+        default:
+            return {
+                description:
+                    'An unexpected problem interrupted the invitation flow. Reload the page and try again.',
+                title: 'Invitation update blocked.',
+            }
+    }
 }
 
 function InvitationTokenCard({
@@ -295,7 +348,15 @@ export default async function AcceptInvitationPage({
     searchParams,
 }: AcceptInvitationPageProps) {
     const resolvedSearchParams = searchParams ? await searchParams : {}
-    const token = getFirstSearchParamValue(resolvedSearchParams.token)
+    const detail = getFirstSearchParamValue(resolvedSearchParams.detail)
+    const outcome = getFirstSearchParamValue(resolvedSearchParams.outcome)
+    const rawToken = getFirstSearchParamValue(resolvedSearchParams.token)
+    const token = normalizeInvitationToken(rawToken)
+    const mutationNotice =
+        getInvitationMutationNotice(outcome, detail) ??
+        (rawToken && !token
+            ? getInvitationMutationNotice('error', 'invalid-token')
+            : null)
     const viewer = await getRoleAwareSession('COMPETITOR')
     const invitationAccess = await getInvitationAccessProfile({
         userEmail: viewer.userEmail,
@@ -336,6 +397,13 @@ export default async function AcceptInvitationPage({
             title='Accept a campaign invitation and join the season.'
             description='This route now validates secure invite links, links the invited account, and unlocks the competitor experience after acceptance.'
         >
+            {mutationNotice ? (
+                <ErrorState
+                    eyebrow='Invitation update'
+                    title={mutationNotice.title}
+                    description={mutationNotice.description}
+                />
+            ) : null}
             {token && tokenAcceptance ? (
                 <InvitationTokenCard access={tokenAcceptance} token={token} />
             ) : null}

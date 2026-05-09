@@ -23,6 +23,32 @@ async function signInWithLocalCredentials({
 }
 
 test.describe('local auth flow', () => {
+    test('shows a user-friendly error when local sign-in fails', async ({
+        page,
+    }) => {
+        await page.goto('/sign-in')
+
+        await expect(page.getByLabel('Email address')).toBeEnabled()
+        await page.getByLabel('Email address').fill('alice@pagequest.local')
+        await page.getByLabel('Shared passphrase').fill('not-the-passphrase')
+        await page
+            .locator('form')
+            .getByRole('button', { name: 'Sign in' })
+            .click()
+
+        await expect(page).toHaveURL(/\/sign-in$/)
+        await expect(
+            page.getByRole('alert').getByText('Sign-in failed.')
+        ).toBeVisible()
+        await expect(
+            page
+                .getByRole('alert')
+                .getByText(
+                    'Sign-in failed. Use one of the seeded local emails and the shared passphrase.'
+                )
+        ).toBeVisible()
+    })
+
     test('signs a competitor in from a protected route and signs out cleanly', async ({
         page,
     }) => {

@@ -5,6 +5,7 @@ These scripts are the command-line entrypoints for routine local development tas
 ## Setup and startup
 
 - `./scripts/bootstrap`: install dependencies, create local env files if missing, and start Docker services.
+- `./scripts/validate-env --target local|production`: validate the current environment contract before local work or hosted startup.
 - `./scripts/local-startup`: start local services, run Prisma migrations, and run the seed command.
 - `./scripts/dev`: start the Next.js development server.
 - `./scripts/build`: build the app for production.
@@ -28,4 +29,4 @@ These scripts are the command-line entrypoints for routine local development tas
 - `./scripts/test`: run Vitest once.
 - `./scripts/test-watch`: run Vitest in watch mode.
 - `./scripts/test-e2e`: run Playwright tests.
-- `./scripts/check`: run format check, lint, and unit tests in sequence.
+- `./scripts/check`: validate the local environment, then run format check, lint, and unit tests in sequence.

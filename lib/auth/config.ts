@@ -1,3 +1,5 @@
+import { type EnvSource, readEnumEnv, readRequiredEnv } from '@/lib/env'
+
 const defaultLocalAuthPassphrase = 'pagequest-local'
 
 export const localDemoEmails = [
@@ -10,8 +12,6 @@ export const localDemoEmails = [
 
 export type AuthMode = 'local' | 'entra'
 
-type EnvSource = Partial<Record<string, string | undefined>>
-
 export type EntraExternalIdConfig = {
     clientId: string
     clientSecret: string
@@ -19,20 +19,8 @@ export type EntraExternalIdConfig = {
     scope: string
 }
 
-function readRequiredEnv(name: string, env: EnvSource): string {
-    const value = env[name]?.trim()
-
-    if (!value) {
-        throw new Error(`Missing required auth environment variable: ${name}`)
-    }
-
-    return value
-}
-
 export function getAuthMode(env: EnvSource = process.env): AuthMode {
-    const configuredMode = env.PAGEQUEST_AUTH_MODE?.trim().toLowerCase()
-
-    return configuredMode === 'entra' ? 'entra' : 'local'
+    return readEnumEnv('PAGEQUEST_AUTH_MODE', env, ['local', 'entra'], 'local')
 }
 
 export function getLocalAuthPassphrase(env: EnvSource = process.env): string {
@@ -43,9 +31,13 @@ export function getEntraExternalIdConfig(
     env: EnvSource = process.env
 ): EntraExternalIdConfig {
     return {
-        clientId: readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_ID', env),
-        clientSecret: readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_SECRET', env),
-        issuer: readRequiredEnv('ENTRA_EXTERNAL_ID_ISSUER', env),
+        clientId: readRequiredEnv('ENTRA_EXTERNAL_ID_CLIENT_ID', env, 'auth'),
+        clientSecret: readRequiredEnv(
+            'ENTRA_EXTERNAL_ID_CLIENT_SECRET',
+            env,
+            'auth'
+        ),
+        issuer: readRequiredEnv('ENTRA_EXTERNAL_ID_ISSUER', env, 'auth'),
         scope:
             env.ENTRA_EXTERNAL_ID_SCOPE?.trim() ||
             'openid profile email offline_access',

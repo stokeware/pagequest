@@ -17,6 +17,7 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
+    ErrorState,
     FormActions,
     FormCard,
     FormField,
@@ -440,9 +441,11 @@ export function LogProgressScreen({
                     ) : null}
 
                     {submissionErrorMessage ? (
-                        <p className='progress-field-error'>
-                            {submissionErrorMessage}
-                        </p>
+                        <ErrorState
+                            eyebrow='Log progress error'
+                            title='Entry could not be saved.'
+                            description={submissionErrorMessage}
+                        />
                     ) : null}
 
                     <form

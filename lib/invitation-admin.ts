@@ -3,6 +3,12 @@ import { createHash, randomBytes } from 'node:crypto'
 import type { InvitationStatus } from '@prisma/client'
 
 export const INVITATION_TTL_DAYS = 7
+export const INVITATION_TOKEN_BYTES = 24
+export const INVITATION_TOKEN_LENGTH = 32
+
+const invitationTokenPattern = new RegExp(
+    `^[A-Za-z0-9_-]{${INVITATION_TOKEN_LENGTH.toString()}}$`
+)
 
 type InvitationLifecycleRecord = {
     acceptedAt?: Date | null
@@ -48,7 +54,7 @@ export function buildInvitationExpiry(
 }
 
 export function issueInvitationToken() {
-    const token = randomBytes(24).toString('base64url')
+    const token = randomBytes(INVITATION_TOKEN_BYTES).toString('base64url')
     const tokenHash = hashInvitationToken(token)
 
     return {
@@ -59,6 +65,12 @@ export function issueInvitationToken() {
 
 export function hashInvitationToken(token: string) {
     return createHash('sha256').update(token).digest('hex')
+}
+
+export function normalizeInvitationToken(token: string | null | undefined) {
+    const trimmedToken = token?.trim() ?? ''
+
+    return invitationTokenPattern.test(trimmedToken) ? trimmedToken : null
 }
 
 export function buildInvitationAcceptPath(token: string) {

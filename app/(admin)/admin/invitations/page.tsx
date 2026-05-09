@@ -87,6 +87,8 @@ const errorDetailMessages: Record<string, string> = {
     'missing-invitation':
         'Choose a valid invitation record before trying again.',
     'missing-campaign': 'Choose a campaign before creating an invitation.',
+    'rate-limit-exceeded':
+        'Invitation sending is temporarily limited for this admin session. Wait a few minutes before creating or resending more invitations.',
     'campaign-unavailable':
         'Only non-archived invite-only campaigns can receive new invitation activity.',
 }

@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
     ConfirmationDialog,
+    ErrorState,
     EmptyState,
     FormActions,
     FormCard,
     FormField,
     Input,
+    LoadingState,
     StatCard,
     TableCard,
 } from '@/components/ui'
@@ -27,6 +29,16 @@ describe('shared UI patterns', () => {
                     title='No reports yet'
                     description='Summaries appear once a campaign has entries.'
                 />
+                <ErrorState
+                    eyebrow='Route error'
+                    title='This page hit a snag'
+                    description='Try the route again.'
+                />
+                <LoadingState
+                    eyebrow='Loading'
+                    title='Preparing reports'
+                    description='Campaign summaries are loading now.'
+                />
                 <TableCard
                     title='Leaderboard'
                     columns={['Rank', 'Reader']}
@@ -39,6 +51,8 @@ describe('shared UI patterns', () => {
         expect(html).toContain('Current rank')
         expect(html).toContain('#2')
         expect(html).toContain('No reports yet')
+        expect(html).toContain('This page hit a snag')
+        expect(html).toContain('Preparing reports')
         expect(html).toContain('Morgan')
     })
 

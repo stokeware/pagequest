@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
     INVITATION_TTL_DAYS,
+    INVITATION_TOKEN_LENGTH,
     buildInvitationExpiry,
     buildInvitationAcceptPath,
     buildInvitationAcceptUrl,
@@ -12,6 +13,7 @@ import {
     getInvitationTokenState,
     hashInvitationToken,
     normalizeInvitationEmail,
+    normalizeInvitationToken,
     prepareInvitationCreateValues,
     prepareInvitationResendValues,
 } from '@/lib/invitation-admin'
@@ -38,6 +40,14 @@ describe('secure invitation links', () => {
     it('hashes raw tokens before persistence', () => {
         expect(hashInvitationToken('plain-token')).toHaveLength(64)
         expect(hashInvitationToken('plain-token')).not.toBe('plain-token')
+    })
+
+    it('accepts only correctly formatted secure tokens', () => {
+        expect(normalizeInvitationToken('abc')).toBeNull()
+        expect(
+            normalizeInvitationToken('x'.repeat(INVITATION_TOKEN_LENGTH))
+        ).toBe('x'.repeat(INVITATION_TOKEN_LENGTH))
+        expect(normalizeInvitationToken('bad token with spaces')).toBeNull()
     })
 
     it('builds the public accept-invitation path and absolute url', () => {

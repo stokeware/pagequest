@@ -199,14 +199,19 @@ function AdminReportsScreen({
                     }))}
                 />
             ) : (
-                <Card className='surface-warm'>
-                    <CardHeader>
-                        <CardTitle>Participant snapshot</CardTitle>
-                        <CardDescription>
-                            No readers are linked to this campaign yet.
-                        </CardDescription>
-                    </CardHeader>
-                </Card>
+                <EmptyState
+                    eyebrow='Participant snapshot'
+                    title='No readers are linked to this campaign yet.'
+                    description='Invite competitors into the campaign first. Their reading totals and score breakdowns will appear here once participation begins.'
+                    action={
+                        <Button
+                            variant='outline'
+                            render={<Link href='/admin/invitations' />}
+                        >
+                            Review invitations
+                        </Button>
+                    }
+                />
             )}
 
             <TableCard
@@ -325,10 +330,11 @@ function AdminReportsScreen({
                                 )
                             })
                         ) : (
-                            <p className='text-sm text-muted-foreground'>
-                                No entries are available for moderation in this
-                                campaign yet.
-                            </p>
+                            <EmptyState
+                                eyebrow='Moderation queue'
+                                title='No entries need moderation right now.'
+                                description='As campaign activity grows, recent reading entries that can be corrected from this screen will appear here.'
+                            />
                         )}
                     </CardContent>
                 </Card>

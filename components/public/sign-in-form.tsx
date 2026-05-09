@@ -6,6 +6,7 @@ import { useState, useSyncExternalStore, useTransition } from 'react'
 
 import {
     Button,
+    ErrorState,
     FormActions,
     FormCard,
     FormField,
@@ -144,9 +145,11 @@ export function SignInForm({
                 </div>
 
                 {errorMessage ? (
-                    <p className='text-sm font-medium text-destructive'>
-                        {errorMessage}
-                    </p>
+                    <ErrorState
+                        eyebrow='Sign-in error'
+                        title='Sign-in failed.'
+                        description={errorMessage}
+                    />
                 ) : null}
 
                 <FormActions note='This local mode keeps Auth.js active without requiring a hosted identity tenant during routine development.'>

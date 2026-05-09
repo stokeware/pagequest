@@ -19,6 +19,7 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
+    SkipLink,
     StatCard,
 } from '@/components/ui'
 import { SessionAction } from '@/components/authenticated/session-action'
@@ -100,6 +101,7 @@ export function AppShell({
 
     return (
         <div className={cn('auth-shell', `auth-shell-${shellVariant}`)}>
+            <SkipLink targetId='main-content'>Skip to main content</SkipLink>
             <div className='auth-glow auth-glow-left' aria-hidden='true' />
             <div className='auth-glow auth-glow-right' aria-hidden='true' />
 
@@ -241,7 +243,7 @@ export function AppShell({
                     </div>
                 </aside>
 
-                <main className='auth-stage'>
+                <main id='main-content' tabIndex={-1} className='auth-stage'>
                     <section className='auth-hero surface-panel'>
                         <p className='eyebrow'>{audienceLabel}</p>
                         <h1>{title}</h1>

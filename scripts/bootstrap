@@ -10,5 +10,8 @@ if [[ ! -f .env.local ]]; then
     cp .env.example .env.local
 fi
 
+load_env_files
+
+run ./scripts/validate-env --target local
 run pnpm install
 run docker compose up -d

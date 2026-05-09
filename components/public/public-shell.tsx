@@ -8,6 +8,7 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
+    SkipLink,
 } from '@/components/ui'
 
 const navigationLinks = [
@@ -56,6 +57,7 @@ export function PublicShell({
 }: PublicShellProps) {
     return (
         <div className='public-shell'>
+            <SkipLink targetId='main-content'>Skip to main content</SkipLink>
             <div className='public-glow public-glow-left' aria-hidden='true' />
             <div className='public-glow public-glow-right' aria-hidden='true' />
 
@@ -80,7 +82,7 @@ export function PublicShell({
                 </nav>
             </header>
 
-            <main className='public-main'>
+            <main id='main-content' tabIndex={-1} className='public-main'>
                 <section className='public-hero'>
                     <div className='public-hero-copy'>
                         <p className='eyebrow'>{eyebrow}</p>

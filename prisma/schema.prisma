@@ -139,6 +139,8 @@ model CampaignParticipant {
     readingEntries         ReadingEntry[]
     user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+    @@index([campaignId, removedAt, totalPoints(sort: Desc), totalPages(sort: Desc), totalAudiobookMinutes(sort: Desc), totalBooks(sort: Desc), createdAt], map: "CampaignParticipant_campaignId_removedAt_standings_idx")
+    @@index([userId, removedAt, createdAt(sort: Desc)], map: "CampaignParticipant_userId_removedAt_createdAt_idx")
     @@index([campaignId, totalPoints, lastActivityAt])
     @@index([userId, lastActivityAt])
     @@unique([campaignId, userId])
@@ -222,7 +224,7 @@ model ReadingEntry {
     campaignParticipant   CampaignParticipant  @relation(fields: [campaignParticipantId], references: [id], onDelete: Cascade)
     updatedBy          User?             @relation("ReadingEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
-    @@index([campaignParticipantId, deletedAt, activityDate])
+    @@index([campaignParticipantId, deletedAt, activityDate(sort: Desc), createdAt(sort: Desc)], map: "ReadingEntry_participant_deletedAt_activityDate_createdAt_idx")
 }
 
 model ChallengeCompletion {
