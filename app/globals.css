@@ -959,6 +959,195 @@ p {
     text-transform: uppercase;
 }
 
+.progress-layout,
+.progress-side-stack,
+.progress-type-copy,
+.progress-panel-copy,
+.progress-rule-list,
+.progress-challenge-list,
+.progress-challenge-copy {
+    display: grid;
+}
+
+.progress-layout {
+    grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
+    gap: 1rem;
+}
+
+.progress-side-stack,
+.progress-panel-copy,
+.progress-rule-list,
+.progress-challenge-list,
+.progress-challenge-copy {
+    gap: 0.75rem;
+}
+
+.progress-status-banner,
+.progress-panel,
+.progress-type-button,
+.progress-rule-item,
+.progress-challenge-card {
+    border: 1px solid var(--line-soft);
+}
+
+.progress-status-banner,
+.progress-panel,
+.progress-rule-item,
+.progress-challenge-card {
+    padding: 1rem;
+    border-radius: 1.35rem;
+}
+
+.progress-status-label,
+.progress-panel-kicker,
+.progress-rule-label {
+    color: var(--paprika);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.progress-status-title,
+.progress-panel-title,
+.progress-rule-value,
+.progress-challenge-title {
+    color: var(--text-display);
+    font-family: var(--font-heading), serif;
+}
+
+.progress-status-title,
+.progress-rule-value {
+    font-size: 1.15rem;
+}
+
+.progress-status-copy,
+.progress-panel-description,
+.progress-type-description,
+.progress-empty-note,
+.progress-challenge-text,
+.progress-feedback-copy {
+    color: var(--text-soft);
+    line-height: 1.6;
+}
+
+.progress-feedback,
+.progress-field-error {
+    border-radius: 1rem;
+}
+
+.progress-feedback {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(64, 105, 124, 0.14);
+}
+
+.progress-feedback-title,
+.progress-field-error {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.progress-feedback-title {
+    color: var(--blue-slate);
+}
+
+.progress-field-error {
+    color: var(--destructive);
+}
+
+.progress-form-note {
+    color: var(--text-soft);
+    line-height: 1.5;
+}
+
+.progress-type-list,
+.progress-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.progress-type-button {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.95rem 1rem;
+    border-radius: 1.35rem;
+    background: var(--surface-soft);
+    text-align: left;
+    transition:
+        transform 150ms ease,
+        background-color 150ms ease,
+        border-color 150ms ease,
+        box-shadow 150ms ease;
+}
+
+.progress-type-button:hover,
+.progress-type-button:focus-visible {
+    transform: translateY(-1px);
+    border-color: var(--line-strong);
+    background: color-mix(in srgb, var(--surface-soft) 80%, white);
+}
+
+.progress-type-button-active {
+    border-color: rgba(202, 89, 47, 0.28);
+    background: rgba(202, 89, 47, 0.1);
+    box-shadow: var(--shadow-soft);
+}
+
+.progress-type-icon,
+.progress-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+}
+
+.progress-type-icon {
+    width: 2rem;
+    height: 2rem;
+    background: var(--surface-highlight);
+    color: var(--dusty-olive);
+}
+
+.progress-type-copy {
+    gap: 0.2rem;
+}
+
+.progress-type-title,
+.progress-panel-title,
+.progress-challenge-title {
+    font-size: 1.1rem;
+}
+
+.progress-panel {
+    display: grid;
+    gap: 1rem;
+    background: var(--surface-muted);
+}
+
+.progress-rule-item,
+.progress-challenge-card {
+    background: var(--surface-muted);
+}
+
+.progress-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.progress-meta-pill {
+    padding: 0.45rem 0.7rem;
+    background: rgba(64, 105, 124, 0.08);
+    color: var(--foreground);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
 .auth-mobile-nav {
     position: sticky;
     bottom: 0.75rem;
@@ -1059,7 +1248,10 @@ p {
     .auth-topbar,
     .auth-frame,
     .auth-card-grid,
-    .auth-table-row {
+    .auth-table-row,
+    .progress-layout,
+    .progress-type-list,
+    .progress-field-grid {
         grid-template-columns: 1fr;
     }
 

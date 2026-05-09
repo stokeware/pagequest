@@ -2,17 +2,25 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
-import { getAdminMiddlewareRedirectPath } from '@/lib/auth/middleware'
+import {
+    getAdminMiddlewareRedirectPath,
+    getCompetitorMiddlewareRedirectPath,
+} from '@/lib/auth/middleware'
 
 export async function proxy(request: NextRequest) {
     const token = await getToken({
         req: request,
     })
     const callbackUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`
-    const redirectPath = getAdminMiddlewareRedirectPath({
-        callbackUrl,
-        token,
-    })
+    const redirectPath = request.nextUrl.pathname.startsWith('/admin')
+        ? getAdminMiddlewareRedirectPath({
+              callbackUrl,
+              token,
+          })
+        : getCompetitorMiddlewareRedirectPath({
+              callbackUrl,
+              token,
+          })
 
     if (!redirectPath) {
         return NextResponse.next()
@@ -22,5 +30,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/admin/:path*'],
+    matcher: [
+        '/admin/:path*',
+        '/dashboard/:path*',
+        '/history/:path*',
+        '/leaderboard/:path*',
+        '/log-progress/:path*',
+    ],
 }

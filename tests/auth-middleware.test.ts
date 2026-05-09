@@ -1,7 +1,10 @@
 import type { JWT } from 'next-auth/jwt'
 import { describe, expect, it } from 'vitest'
 
-import { getAdminMiddlewareRedirectPath } from '@/lib/auth/middleware'
+import {
+    getAdminMiddlewareRedirectPath,
+    getCompetitorMiddlewareRedirectPath,
+} from '@/lib/auth/middleware'
 
 function buildToken(
     overrides: Partial<JWT> & {
@@ -44,6 +47,39 @@ describe('getAdminMiddlewareRedirectPath', () => {
                 callbackUrl: '/admin',
                 token: buildToken({
                     roles: ['ADMIN'],
+                }),
+            })
+        ).toBeNull()
+    })
+})
+
+describe('getCompetitorMiddlewareRedirectPath', () => {
+    it('redirects signed-out competitor requests to sign in with the full callback URL', () => {
+        expect(
+            getCompetitorMiddlewareRedirectPath({
+                callbackUrl: '/log-progress?tab=audio',
+                token: null,
+            })
+        ).toBe('/sign-in?callbackUrl=%2Flog-progress%3Ftab%3Daudio')
+    })
+
+    it('redirects admin-only users to their best available route', () => {
+        expect(
+            getCompetitorMiddlewareRedirectPath({
+                callbackUrl: '/log-progress',
+                token: buildToken({
+                    roles: ['ADMIN'],
+                }),
+            })
+        ).toBe('/admin')
+    })
+
+    it('allows competitor users through middleware', () => {
+        expect(
+            getCompetitorMiddlewareRedirectPath({
+                callbackUrl: '/log-progress',
+                token: buildToken({
+                    roles: ['COMPETITOR'],
                 }),
             })
         ).toBeNull()
