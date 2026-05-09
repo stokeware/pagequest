@@ -379,7 +379,7 @@ export async function runReminderEmailJob(
             await completeNotificationDelivery(notificationStore, {
                 deliveryId: claim.deliveryId,
                 now,
-                providerMessageId: delivery.id,
+                providerMessageId: delivery?.id ?? null,
             })
             result.campaignStart.sent += 1
         } catch (error) {
@@ -428,7 +428,7 @@ export async function runReminderEmailJob(
             await completeNotificationDelivery(notificationStore, {
                 deliveryId: claim.deliveryId,
                 now,
-                providerMessageId: delivery.id,
+                providerMessageId: delivery?.id ?? null,
             })
             result.inactivity.sent += 1
         } catch (error) {
@@ -449,7 +449,7 @@ export async function runReminderEmailJob(
 
 export function createCampaignLifecycleJobDefinitions(
     dependencies: ReminderJobDependencies = {}
-): JobDefinition[] {
+): JobDefinition<never, unknown>[] {
     return [
         defineJob({
             description:

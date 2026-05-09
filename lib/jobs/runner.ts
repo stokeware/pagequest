@@ -63,8 +63,10 @@ export type JobDefinition<TPayload = void, TResult = void> = {
     name: string
 }
 
+type RegisteredJobDefinition = JobDefinition<never, unknown>
+
 export type JobRunner = {
-    listJobs: () => Array<Pick<JobDefinition, 'description' | 'name'>>
+    listJobs: () => Array<Pick<RegisteredJobDefinition, 'description' | 'name'>>
     run: <TPayload, TResult>(options: {
         jobName: string
         now?: Date
@@ -110,10 +112,10 @@ function createRunId(jobName: string, now: Date) {
 }
 
 export function createJobRunner(
-    definitions: JobDefinition[],
+    definitions: RegisteredJobDefinition[],
     { logger = createConsoleJobLogger() }: CreateJobRunnerOptions = {}
 ): JobRunner {
-    const registry = new Map<string, JobDefinition>()
+    const registry = new Map<string, RegisteredJobDefinition>()
 
     for (const definition of definitions) {
         if (registry.has(definition.name)) {
@@ -138,7 +140,9 @@ export function createJobRunner(
         runId?: string
         trigger: JobTrigger
     }): Promise<JobExecutionResult<TResult>> {
-        const definition = registry.get(jobName)
+        const definition = registry.get(jobName) as
+            | JobDefinition<TPayload, TResult>
+            | undefined
 
         if (!definition) {
             throw new Error(`Job is not registered: ${jobName}`)
@@ -217,7 +221,16 @@ export function createJobRunner(
                 .sort((left, right) => left.name.localeCompare(right.name))
         },
         run,
-        runAzureFunction(options) {
+        runAzureFunction<TPayload, TResult>(options: {
+            functionName: string
+            invocationId?: string
+            jobName: string
+            now?: Date
+            payload: TPayload
+            runId?: string
+            scheduledFor?: Date
+            scheduleKey?: string
+        }) {
             const {
                 functionName,
                 invocationId,
@@ -243,7 +256,13 @@ export function createJobRunner(
                 },
             })
         },
-        runLocal(options) {
+        runLocal<TPayload, TResult>(options: {
+            initiatedBy?: string
+            jobName: string
+            now?: Date
+            payload: TPayload
+            runId?: string
+        }) {
             const { initiatedBy, jobName, now, payload, runId } = options
 
             return run<TPayload, TResult>({
@@ -257,7 +276,14 @@ export function createJobRunner(
                 },
             })
         },
-        runScheduled(options) {
+        runScheduled<TPayload, TResult>(options: {
+            jobName: string
+            now?: Date
+            payload: TPayload
+            runId?: string
+            scheduledFor?: Date
+            scheduleKey: string
+        }) {
             const { jobName, now, payload, runId, scheduledFor, scheduleKey } =
                 options
 

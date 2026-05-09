@@ -1,0 +1,72 @@
+name: CI
+
+on:
+    push:
+        branches:
+            - '**'
+    pull_request:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    verify:
+        name: Verify Code Quality
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        env:
+            APP_URL: http://127.0.0.1:3000
+            DATABASE_URL: postgresql://pagequest:pagequest@127.0.0.1:5433/pagequest?schema=public
+            DIRECT_URL: postgresql://pagequest:pagequest@127.0.0.1:5433/pagequest?schema=public
+            EMAIL_FROM: Page Quest <noreply@pagequest.local>
+            LOCAL_AUTH_PASSPHRASE: pagequest-ci
+            NEXTAUTH_SECRET: ci-nextauth-secret-for-validation-only-0001
+            NEXTAUTH_URL: http://127.0.0.1:3000
+            PAGEQUEST_AUTH_MODE: local
+            PAGEQUEST_EMAIL_DELIVERY_MODE: smtp
+            SMTP_HOST: 127.0.0.1
+            SMTP_PORT: '1025'
+            SMTP_SECURE: 'false'
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 11.0.8
+                  run_install: false
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Validate environment contract
+              run: pnpm env:validate -- --target local
+
+            - name: Check formatting
+              run: pnpm format:check
+
+            - name: Lint
+              run: pnpm lint
+
+            - name: Run unit tests
+              run: pnpm test
+
+            - name: Build application
+              run: pnpm build
+
+            - name: Remove generated files
+              if: always()
+              run: |
+                  rm -rf .next coverage playwright-report test-results
+                  find . -maxdepth 1 -name '*.tsbuildinfo' -delete

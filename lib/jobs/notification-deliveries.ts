@@ -1,3 +1,5 @@
+import type { Prisma, PrismaClient } from '@prisma/client'
+
 export type NotificationDeliveryKind =
     | 'campaign-start-reminder'
     | 'inactivity-nudge'
@@ -7,19 +9,7 @@ export type NotificationDeliveryClaimStatus =
     | 'already-sent'
     | 'claimed'
 
-type NotificationDeliveryStore = {
-    notificationDelivery: {
-        update: (args: Record<string, unknown>) => Promise<unknown>
-        updateMany: (
-            args: Record<string, unknown>
-        ) => Promise<{ count: number }>
-        upsert: (args: Record<string, unknown>) => Promise<{
-            id: string
-            sentAt: Date | null
-            status: 'FAILED' | 'PENDING' | 'SENDING' | 'SENT'
-        }>
-    }
-}
+type NotificationDeliveryStore = Pick<PrismaClient, 'notificationDelivery'>
 
 export type NotificationDeliveryClaim = {
     deliveryId: string | null
@@ -31,7 +21,7 @@ export type ClaimNotificationDeliveryInput = {
     campaignParticipantId?: string
     idempotencyKey: string
     kind: NotificationDeliveryKind
-    metadata?: Record<string, unknown>
+    metadata?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput
     now: Date
     recipientEmail: string
     scheduledFor?: Date

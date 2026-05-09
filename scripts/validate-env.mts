@@ -1,11 +1,8 @@
 type EnvironmentTarget = 'local' | 'production'
 
 async function loadValidateEnvironment() {
-    const environmentModule = await import('../lib/env.ts')
-    const validateEnvironment =
-        'validateEnvironment' in environmentModule
-            ? environmentModule.validateEnvironment
-            : environmentModule.default?.validateEnvironment
+    const environmentModule = await import('../lib/env')
+    const { validateEnvironment } = environmentModule
 
     if (typeof validateEnvironment !== 'function') {
         throw new Error(
