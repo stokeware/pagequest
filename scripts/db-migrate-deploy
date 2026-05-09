@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
+
+: "${DIRECT_URL:?DIRECT_URL must be set for hosted Prisma migrations.}"
+
+run env DATABASE_URL="$DIRECT_URL" pnpm exec prisma migrate deploy "$@"

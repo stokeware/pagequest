@@ -15,6 +15,7 @@
         "test:watch": "./scripts/test-watch",
         "test:e2e": "./scripts/test-e2e",
         "db:migrate": "./scripts/db-migrate",
+        "db:migrate:deploy": "./scripts/db-migrate-deploy",
         "db:seed": "./scripts/db-seed",
         "dev:services": "./scripts/services-up"
     },

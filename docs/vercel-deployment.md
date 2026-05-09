@@ -67,6 +67,39 @@ Production email delivery uses Resend through SMTP.
 Local development should keep using Mailpit with the same SMTP variables pointed
 at the local Mailpit host and ports.
 
+## Neon Database Variables
+
+Production database access uses two Neon connection strings.
+
+- `DATABASE_URL=<neon-pooled-runtime-url>`
+- `DIRECT_URL=<neon-direct-or-unpooled-url>`
+
+Use `DATABASE_URL` for the running application on Vercel. This is the pooled
+runtime URL consumed by [lib/prisma.ts](../lib/prisma.ts).
+
+Use `DIRECT_URL` only for Prisma migrations and other administrative commands.
+The Prisma CLI config stays pointed at `DATABASE_URL`, and the hosted migration
+script overrides that datasource with `DIRECT_URL` so runtime traffic and schema
+changes stay on separate Neon URLs.
+
+## Build And Migration Commands
+
+Vercel should build the app through `pnpm build`, which resolves to
+`./scripts/build`. That wrapper:
+
+- validates the hosted production environment contract
+- runs `prisma generate`
+- runs `next build`
+
+Apply schema changes separately with:
+
+```bash
+pnpm db:migrate:deploy
+```
+
+That command runs `./scripts/db-migrate-deploy`, requires `DIRECT_URL`, and
+executes `prisma migrate deploy` against the direct Neon connection string.
+
 ## Summary
 
 Page Quest now has one deployment story:

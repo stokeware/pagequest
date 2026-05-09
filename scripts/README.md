@@ -14,6 +14,7 @@ These scripts are the command-line entrypoints for routine local development tas
 ## Database and services
 
 - `./scripts/db-migrate`: run `prisma migrate dev`.
+- `./scripts/db-migrate-deploy`: run `prisma migrate deploy` against `DIRECT_URL` for hosted environments.
 - `./scripts/db-seed`: run the Prisma seed command.
 - `./scripts/run-job`: run a background job locally, with optional `--now` and `--payload` overrides for validation.
 - `./scripts/services-up`: start Docker Compose services.
