@@ -3,6 +3,11 @@
 Status: Ready for execution by a coding agent
 Updated: 2026-05-09
 
+Phase 0 execution note: The repository deployment contract is now documented as
+GitHub for source control and CI, with Vercel owning preview and production
+deployments on top of Neon, Resend, and Auth0. Local credentials auth remains
+the required path for local development, CI, and seeded demo data.
+
 ## 1. Objective
 
 Retarget Page Quest from the current Azure-oriented production contract to a
@@ -120,6 +125,14 @@ into two parallel auth systems or two deployment systems.
 - The repo has one clear deployment story and one clear hosted auth choice.
 - There is no ambiguity about whether GitHub Actions or Vercel owns deployment.
 
+### Phase 0 completion note
+
+- `README.md` now declares the hosted target stack and GitHub-to-Vercel flow.
+- `docs/vercel-deployment.md` records the production architecture and branch to
+  deployment mapping.
+- `docs/azure-deployment.md` records that Azure is no longer the active
+  deployment target.
+
 ## Phase 1: Replace the Azure-only production environment contract
 
 ### Goal
@@ -130,14 +143,14 @@ Azure-specific providers.
 ### Tasks
 
 1. Update `lib/env.ts` so the production contract allows:
-   - `PAGEQUEST_AUTH_MODE=auth0`
-   - `PAGEQUEST_EMAIL_DELIVERY_MODE=smtp`
-   - Resend SMTP variables
-   - Auth0 provider variables
+    - `PAGEQUEST_AUTH_MODE=auth0`
+    - `PAGEQUEST_EMAIL_DELIVERY_MODE=smtp`
+    - Resend SMTP variables
+    - Auth0 provider variables
 2. Remove the Azure-only production assertions that currently require:
-   - `PAGEQUEST_AUTH_MODE` to equal `entra`
-   - `PAGEQUEST_EMAIL_DELIVERY_MODE` to equal
-     `azure-communication-services`
+    - `PAGEQUEST_AUTH_MODE` to equal `entra`
+    - `PAGEQUEST_EMAIL_DELIVERY_MODE` to equal
+      `azure-communication-services`
 3. Add Auth0-specific env parsing helpers alongside the current local auth
    parsing. The exact names can be either provider-specific or generic, but the
    repo should pick one style and use it everywhere.
@@ -174,8 +187,8 @@ provider with Auth0.
 1. Change the auth mode model from `local | entra` to `local | auth0`.
 2. Replace Entra-specific config functions in `lib/auth/config.ts` with Auth0
    config functions, for example:
-   - `getAuth0Config()`
-   - provider label text for Auth0
+    - `getAuth0Config()`
+    - provider label text for Auth0
 3. Replace the custom Entra OAuth provider in `lib/auth.ts` with the Auth0
    provider from `next-auth/providers/auth0`, unless a custom OAuth config is
    required for a repo-specific reason discovered during implementation.
@@ -222,12 +235,12 @@ email work in production without introducing a new transport abstraction.
 2. Remove Azure Communication Services from the production contract.
 3. Keep the local Mailpit flow unchanged for local development.
 4. Document the production SMTP variables required for Resend, such as:
-   - `SMTP_HOST`
-   - `SMTP_PORT`
-   - `SMTP_SECURE`
-   - `SMTP_USER`
-   - `SMTP_PASSWORD`
-   - `EMAIL_FROM`
+    - `SMTP_HOST`
+    - `SMTP_PORT`
+    - `SMTP_SECURE`
+    - `SMTP_USER`
+    - `SMTP_PASSWORD`
+    - `EMAIL_FROM`
 5. Verify that the existing SMTP implementation in `lib/email/service.ts` does
    not make local-only assumptions.
 6. Add or update tests that exercise SMTP config resolution in hosted mode.
@@ -260,8 +273,8 @@ Use Neon cleanly for runtime traffic and schema migrations.
 1. Keep `lib/prisma.ts` on the existing `pg` plus `PrismaPg` adapter path unless
    Neon-specific behavior proves incompatible during validation.
 2. Decide and document the URL split:
-   - `DATABASE_URL` uses the Neon pooled runtime URL
-   - `DIRECT_URL` uses the Neon direct or unpooled URL for migrations
+    - `DATABASE_URL` uses the Neon pooled runtime URL
+    - `DIRECT_URL` uses the Neon direct or unpooled URL for migrations
 3. Add a production migration script for hosted deployment, such as a script
    that runs `prisma migrate deploy` against `DIRECT_URL`.
 4. Ensure Prisma generation remains part of the build or install flow where
@@ -302,14 +315,14 @@ Make the repo deploy naturally on Vercel without hidden Azure assumptions.
    build configuration.
 2. Move production environment validation into the Vercel deployment path.
    Acceptable patterns include:
-   - a dedicated Vercel build command that runs env validation before build
-   - a checked-in build wrapper used only for hosted deployments
+    - a dedicated Vercel build command that runs env validation before build
+    - a checked-in build wrapper used only for hosted deployments
 3. Ensure the build does not depend on Azure-specific startup behavior.
 4. Document required Vercel project settings:
-   - GitHub repository connection
-   - production branch set to `main`
-   - preview deployments enabled for pull requests
-   - production and preview environment variables
+    - GitHub repository connection
+    - production branch set to `main`
+    - preview deployments enabled for pull requests
+    - production and preview environment variables
 5. Do not add GitHub Actions deployment steps unless a missing Vercel feature
    forces it. The default target model is direct Vercel plus GitHub integration.
 6. Review any runtime assumptions about long-lived servers, background jobs, or
@@ -339,16 +352,16 @@ deploy lifecycle.
 ### Tasks
 
 1. Document the intended GitHub-to-Vercel flow:
-   - pushes and pull requests run `.github/workflows/ci.yml`
-   - pull requests also receive Vercel preview deployments
-   - merges to `main` trigger Vercel production deployment
+    - pushes and pull requests run `.github/workflows/ci.yml`
+    - pull requests also receive Vercel preview deployments
+    - merges to `main` trigger Vercel production deployment
 2. Add a deployment checklist that includes connecting the repo via the Vercel
    GitHub app or import flow.
 3. Document how preview deploys relate to hosted auth, especially if Auth0
    callback URLs are restricted to stable domains.
 4. Document which secrets live in Vercel versus GitHub:
-   - Vercel stores runtime env vars for the app
-   - GitHub stores only CI-related secrets if needed later
+    - Vercel stores runtime env vars for the app
+    - GitHub stores only CI-related secrets if needed later
 5. If the team wants deployment status visibility in GitHub pull requests,
    confirm that Vercel status checks are enabled through the GitHub integration.
 
@@ -377,18 +390,18 @@ while preserving local development ergonomics.
    browser tests depend on Auth0.
 3. Update any docs that currently describe Azure as the production target.
 4. Add a deployment environment matrix to the docs that distinguishes:
-   - local development
-   - CI
-   - Vercel preview
-   - Vercel production
+    - local development
+    - CI
+    - Vercel preview
+    - Vercel production
 5. Add a concise operator checklist for first deployment:
-   - create Neon project and database
-   - create Auth0 tenant and application
-   - verify Resend sender domain
-   - connect GitHub repo to Vercel
-   - set Vercel env vars
-   - run migrations
-   - verify sign-in and invitation email flow
+    - create Neon project and database
+    - create Auth0 tenant and application
+    - verify Resend sender domain
+    - connect GitHub repo to Vercel
+    - set Vercel env vars
+    - run migrations
+    - verify sign-in and invitation email flow
 
 ### Files to touch
 
@@ -481,11 +494,11 @@ If Clerk is chosen instead of Auth0:
 1. Re-scope Phase 2 before editing code.
 2. Decide whether Auth.js remains in the repo or whether Clerk replaces it.
 3. Expect broader changes in:
-   - route handlers
-   - session access helpers
-   - middleware or guards
-   - sign-in UI
-   - test setup
+    - route handlers
+    - session access helpers
+    - middleware or guards
+    - sign-in UI
+    - test setup
 4. Do not mix Clerk and Auth0 support in the same first-pass migration unless a
    strong product requirement demands both.
 
