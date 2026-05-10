@@ -17,6 +17,7 @@ import {
     prepareCampaignDuplicateValues,
     prepareCampaignPublishValues,
     prepareCampaignUpdateValues,
+    resolveEpicReadPageMultiplier,
 } from '@/lib/campaign-admin'
 
 function buildCampaignFormData(overrides?: Record<string, string>) {
@@ -31,6 +32,7 @@ function buildCampaignFormData(overrides?: Record<string, string>) {
         pointsPerBook: '12',
         pointsPerChallengeCompletion: '20',
         pointsPerPage: '1.5',
+        epicReadPageMultiplier: '',
         startAt: '2026-05-01T08:00',
         timezone: 'America/Chicago',
         visibility: 'INVITE_ONLY',
@@ -78,6 +80,28 @@ describe('campaign admin helpers', () => {
         expect(values.pointsPerPage.toString()).toBe('1.5')
         expect(values.entryEditWindowMinutes).toBe(120)
         expect(values.entryDeleteWindowMinutes).toBe(60)
+        expect(values.challengeCategoryBonuses).toBe(Prisma.DbNull)
+    })
+
+    it('normalizes date-only values to noon utc and stores epic read bonus', () => {
+        const values = parseCampaignFormValues(
+            buildCampaignFormData({
+                endAt: '2026-05-30',
+                epicReadPageMultiplier: '2.5',
+                startAt: '2026-05-01',
+            })
+        )
+
+        expect(values.startAt.toISOString()).toBe('2026-05-01T12:00:00.000Z')
+        expect(values.endAt.toISOString()).toBe('2026-05-30T12:00:00.000Z')
+        expect(values.challengeCategoryBonuses).toEqual({
+            epicReadPageMultiplier: '2.5',
+        })
+        expect(
+            resolveEpicReadPageMultiplier(
+                values.challengeCategoryBonuses as Prisma.JsonObject
+            )?.toString()
+        ).toBe('2.5')
     })
 
     it('rejects an invalid campaign window', () => {
@@ -163,6 +187,9 @@ describe('campaign admin helpers', () => {
     it('prepares a duplicate campaign as a draft copy', () => {
         const duplicatedValues = prepareCampaignDuplicateValues(
             {
+                challengeCategoryBonuses: {
+                    epicReadPageMultiplier: '3',
+                },
                 description: 'A playful sprint.',
                 endAt: new Date('2026-05-30T20:00:00.000Z'),
                 entryDeleteWindowMinutes: 60,
@@ -186,6 +213,9 @@ describe('campaign admin helpers', () => {
         expect(duplicatedValues.pointsPerChallengeCompletion.toString()).toBe(
             '20'
         )
+        expect(duplicatedValues.challengeCategoryBonuses).toEqual({
+            epicReadPageMultiplier: '3',
+        })
     })
 
     it('describes status and visibility for the configuration surface', () => {

@@ -6,11 +6,6 @@ import { getRoleAwareSession, protectAdminRoute } from '@/lib/auth/session'
 
 const adminNavItems: ShellNavItem[] = [
     { href: '/admin/campaigns', label: 'Campaigns', icon: 'folder-kanban' },
-    {
-        href: '/admin/challenges',
-        label: 'Challenges',
-        icon: 'clipboard-pen-line',
-    },
     { href: '/admin/members', label: 'Members', icon: 'mail-plus' },
 ]
 

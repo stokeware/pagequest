@@ -1,8 +1,4 @@
-import {
-    Prisma,
-    type ChallengeAvailability,
-    type ChallengeReviewState,
-} from '@prisma/client'
+import { Prisma, type ChallengeReviewState } from '@prisma/client'
 
 const zeroDecimal = new Prisma.Decimal(0)
 
@@ -34,7 +30,6 @@ export type ChallengeReviewWriteValues = {
 }
 
 export type ChallengeCompletionDuplicateCheck = {
-    availability: ChallengeAvailability
     existingReviewStates: ChallengeReviewState[]
 }
 
@@ -147,21 +142,16 @@ export function getChallengeReviewStateLabel(state: ChallengeReviewState) {
 }
 
 export function assertChallengeCompletionAllowed({
-    availability,
     existingReviewStates,
 }: ChallengeCompletionDuplicateCheck) {
-    if (availability === 'REPEATABLE') {
-        return
-    }
-
     const hasBlockingCompletion = existingReviewStates.some(
         (state) => state !== 'REJECTED'
     )
 
     if (hasBlockingCompletion) {
         throw new ChallengeReviewError(
-            'duplicate-one-time-challenge-completion',
-            'One-time challenges cannot be completed more than once unless the earlier submission was rejected.'
+            'duplicate-challenge-completion',
+            'Challenges cannot be completed more than once unless the earlier submission was rejected.'
         )
     }
 }

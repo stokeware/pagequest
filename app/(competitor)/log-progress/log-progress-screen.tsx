@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type { ChallengeAvailability, ReadingEntryType } from '@prisma/client'
+import type { ReadingEntryType } from '@prisma/client'
 import { BookCheck, BookOpenText, Headphones, Sparkles } from 'lucide-react'
 import {
     useForm,
@@ -40,12 +40,8 @@ import { cn } from '@/lib/utils'
 import { submitLogProgressAction } from './actions'
 
 export type LogProgressChallengeOption = {
-    availability: ChallengeAvailability
-    description: string | null
-    evidencePrompt: string | null
     id: string
     pointsLabel: string
-    requiresReview: boolean
     title: string
 }
 
@@ -123,15 +119,6 @@ const entryTypeDefinitions: EntryTypeDefinition[] = [
         type: 'CHALLENGE_COMPLETION',
     },
 ]
-
-const challengeAvailabilityLabels: Record<ChallengeAvailability, string> = {
-    ONE_TIME: 'One-time',
-    REPEATABLE: 'Repeatable',
-}
-
-function getChallengeReviewLabel(requiresReview: boolean) {
-    return requiresReview ? 'Manual review' : 'Auto-approved'
-}
 
 function getEntryTypeDefinition(type: ReadingEntryType) {
     return entryTypeDefinitions.find((definition) => definition.type === type)
@@ -642,18 +629,9 @@ export function LogProgressScreen({
                         )}
 
                         <FormField
-                            label={
-                                selectedType === 'CHALLENGE_COMPLETION'
-                                    ? 'Evidence or notes'
-                                    : 'Reading notes'
-                            }
+                            label='Notes'
                             htmlFor='notes'
-                            hint={
-                                selectedType === 'CHALLENGE_COMPLETION'
-                                    ? (selectedChallenge?.evidencePrompt ??
-                                      'Leave a short note that helps an admin review the completion when needed.')
-                                    : 'Optional notes can capture context like edition, chapter, or reading sprint details.'
-                            }
+                            hint='Optional notes can capture context like edition, chapter, or reading sprint details.'
                         >
                             <textarea
                                 id='notes'
@@ -810,26 +788,10 @@ export function LogProgressScreen({
                                             <p className='progress-challenge-title'>
                                                 {challenge.title}
                                             </p>
-                                            <p className='progress-challenge-text'>
-                                                {challenge.description ??
-                                                    'No extra description has been added yet.'}
-                                            </p>
                                         </div>
                                         <div className='progress-meta-row'>
                                             <span className='progress-meta-pill'>
                                                 {challenge.pointsLabel}
-                                            </span>
-                                            <span className='progress-meta-pill'>
-                                                {
-                                                    challengeAvailabilityLabels[
-                                                        challenge.availability
-                                                    ]
-                                                }
-                                            </span>
-                                            <span className='progress-meta-pill'>
-                                                {getChallengeReviewLabel(
-                                                    challenge.requiresReview
-                                                )}
                                             </span>
                                         </div>
                                     </article>

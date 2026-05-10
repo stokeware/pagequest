@@ -9,14 +9,8 @@ describe('log progress competitor UI', () => {
             <LogProgressScreen
                 challengeOptions={[
                     {
-                        availability: 'REPEATABLE',
-                        description:
-                            'Read a title recommended by another participant.',
-                        evidencePrompt:
-                            'Name the recommender and the book title.',
                         id: 'campaign-challenge-1',
                         pointsLabel: '25 points',
-                        requiresReview: true,
                         title: 'Friend recommendation',
                     },
                 ]}
@@ -48,7 +42,6 @@ describe('log progress competitor UI', () => {
         expect(html).toContain('Spring Story Sprint')
         expect(html).toContain('Friend recommendation')
         expect(html).toContain('25 points per completion')
-        expect(html).toContain('Manual review')
         expect(html).toContain('Entry policy')
         expect(html).toContain('2026-05-01 through 2026-05-31')
         expect(html).toContain('Finished title')

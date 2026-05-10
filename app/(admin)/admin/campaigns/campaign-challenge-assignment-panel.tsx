@@ -1,5 +1,3 @@
-import type { ChallengeAvailability } from '@prisma/client'
-
 import {
     Button,
     Card,
@@ -11,10 +9,6 @@ import {
     FormField,
     Input,
 } from '@/components/ui'
-import {
-    getChallengeAvailabilityLabel,
-    getChallengeReviewLabel,
-} from '@/lib/challenge-admin'
 
 const selectClassName = [
     'h-10 w-full rounded-[calc(var(--radius-lg)-2px)] border border-input bg-card/72 px-3 py-2',
@@ -30,9 +24,6 @@ type AvailableChallenge = {
 
 type AssignedCampaignChallenge = {
     challenge: {
-        availability: ChallengeAvailability
-        category: string | null
-        requiresReview: boolean
         title: string
     }
     challengeId: string
@@ -86,25 +77,6 @@ export function CampaignChallengeAssignmentsPanel({
                                             {assignment.sortOrder}.{' '}
                                             {assignment.challenge.title}
                                         </strong>
-                                        <p className='type-muted text-xs'>
-                                            Category:{' '}
-                                            {assignment.challenge.category ||
-                                                'Uncategorized'}
-                                        </p>
-                                    </div>
-                                    <div className='stack-sm text-right'>
-                                        <p className='type-muted text-xs'>
-                                            {getChallengeAvailabilityLabel(
-                                                assignment.challenge
-                                                    .availability
-                                            )}
-                                        </p>
-                                        <p className='type-muted text-xs'>
-                                            {getChallengeReviewLabel(
-                                                assignment.challenge
-                                                    .requiresReview
-                                            )}
-                                        </p>
                                     </div>
                                 </div>
                                 <p className='type-muted mt-3 text-xs'>

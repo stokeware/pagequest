@@ -59,11 +59,7 @@ async function getLogProgressViewModel(
                         select: {
                             challenge: {
                                 select: {
-                                    availability: true,
-                                    description: true,
-                                    evidencePrompt: true,
                                     pointValue: true,
-                                    requiresReview: true,
                                     title: true,
                                 },
                             },
@@ -105,16 +101,12 @@ async function getLogProgressViewModel(
     return {
         challengeOptions: participant.campaign.campaignChallenges.map(
             ({ challenge, id, pointValueOverride }) => ({
-                availability: challenge.availability,
-                description: challenge.description,
-                evidencePrompt: challenge.evidencePrompt,
                 id,
                 pointsLabel: `${(
                     pointValueOverride ??
                     challenge.pointValue ??
                     participant.campaign.pointsPerChallengeCompletion
                 ).toString()} points`,
-                requiresReview: challenge.requiresReview,
                 title: challenge.title,
             })
         ),

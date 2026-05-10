@@ -17,9 +17,6 @@ describe('campaign challenge assignment admin UI', () => {
                 assignments={[
                     {
                         challenge: {
-                            availability: 'ONE_TIME',
-                            category: 'Genre prompt',
-                            requiresReview: true,
                             title: 'Biography bonus',
                         },
                         challengeId: 'challenge-1',
