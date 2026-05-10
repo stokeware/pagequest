@@ -15,9 +15,9 @@ export default function AdminError({
             reset={reset}
             eyebrow='Admin route error'
             title='The admin control surface ran into a problem.'
-            description='Try this route again or return to the admin overview while Page Quest reloads the management view.'
-            returnHref='/admin'
-            returnLabel='Open admin overview'
+            description='Try this route again or return to campaigns while Page Quest reloads the management view.'
+            returnHref='/admin/campaigns'
+            returnLabel='Open campaigns'
         />
     )
 }

@@ -5,15 +5,13 @@ import {
 import { getRoleAwareSession, protectAdminRoute } from '@/lib/auth/session'
 
 const adminNavItems: ShellNavItem[] = [
-    { href: '/admin', label: 'Overview', icon: 'shield-check' },
     { href: '/admin/campaigns', label: 'Campaigns', icon: 'folder-kanban' },
     {
         href: '/admin/challenges',
         label: 'Challenges',
         icon: 'clipboard-pen-line',
     },
-    { href: '/admin/invitations', label: 'Invitations', icon: 'mail-plus' },
-    { href: '/admin/reports', label: 'Reports', icon: 'table-properties' },
+    { href: '/admin/members', label: 'Members', icon: 'mail-plus' },
 ]
 
 export default async function AdminLayout({

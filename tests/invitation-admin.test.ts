@@ -66,7 +66,7 @@ describe('secure invitation links', () => {
 describe('getEffectiveInvitationStatus', () => {
     const now = new Date('2026-05-08T12:00:00.000Z')
 
-    it('treats expired pending invitations as expired in admin views', () => {
+    it('keeps legacy pending invitations pending even after the stored expiry date', () => {
         expect(
             getEffectiveInvitationStatus(
                 {
@@ -75,7 +75,7 @@ describe('getEffectiveInvitationStatus', () => {
                 },
                 now
             )
-        ).toBe('EXPIRED')
+        ).toBe('PENDING')
     })
 
     it('keeps revoked invitations revoked regardless of their expiry window', () => {
@@ -147,9 +147,19 @@ describe('deriveInvitationTokenSummary', () => {
 describe('invitation lifecycle actions', () => {
     const now = new Date('2026-05-08T12:00:00.000Z')
 
-    it('allows resend for expired and revoked invitations', () => {
+    it('allows resend and revoke only while an invitation is pending', () => {
         expect(
             canResendInvitation(
+                {
+                    expiresAt: new Date('2026-05-01T12:00:00.000Z'),
+                    status: 'PENDING',
+                },
+                now
+            )
+        ).toBe(true)
+
+        expect(
+            canRevokeInvitation(
                 {
                     expiresAt: new Date('2026-05-01T12:00:00.000Z'),
                     status: 'PENDING',
@@ -166,7 +176,7 @@ describe('invitation lifecycle actions', () => {
                 },
                 now
             )
-        ).toBe(true)
+        ).toBe(false)
     })
 
     it('blocks resend and revoke once an invitation has been accepted', () => {

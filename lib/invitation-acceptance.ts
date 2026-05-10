@@ -27,7 +27,6 @@ export type InvitationAcceptanceViewer = {
 
 export type InvitationAcceptanceState =
     | 'accepted'
-    | 'expired'
     | 'invalid'
     | 'ready'
     | 'revoked'
@@ -95,16 +94,6 @@ export function deriveInvitationAcceptanceProfile({
             campaignName: invitation.campaign.name,
             state: 'revoked',
             summary: `This invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to resend it if you should still join.`,
-        }
-    }
-
-    if (tokenState === 'expired') {
-        return {
-            canAccept: false,
-            expectedEmail: invitation.email,
-            campaignName: invitation.campaign.name,
-            state: 'expired',
-            summary: `This invitation for ${invitation.campaign.name} has expired. An administrator will need to resend it before you can join.`,
         }
     }
 

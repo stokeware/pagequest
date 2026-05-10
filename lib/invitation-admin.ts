@@ -28,7 +28,6 @@ export type InvitationTokenRecord = InvitationLifecycleRecord & {
 
 export type InvitationTokenState =
     | 'accepted'
-    | 'expired'
     | 'invalid'
     | 'pending'
     | 'revoked'
@@ -108,7 +107,7 @@ export function prepareInvitationResendValues({ now }: { now: Date }) {
 
 export function getInvitationTokenState(
     invitation: InvitationLifecycleRecord | null,
-    now: Date
+    _now: Date
 ): InvitationTokenState {
     if (!invitation) {
         return 'invalid'
@@ -120,10 +119,6 @@ export function getInvitationTokenState(
 
     if (invitation.status === 'REVOKED' || invitation.revokedAt) {
         return 'revoked'
-    }
-
-    if (invitation.status === 'EXPIRED' || invitation.expiresAt <= now) {
-        return 'expired'
     }
 
     return 'pending'
@@ -166,15 +161,6 @@ export function deriveInvitationTokenSummary({
         }
     }
 
-    if (state === 'expired') {
-        return {
-            invitationEmail: invitation.email,
-            campaignName: invitation.campaign.name,
-            state,
-            summary: `This invitation for ${invitation.campaign.name} has expired. An administrator will need to resend it before you can join.`,
-        }
-    }
-
     return {
         invitationEmail: invitation.email,
         campaignName: invitation.campaign.name,
@@ -185,7 +171,7 @@ export function deriveInvitationTokenSummary({
 
 export function getEffectiveInvitationStatus(
     invitation: InvitationLifecycleRecord,
-    now: Date
+    _now: Date
 ) {
     if (invitation.status === 'ACCEPTED') {
         return 'ACCEPTED'
@@ -195,10 +181,6 @@ export function getEffectiveInvitationStatus(
         return 'REVOKED'
     }
 
-    if (invitation.status === 'EXPIRED' || invitation.expiresAt <= now) {
-        return 'EXPIRED'
-    }
-
     return 'PENDING'
 }
 
@@ -206,16 +188,12 @@ export function canResendInvitation(
     invitation: InvitationLifecycleRecord,
     now: Date
 ) {
-    return getEffectiveInvitationStatus(invitation, now) !== 'ACCEPTED'
+    return getEffectiveInvitationStatus(invitation, now) === 'PENDING'
 }
 
 export function canRevokeInvitation(
     invitation: InvitationLifecycleRecord,
     now: Date
 ) {
-    if (invitation.status === 'REVOKED' || invitation.revokedAt) {
-        return false
-    }
-
-    return getEffectiveInvitationStatus(invitation, now) !== 'ACCEPTED'
+    return getEffectiveInvitationStatus(invitation, now) === 'PENDING'
 }

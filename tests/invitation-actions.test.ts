@@ -26,16 +26,21 @@ const invitationActionMocks = vi.hoisted(() => {
         },
         invitation: {
             create: vi.fn(),
+            delete: vi.fn(),
             update: vi.fn(),
         },
     }
     const prisma = {
         $transaction: vi.fn(),
+        auditLog: {
+            create: vi.fn(),
+        },
         invitation: {
+            findFirst: vi.fn(),
             findUnique: vi.fn(),
         },
         campaign: {
-            findFirst: vi.fn(),
+            findMany: vi.fn(),
         },
     }
 
@@ -174,17 +179,20 @@ describe('admin invitation actions audit logging', () => {
     })
 
     it('records an audit log when an admin creates an invitation', async () => {
-        invitationActionMocks.prisma.campaign.findFirst.mockResolvedValue({
-            id: 'campaign-1',
-            name: 'Spring Story Sprint 2026',
-            status: 'ACTIVE',
-        })
-        invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue(
+        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
+            {
+                createdAt: new Date('2026-04-01T12:00:00.000Z'),
+                id: 'campaign-1',
+                name: 'Spring Story Sprint 2026',
+                startAt: new Date('2026-04-20T12:00:00.000Z'),
+                status: 'ACTIVE',
+            },
+        ])
+        invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
             null
         )
 
         const formData = new FormData()
-        formData.set('campaignId', 'campaign-1')
         formData.set('email', ' Reader@Example.com ')
 
         await expect(createInvitationAction(formData)).rejects.toMatchObject({
@@ -211,11 +219,15 @@ describe('admin invitation actions audit logging', () => {
     })
 
     it('blocks invitation creation when the admin hits the send rate limit', async () => {
-        invitationActionMocks.prisma.campaign.findFirst.mockResolvedValue({
-            id: 'campaign-1',
-            name: 'Spring Story Sprint 2026',
-            status: 'ACTIVE',
-        })
+        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
+            {
+                createdAt: new Date('2026-04-01T12:00:00.000Z'),
+                id: 'campaign-1',
+                name: 'Spring Story Sprint 2026',
+                startAt: new Date('2026-04-20T12:00:00.000Z'),
+                status: 'ACTIVE',
+            },
+        ])
         invitationActionMocks.consumeRateLimit.mockReturnValue({
             allowed: false,
             remaining: 0,
@@ -223,7 +235,6 @@ describe('admin invitation actions audit logging', () => {
         })
 
         const formData = new FormData()
-        formData.set('campaignId', 'campaign-1')
         formData.set('email', 'reader@example.com')
 
         await expect(createInvitationAction(formData)).rejects.toMatchObject({
@@ -236,12 +247,16 @@ describe('admin invitation actions audit logging', () => {
     })
 
     it('records delivery failure when invitation email sending fails', async () => {
-        invitationActionMocks.prisma.campaign.findFirst.mockResolvedValue({
-            id: 'campaign-1',
-            name: 'Spring Story Sprint 2026',
-            status: 'ACTIVE',
-        })
-        invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue(
+        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
+            {
+                createdAt: new Date('2026-04-01T12:00:00.000Z'),
+                id: 'campaign-1',
+                name: 'Spring Story Sprint 2026',
+                startAt: new Date('2026-04-20T12:00:00.000Z'),
+                status: 'ACTIVE',
+            },
+        ])
+        invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
             null
         )
         invitationActionMocks.sendInvitationEmail.mockRejectedValue(
@@ -252,7 +267,6 @@ describe('admin invitation actions audit logging', () => {
         }
 
         const formData = new FormData()
-        formData.set('campaignId', 'campaign-1')
         formData.set('email', 'reader@example.com')
 
         await expect(createInvitationAction(formData)).rejects.toMatchObject({
@@ -387,9 +401,15 @@ describe('admin invitation actions audit logging', () => {
                 metadata: {
                     email: 'reader@example.com',
                     campaignName: 'Spring Story Sprint 2026',
-                    revokedAt: '2026-05-08T18:00:00.000Z',
                 },
                 campaignId: 'campaign-1',
+            },
+        })
+        expect(
+            invitationActionMocks.transaction.invitation.delete
+        ).toHaveBeenCalledWith({
+            where: {
+                id: 'invite-1',
             },
         })
     })

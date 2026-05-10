@@ -5,7 +5,7 @@ export default function AdminLoading() {
         <LoadingState
             eyebrow='Admin loading'
             title='Preparing the campaign control surface.'
-            description='Reports, moderation details, and campaign administration data are loading now.'
+            description='Campaign, challenge, and member administration data are loading now.'
             lines={4}
         />
     )

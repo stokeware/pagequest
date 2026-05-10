@@ -16,7 +16,7 @@ describe('deriveInvitationAccessProfile', () => {
         const access = deriveInvitationAccessProfile({
             email: 'reader@example.com',
             invitation: null,
-            now: new Date('2026-05-08T12:00:00.000Z'),
+            member: null,
             participant: {
                 joinedAt: new Date('2026-05-01T12:00:00.000Z'),
                 campaign,
@@ -37,7 +37,7 @@ describe('deriveInvitationAccessProfile', () => {
                 campaign,
                 status: 'PENDING',
             },
-            now: new Date('2026-05-08T12:00:00.000Z'),
+            member: null,
             participant: null,
         })
 
@@ -48,28 +48,26 @@ describe('deriveInvitationAccessProfile', () => {
         )
     })
 
-    it('marks expired invitations as blocked', () => {
+    it('allows confirmed members through even before a campaign participant exists', () => {
         const access = deriveInvitationAccessProfile({
             email: 'reader@example.com',
-            invitation: {
+            invitation: null,
+            member: {
+                acceptedAt: new Date('2026-05-01T05:00:00.000Z'),
                 email: 'reader@example.com',
-                expiresAt: new Date('2026-05-01T05:00:00.000Z'),
-                campaign,
-                status: 'PENDING',
             },
-            now: new Date('2026-05-08T12:00:00.000Z'),
             participant: null,
         })
 
-        expect(access.state).toBe('expired')
-        expect(access.allowCompetitorRoutes).toBe(false)
+        expect(access.state).toBe('accepted')
+        expect(access.allowCompetitorRoutes).toBe(true)
     })
 
     it('blocks users with no invitation', () => {
         const access = deriveInvitationAccessProfile({
             email: 'reader@example.com',
             invitation: null,
-            now: new Date('2026-05-08T12:00:00.000Z'),
+            member: null,
             participant: null,
         })
 
@@ -82,7 +80,7 @@ describe('deriveInvitationAccessProfile', () => {
         const access = deriveInvitationAccessProfile({
             email: null,
             invitation: null,
-            now: new Date('2026-05-08T12:00:00.000Z'),
+            member: null,
             participant: null,
         })
 
