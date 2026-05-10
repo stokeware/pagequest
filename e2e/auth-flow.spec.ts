@@ -72,9 +72,10 @@ test.describe('local auth flow', () => {
 
         await expect(page).toHaveURL(/\/sign-in$/)
         await expect(
-            page.getByRole('heading', {
-                name: 'Sign in before the next chapter begins.',
-            })
+            page.getByRole('link', { name: 'Page Quest' })
+        ).toBeVisible()
+        await expect(
+            page.getByRole('button', { name: 'Sign in' })
         ).toBeVisible()
 
         await page.goto('/dashboard')
@@ -90,8 +91,8 @@ test.describe('local auth flow', () => {
             startPath: '/admin',
         })
 
-        await expect(page).toHaveURL(/\/admin$/)
-        await expect(page.getByText('Planned admin entry points')).toBeVisible()
+        await expect(page).toHaveURL(/\/admin\/campaigns$/)
+        await expect(page.getByLabel('Campaign name').first()).toBeVisible()
         await expect(
             page.getByRole('button', { name: 'Log out' })
         ).toBeVisible()
@@ -132,8 +133,8 @@ test.describe('local auth flow', () => {
             startPath: '/sign-in',
         })
 
-        await expect(page).toHaveURL(/\/admin$/)
-        await expect(page.getByText('Planned admin entry points')).toBeVisible()
+        await expect(page).toHaveURL(/\/admin\/campaigns$/)
+        await expect(page.getByLabel('Campaign name').first()).toBeVisible()
         await expect(
             page.getByRole('button', { name: 'Log out' })
         ).toBeVisible()

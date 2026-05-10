@@ -551,10 +551,18 @@ p {
     backdrop-filter: blur(14px);
 }
 
+.public-topbar-brand-only {
+    grid-template-columns: auto;
+    justify-content: flex-start;
+}
+
 .public-brand {
     display: inline-flex;
     align-items: center;
     gap: 0.75rem;
+    min-height: 2.875rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
     color: var(--blue-slate);
     font-family: var(--font-heading), serif;
     font-size: 1.05rem;
@@ -610,6 +618,11 @@ p {
     margin: 0 auto;
     padding: 2.5rem 0 4rem;
     outline: none;
+}
+
+.public-main-compact {
+    max-width: 34rem;
+    padding-top: 1.25rem;
 }
 
 .public-hero {
@@ -705,6 +718,11 @@ p {
 .public-content {
     margin-top: 1.5rem;
     padding: 1.25rem;
+}
+
+.public-content-compact {
+    margin-top: 0;
+    padding: 0;
 }
 
 .public-grid {
@@ -1160,6 +1178,10 @@ p {
         justify-items: flex-start;
     }
 
+    .public-topbar-brand-only {
+        justify-items: flex-start;
+    }
+
     .public-nav {
         justify-content: flex-start;
     }
@@ -1182,6 +1204,11 @@ p {
 
     .public-grid {
         grid-template-columns: 1fr;
+    }
+
+    .public-main-compact {
+        max-width: 100%;
+        padding-top: 1rem;
     }
 
     .auth-topbar,

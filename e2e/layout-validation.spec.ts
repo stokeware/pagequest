@@ -38,18 +38,19 @@ async function expectTouchTargets(locator: Locator, minimumSize = 44) {
 }
 
 test.describe('desktop core layouts', () => {
-    test('keeps public navigation visible on the sign-in route', async ({
+    test('keeps the sign-in header minimal on the sign-in route', async ({
         page,
     }) => {
         await page.goto('/sign-in')
 
         await expect(
-            page.getByRole('navigation', { name: 'Public navigation' })
+            page.getByRole('link', { name: 'Page Quest' })
         ).toBeVisible()
         await expect(
-            page.getByRole('heading', {
-                name: 'Sign in before the next chapter begins.',
-            })
+            page.getByRole('navigation', { name: 'Public navigation' })
+        ).toHaveCount(0)
+        await expect(
+            page.getByRole('button', { name: 'Sign in' })
         ).toBeVisible()
     })
 
@@ -59,9 +60,7 @@ test.describe('desktop core layouts', () => {
         await page.goto('/dashboard')
 
         await expect(
-            page.getByRole('heading', {
-                name: 'Sign in before the next chapter begins.',
-            })
+            page.getByRole('link', { name: 'Page Quest' })
         ).toBeVisible()
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fdashboard/)
     })
@@ -72,9 +71,7 @@ test.describe('desktop core layouts', () => {
         await page.goto('/admin')
 
         await expect(
-            page.getByRole('heading', {
-                name: 'Sign in before the next chapter begins.',
-            })
+            page.getByRole('link', { name: 'Page Quest' })
         ).toBeVisible()
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fadmin/)
     })
@@ -89,17 +86,15 @@ test.describe('mobile core layouts', () => {
         userAgent: iPhone13.userAgent,
     })
 
-    test('keeps the public navigation readable on mobile', async ({ page }) => {
+    test('keeps the sign-in header readable on mobile', async ({ page }) => {
         await page.goto('/sign-in')
 
         await expect(
-            page.getByRole('heading', {
-                name: 'Sign in before the next chapter begins.',
-            })
+            page.getByRole('link', { name: 'Page Quest' })
         ).toBeVisible()
         await expect(
             page.getByRole('navigation', { name: 'Public navigation' })
-        ).toBeVisible()
+        ).toHaveCount(0)
     })
 
     test('keeps public touch targets above the mobile minimum', async ({
@@ -107,12 +102,8 @@ test.describe('mobile core layouts', () => {
     }) => {
         await page.goto('/sign-in')
 
-        await expectTouchTargets(
-            page
-                .getByRole('navigation', { name: 'Public navigation' })
-                .getByRole('link')
-        )
-        await expectTouchTargets(page.getByRole('button', { name: 'Sign in' }))
+        await expectTouchTargets(page.locator('.public-brand'))
+        await expectTouchTargets(page.locator('form button[type="submit"]'))
     })
 
     test('redirects signed-out competitor routes on mobile', async ({
@@ -121,9 +112,7 @@ test.describe('mobile core layouts', () => {
         await page.goto('/dashboard')
 
         await expect(
-            page.getByRole('heading', {
-                name: 'Sign in before the next chapter begins.',
-            })
+            page.getByRole('link', { name: 'Page Quest' })
         ).toBeVisible()
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fdashboard/)
     })
@@ -150,9 +139,7 @@ test.describe('mobile core layouts', () => {
         await page.goto('/admin')
 
         await expect(
-            page.getByRole('heading', {
-                name: 'Sign in before the next chapter begins.',
-            })
+            page.getByRole('link', { name: 'Page Quest' })
         ).toBeVisible()
         await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fadmin/)
     })
@@ -166,7 +153,7 @@ test.describe('mobile core layouts', () => {
             startPath: '/admin',
         })
 
-        await expect(page).toHaveURL(/\/admin$/)
+        await expect(page).toHaveURL(/\/admin\/campaigns$/)
 
         await expectTouchTargets(
             page
