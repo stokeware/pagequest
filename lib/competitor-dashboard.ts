@@ -137,11 +137,8 @@ export function buildCompetitorDashboardViewModel(
     const snapshotCards: DashboardSnapshotCard[] = [
         {
             description: getRankDescription({
-                leaderPoints,
-                participantPoints,
                 pointsBehindLeader,
                 rankNumber,
-                readerCount: rankedStandings.length,
             }),
             title: 'Current rank',
             value: rankNumber ? `#${rankNumber}` : 'Unranked',
