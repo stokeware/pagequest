@@ -1,5 +1,5 @@
 'use client'
-
+import { useRouter } from 'next/navigation'
 import { useId, useState, useTransition } from 'react'
 
 import { Button, Card, CardContent, FormField, Input } from '@/components/ui'
@@ -14,8 +14,11 @@ import {
 export type LogProgressCampaignChallenge = {
     achieved: boolean
     id: string
+    kind: 'ADMIN' | 'PERSONAL_GOAL_INSTANCE' | 'RECOMMENDATION_INSTANCE'
+    ownedByCurrentParticipant: boolean
+    pageMinuteMultiplier: number
     pointValue: number
-    pointsLabel: string
+    sourceBookTitle: string | null
     title: string
 }
 
@@ -69,36 +72,48 @@ const tabLabels: Array<{
 export function getAvailableProgressChallenges({
     campaignChallenges,
     progressRows,
-    recommendationTitle,
     rowId,
 }: {
     campaignChallenges: LogProgressCampaignChallenge[]
     progressRows: ProgressRow[]
-    recommendationTitle: string
     rowId: string
 }) {
+    const currentRow = progressRows.find((row) => row.id === rowId)
+
+    if (!currentRow) {
+        return []
+    }
+
     const selectedChallengeIds = new Set(
         progressRows.flatMap((row) =>
             row.id !== rowId && row.challengeId ? [row.challengeId] : []
         )
     )
-    const currentRow = progressRows.find((row) => row.id === rowId)
-    const isOwnRecommendationBook =
-        currentRow != null &&
-        normalizeText(currentRow.bookName).length > 0 &&
-        normalizeText(currentRow.bookName) ===
-            normalizeText(recommendationTitle)
+
+    if (currentRow.rowType === 'PERSONAL_GOAL') {
+        return campaignChallenges.filter(
+            (challenge) => challenge.kind === 'PERSONAL_GOAL_INSTANCE'
+        )
+    }
 
     return campaignChallenges.filter((challenge) => {
         if (selectedChallengeIds.has(challenge.id)) {
             return false
         }
 
-        if (
-            isOwnRecommendationBook &&
-            isRecommendationChallengeTitle(challenge.title)
-        ) {
+        if (challenge.kind === 'PERSONAL_GOAL_INSTANCE') {
             return false
+        }
+
+        if (challenge.kind === 'RECOMMENDATION_INSTANCE') {
+            if (challenge.ownedByCurrentParticipant) {
+                return false
+            }
+
+            return (
+                normalizeText(challenge.sourceBookTitle ?? '') ===
+                normalizeText(currentRow.bookName)
+            )
         }
 
         return true
@@ -118,36 +133,57 @@ export function LogProgressScreen({
     progressScoring,
     workspaceState,
 }: LogProgressScreenProps) {
+    const router = useRouter()
+    const initialProgressRows = ensurePersonalGoalRow(
+        workspaceState.progressRows.length > 0
+            ? workspaceState.progressRows
+            : [createEmptyProgressRow(1)],
+        campaignChallenges,
+        workspaceState.personalGoalTitle
+    )
     const [activeTab, setActiveTab] =
         useState<LogProgressTabId>(initialActiveTab)
     const [recommendationTitle, setRecommendationTitle] = useState(
         workspaceState.recommendationTitle
     )
-    const [epicReadTitle, setEpicReadTitle] = useState(
-        workspaceState.epicReadTitle
+    const [personalGoalTitle, setPersonalGoalTitle] = useState(
+        workspaceState.personalGoalTitle
     )
-    const [progressRows, setProgressRows] = useState<ProgressRow[]>([
-        ...(workspaceState.progressRows.length > 0
-            ? workspaceState.progressRows
-            : [createEmptyProgressRow(1)]),
-    ])
+    const [progressRows, setProgressRows] =
+        useState<ProgressRow[]>(initialProgressRows)
     const [nextProgressRowNumber, setNextProgressRowNumber] = useState(
         getNextProgressRowNumber(workspaceState.progressRows)
     )
-    const [saveFeedbackMessage, setSaveFeedbackMessage] = useState<
-        string | null
-    >(null)
     const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(
         null
+    )
+    const [savedWorkspaceStateKey, setSavedWorkspaceStateKey] = useState(() =>
+        serializeWorkspaceState(
+            buildWorkspaceState({
+                campaignChallenges,
+                personalGoalTitle: workspaceState.personalGoalTitle,
+                progressRows: initialProgressRows,
+                recommendationTitle: workspaceState.recommendationTitle,
+            })
+        )
     )
     const [pendingSaveTarget, setPendingSaveTarget] =
         useState<LogProgressTabId | null>(null)
     const [isPending, startTransition] = useTransition()
     const baseId = useId()
+    const currentWorkspaceState = buildWorkspaceState({
+        campaignChallenges,
+        personalGoalTitle,
+        progressRows,
+        recommendationTitle,
+    })
+    const hasUnsavedChanges =
+        serializeWorkspaceState(currentWorkspaceState) !==
+        savedWorkspaceStateKey
 
     const updateProgressRows = (
         updater: ProgressRow[] | ((rows: ProgressRow[]) => ProgressRow[]),
-        nextRecommendationTitle = recommendationTitle
+        nextPersonalGoalTitle = personalGoalTitle
     ) => {
         setProgressRows((currentRows) => {
             const updatedRows =
@@ -156,30 +192,19 @@ export function LogProgressScreen({
             return sanitizeProgressRows(
                 updatedRows,
                 campaignChallenges,
-                nextRecommendationTitle
+                nextPersonalGoalTitle
             )
         })
     }
 
     const persistWorkspace = (saveTarget: LogProgressTabId) => {
-        setSaveFeedbackMessage(null)
         setSaveErrorMessage(null)
         setPendingSaveTarget(saveTarget)
-
-        const nextWorkspaceState: CampaignWorkspaceState = {
-            epicReadTitle,
-            progressRows: sanitizeProgressRows(
-                progressRows.filter((row) => row.bookName.length > 0),
-                campaignChallenges,
-                recommendationTitle
-            ),
-            recommendationTitle,
-        }
 
         startTransition(async () => {
             const result = await saveCampaignWorkspaceAction({
                 campaignParticipantId,
-                workspaceState: nextWorkspaceState,
+                workspaceState: currentWorkspaceState,
             })
 
             setPendingSaveTarget(null)
@@ -190,40 +215,60 @@ export function LogProgressScreen({
                 return
             }
 
-            const nextRows =
+            const nextRows = ensurePersonalGoalRow(
                 result.workspaceState.progressRows.length > 0
                     ? result.workspaceState.progressRows
-                    : [createEmptyProgressRow(nextProgressRowNumber)]
+                    : [createEmptyProgressRow(nextProgressRowNumber)],
+                campaignChallenges,
+                result.workspaceState.personalGoalTitle
+            )
 
             setRecommendationTitle(result.workspaceState.recommendationTitle)
-            setEpicReadTitle(result.workspaceState.epicReadTitle)
+            setPersonalGoalTitle(result.workspaceState.personalGoalTitle)
             setProgressRows(nextRows)
             setNextProgressRowNumber(getNextProgressRowNumber(nextRows))
-            setSaveFeedbackMessage(result.message)
+            setSavedWorkspaceStateKey(
+                serializeWorkspaceState(
+                    buildWorkspaceState({
+                        campaignChallenges,
+                        personalGoalTitle:
+                            result.workspaceState.personalGoalTitle,
+                        progressRows: nextRows,
+                        recommendationTitle:
+                            result.workspaceState.recommendationTitle,
+                    })
+                )
+            )
+            router.refresh()
         })
     }
 
     const addProgressRow = () => {
-        setSaveFeedbackMessage(null)
         setSaveErrorMessage(null)
-        setProgressRows((currentRows) => [
-            ...currentRows,
-            createEmptyProgressRow(nextProgressRowNumber),
-        ])
+        setProgressRows((currentRows) =>
+            sanitizeProgressRows(
+                [...currentRows, createEmptyProgressRow(nextProgressRowNumber)],
+                campaignChallenges,
+                personalGoalTitle
+            )
+        )
         setNextProgressRowNumber((currentValue) => currentValue + 1)
     }
 
     const deleteProgressRow = (rowId: string) => {
-        setSaveFeedbackMessage(null)
         setSaveErrorMessage(null)
         setProgressRows((currentRows) => {
-            const nextRows = currentRows.filter((row) => row.id !== rowId)
+            const nextRows = currentRows.filter(
+                (row) => row.id !== rowId || row.rowType === 'PERSONAL_GOAL'
+            )
 
-            if (nextRows.length > 0) {
-                return nextRows
-            }
-
-            return [createEmptyProgressRow(nextProgressRowNumber)]
+            return sanitizeProgressRows(
+                nextRows.length > 0
+                    ? nextRows
+                    : [createEmptyProgressRow(nextProgressRowNumber)],
+                campaignChallenges,
+                personalGoalTitle
+            )
         })
 
         setNextProgressRowNumber((currentValue) => currentValue + 1)
@@ -286,7 +331,7 @@ export function LogProgressScreen({
                                 <form className='ui-form-shell'>
                                     <div className='grid gap-4'>
                                         <FormField
-                                            label='Recommendation Challenge (For Others)'
+                                            label='Recommendation Book'
                                             htmlFor='recommendation-challenge'
                                         >
                                             <Input
@@ -295,10 +340,27 @@ export function LogProgressScreen({
                                                 placeholder='Enter a book title'
                                                 value={recommendationTitle}
                                                 onChange={(event) => {
+                                                    setRecommendationTitle(
+                                                        event.target.value
+                                                    )
+                                                }}
+                                            />
+                                        </FormField>
+
+                                        <FormField
+                                            label='Personal Goal Book'
+                                            htmlFor='personal-goal-book'
+                                        >
+                                            <Input
+                                                id='personal-goal-book'
+                                                name='personalGoal'
+                                                placeholder='Enter a book title'
+                                                value={personalGoalTitle}
+                                                onChange={(event) => {
                                                     const nextValue =
                                                         event.target.value
 
-                                                    setRecommendationTitle(
+                                                    setPersonalGoalTitle(
                                                         nextValue
                                                     )
                                                     updateProgressRows(
@@ -308,29 +370,16 @@ export function LogProgressScreen({
                                                 }}
                                             />
                                         </FormField>
-
-                                        <FormField
-                                            label='Epic Read Challenge (For Myself)'
-                                            htmlFor='epic-read'
-                                        >
-                                            <Input
-                                                id='epic-read'
-                                                name='epicRead'
-                                                placeholder='Enter a book title'
-                                                value={epicReadTitle}
-                                                onChange={(event) =>
-                                                    setEpicReadTitle(
-                                                        event.target.value
-                                                    )
-                                                }
-                                            />
-                                        </FormField>
                                     </div>
 
                                     <div className='flex justify-end'>
                                         <Button
                                             type='button'
-                                            disabled={!campaignParticipantId}
+                                            disabled={
+                                                !campaignParticipantId ||
+                                                !hasUnsavedChanges ||
+                                                isPending
+                                            }
                                             onClick={() =>
                                                 persistWorkspace('challenges')
                                             }
@@ -341,12 +390,6 @@ export function LogProgressScreen({
                                                 : 'Save changes'}
                                         </Button>
                                     </div>
-
-                                    {saveFeedbackMessage ? (
-                                        <p className='type-muted text-sm'>
-                                            {saveFeedbackMessage}
-                                        </p>
-                                    ) : null}
 
                                     {saveErrorMessage ? (
                                         <p className='text-sm text-destructive'>
@@ -360,13 +403,14 @@ export function LogProgressScreen({
                         <Card className='surface-card'>
                             <CardContent className='space-y-4 pt-6'>
                                 <div
-                                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_minmax(5rem,0.4fr)]'
+                                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_minmax(5rem,0.4fr)]'
                                     role='row'
                                 >
                                     <div role='columnheader'>
                                         Challenge name
                                     </div>
                                     <div role='columnheader'>Points</div>
+                                    <div role='columnheader'>Multiplier</div>
                                     <div
                                         role='columnheader'
                                         className='text-center'
@@ -384,7 +428,7 @@ export function LogProgressScreen({
                                         {campaignChallenges.map((challenge) => (
                                             <div
                                                 key={challenge.id}
-                                                className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_minmax(5rem,0.4fr)] lg:items-center'
+                                                className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_minmax(5rem,0.4fr)] lg:items-center'
                                                 role='row'
                                             >
                                                 <div role='cell'>
@@ -395,7 +439,17 @@ export function LogProgressScreen({
 
                                                 <div role='cell'>
                                                     <p className='text-sm text-muted-foreground'>
-                                                        {challenge.pointsLabel}
+                                                        {formatChallengeValue(
+                                                            challenge.pointValue
+                                                        )}
+                                                    </p>
+                                                </div>
+
+                                                <div role='cell'>
+                                                    <p className='text-sm text-muted-foreground'>
+                                                        {formatChallengeValue(
+                                                            challenge.pageMinuteMultiplier
+                                                        )}
                                                     </p>
                                                 </div>
 
@@ -433,7 +487,7 @@ export function LogProgressScreen({
                     <Card className='surface-card'>
                         <CardContent className='pt-6'>
                             <div className='overflow-x-auto'>
-                                <table className='min-w-[68rem] w-full border-collapse table-fixed'>
+                                <table className='min-w-272 w-full border-collapse table-fixed'>
                                     <colgroup>
                                         <col className='w-[44%]' />
                                         <col className='w-28' />
@@ -475,9 +529,19 @@ export function LogProgressScreen({
                                                 getAvailableProgressChallenges({
                                                     campaignChallenges,
                                                     progressRows,
-                                                    recommendationTitle,
                                                     rowId: row.id,
                                                 })
+                                            const isPersonalGoalRow =
+                                                row.rowType === 'PERSONAL_GOAL'
+                                            const personalGoalChallenge =
+                                                getPersonalGoalChallenge(
+                                                    campaignChallenges
+                                                )
+                                            const challengeValue =
+                                                isPersonalGoalRow
+                                                    ? row.challengeId ||
+                                                      '__personal-goal__'
+                                                    : row.challengeId
 
                                             return (
                                                 <tr
@@ -489,7 +553,21 @@ export function LogProgressScreen({
                                                             aria-label={`Book name ${row.id}`}
                                                             placeholder='Enter a book title'
                                                             value={row.bookName}
-                                                            onChange={(event) =>
+                                                            onChange={(
+                                                                event
+                                                            ) => {
+                                                                const nextValue =
+                                                                    event.target
+                                                                        .value
+
+                                                                if (
+                                                                    isPersonalGoalRow
+                                                                ) {
+                                                                    setPersonalGoalTitle(
+                                                                        nextValue
+                                                                    )
+                                                                }
+
                                                                 updateProgressRows(
                                                                     (rows) =>
                                                                         rows.map(
@@ -501,14 +579,15 @@ export function LogProgressScreen({
                                                                                     ? {
                                                                                           ...currentRow,
                                                                                           bookName:
-                                                                                              event
-                                                                                                  .target
-                                                                                                  .value,
+                                                                                              nextValue,
                                                                                       }
                                                                                     : currentRow
-                                                                        )
+                                                                        ),
+                                                                    isPersonalGoalRow
+                                                                        ? nextValue
+                                                                        : personalGoalTitle
                                                                 )
-                                                            }
+                                                            }}
                                                         />
                                                     </td>
 
@@ -617,11 +696,12 @@ export function LogProgressScreen({
                                                                 selectClassName
                                                             }
                                                             disabled={
-                                                                campaignChallenges.length ===
-                                                                0
+                                                                availableChallenges.length ===
+                                                                    0 ||
+                                                                isPersonalGoalRow
                                                             }
                                                             value={
-                                                                row.challengeId
+                                                                challengeValue
                                                             }
                                                             onChange={(event) =>
                                                                 updateProgressRows(
@@ -644,28 +724,43 @@ export function LogProgressScreen({
                                                                 )
                                                             }
                                                         >
-                                                            <option value=''>
-                                                                {campaignChallenges.length >
-                                                                0
-                                                                    ? 'Select challenge'
-                                                                    : 'No challenges available'}
-                                                            </option>
-
-                                                            {availableChallenges.map(
-                                                                (challenge) => (
-                                                                    <option
-                                                                        key={
-                                                                            challenge.id
-                                                                        }
-                                                                        value={
-                                                                            challenge.id
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            challenge.title
-                                                                        }
+                                                            {isPersonalGoalRow ? (
+                                                                <option
+                                                                    value={
+                                                                        challengeValue
+                                                                    }
+                                                                >
+                                                                    {personalGoalChallenge?.title ??
+                                                                        'Personal Goal'}
+                                                                </option>
+                                                            ) : (
+                                                                <>
+                                                                    <option value=''>
+                                                                        {availableChallenges.length >
+                                                                        0
+                                                                            ? 'Select challenge'
+                                                                            : 'No challenges available'}
                                                                     </option>
-                                                                )
+
+                                                                    {availableChallenges.map(
+                                                                        (
+                                                                            challenge
+                                                                        ) => (
+                                                                            <option
+                                                                                key={
+                                                                                    challenge.id
+                                                                                }
+                                                                                value={
+                                                                                    challenge.id
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    challenge.title
+                                                                                }
+                                                                            </option>
+                                                                        )
+                                                                    )}
+                                                                </>
                                                             )}
                                                         </select>
                                                     </td>
@@ -676,11 +771,11 @@ export function LogProgressScreen({
                                                                 calculateProgressRowPoints(
                                                                     {
                                                                         campaignChallenges,
-                                                                        row,
                                                                         pointsPerMinute:
                                                                             progressScoring.pointsPerMinute,
                                                                         pointsPerPage:
                                                                             progressScoring.pointsPerPage,
+                                                                        row,
                                                                     }
                                                                 )
                                                             )}
@@ -688,20 +783,22 @@ export function LogProgressScreen({
                                                     </td>
 
                                                     <td className='px-3 py-3 align-top text-right'>
-                                                        <Button
-                                                            type='button'
-                                                            variant='destructive'
-                                                            className={
-                                                                rowActionButtonClassName
-                                                            }
-                                                            onClick={() =>
-                                                                deleteProgressRow(
-                                                                    row.id
-                                                                )
-                                                            }
-                                                        >
-                                                            Delete
-                                                        </Button>
+                                                        {isPersonalGoalRow ? null : (
+                                                            <Button
+                                                                type='button'
+                                                                variant='destructive'
+                                                                className={
+                                                                    rowActionButtonClassName
+                                                                }
+                                                                onClick={() =>
+                                                                    deleteProgressRow(
+                                                                        row.id
+                                                                    )
+                                                                }
+                                                            >
+                                                                Delete
+                                                            </Button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             )
@@ -721,7 +818,11 @@ export function LogProgressScreen({
 
                                 <Button
                                     type='button'
-                                    disabled={!campaignParticipantId}
+                                    disabled={
+                                        !campaignParticipantId ||
+                                        !hasUnsavedChanges ||
+                                        isPending
+                                    }
                                     onClick={() => persistWorkspace('progress')}
                                 >
                                     {isPending &&
@@ -730,12 +831,6 @@ export function LogProgressScreen({
                                         : 'Save Changes'}
                                 </Button>
                             </div>
-
-                            {saveFeedbackMessage ? (
-                                <p className='type-muted mt-3 text-sm'>
-                                    {saveFeedbackMessage}
-                                </p>
-                            ) : null}
 
                             {saveErrorMessage ? (
                                 <p className='mt-3 text-sm text-destructive'>
@@ -758,6 +853,33 @@ function createEmptyProgressRow(index: number): ProgressRow {
         id: `progress-row-${index}`,
         minutes: '',
         pages: '',
+        rowType: 'STANDARD',
+    }
+}
+
+function buildWorkspaceState({
+    campaignChallenges,
+    personalGoalTitle,
+    progressRows,
+    recommendationTitle,
+}: {
+    campaignChallenges: LogProgressCampaignChallenge[]
+    personalGoalTitle: string
+    progressRows: ProgressRow[]
+    recommendationTitle: string
+}): CampaignWorkspaceState {
+    return {
+        personalGoalTitle,
+        progressRows: sanitizeProgressRows(
+            progressRows.filter(
+                (row) =>
+                    row.rowType === 'PERSONAL_GOAL' ||
+                    row.bookName.trim().length > 0
+            ),
+            campaignChallenges,
+            personalGoalTitle
+        ),
+        recommendationTitle,
     }
 }
 
@@ -775,48 +897,95 @@ function getNextProgressRowNumber(rows: ProgressRow[]) {
 function sanitizeProgressRows(
     rows: ProgressRow[],
     campaignChallenges: LogProgressCampaignChallenge[],
-    recommendationTitle: string
+    personalGoalTitle: string
 ) {
     const usedChallengeIds = new Set<string>()
+    const normalizedRows = ensurePersonalGoalRow(
+        rows,
+        campaignChallenges,
+        personalGoalTitle
+    )
 
-    const sanitizedRows = rows.map((row) => {
-        if (!row.challengeId) {
-            return row
-        }
-
-        const selectedChallenge = campaignChallenges.find(
+    return normalizedRows.map((row) => {
+        const availableChallenges = getAvailableProgressChallenges({
+            campaignChallenges,
+            progressRows: normalizedRows,
+            rowId: row.id,
+        })
+        const isAllowedSelection = availableChallenges.some(
             (challenge) => challenge.id === row.challengeId
         )
-        const isOwnRecommendationBook =
-            normalizeText(row.bookName).length > 0 &&
-            normalizeText(row.bookName) === normalizeText(recommendationTitle)
+
+        if (row.rowType === 'PERSONAL_GOAL') {
+            const personalGoalChallenge =
+                getPersonalGoalChallenge(campaignChallenges)
+
+            if (personalGoalChallenge?.id) {
+                usedChallengeIds.add(personalGoalChallenge.id)
+            }
+
+            return {
+                ...row,
+                bookName: personalGoalTitle,
+                challengeId: personalGoalChallenge?.id ?? '',
+                rowType: 'PERSONAL_GOAL' as const,
+            }
+        }
 
         if (
-            !selectedChallenge ||
-            usedChallengeIds.has(row.challengeId) ||
-            (isOwnRecommendationBook &&
-                isRecommendationChallengeTitle(selectedChallenge.title))
+            !row.challengeId ||
+            !isAllowedSelection ||
+            usedChallengeIds.has(row.challengeId)
         ) {
             return {
                 ...row,
                 challengeId: '',
+                rowType: 'STANDARD' as const,
             }
         }
 
         usedChallengeIds.add(row.challengeId)
 
-        return row
+        return {
+            ...row,
+            rowType: 'STANDARD' as const,
+        }
     })
+}
 
-    return sanitizedRows
+function ensurePersonalGoalRow(
+    rows: ProgressRow[],
+    campaignChallenges: LogProgressCampaignChallenge[],
+    personalGoalTitle: string
+) {
+    const personalGoalChallenge = getPersonalGoalChallenge(campaignChallenges)
+    const existingPersonalGoalRow = rows.find(
+        (row) => row.rowType === 'PERSONAL_GOAL'
+    )
+    const standardRows = rows.filter((row) => row.rowType !== 'PERSONAL_GOAL')
+    const personalGoalRow: ProgressRow = {
+        bookName: personalGoalTitle,
+        challengeId: personalGoalChallenge?.id ?? '',
+        completed: existingPersonalGoalRow?.completed ?? false,
+        id: existingPersonalGoalRow?.id ?? 'progress-row-personal-goal',
+        minutes: existingPersonalGoalRow?.minutes ?? '',
+        pages: existingPersonalGoalRow?.pages ?? '',
+        rowType: 'PERSONAL_GOAL',
+    }
+
+    return [personalGoalRow, ...standardRows]
+}
+
+function getPersonalGoalChallenge(
+    campaignChallenges: LogProgressCampaignChallenge[]
+) {
+    return campaignChallenges.find(
+        (challenge) => challenge.kind === 'PERSONAL_GOAL_INSTANCE'
+    )
 }
 
 function normalizeText(value: string) {
-    return value.trim().toLowerCase()
-}
-
-function isRecommendationChallengeTitle(title: string) {
-    return title.toLowerCase().includes('recommend')
+    return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 export function calculateProgressRowPoints({
@@ -832,13 +1001,20 @@ export function calculateProgressRowPoints({
 }) {
     const pages = toNonNegativeNumber(row.pages)
     const minutes = toNonNegativeNumber(row.minutes)
+    const basePoints = pages * pointsPerPage + minutes * pointsPerMinute
     const selectedChallenge = campaignChallenges.find(
         (challenge) => challenge.id === row.challengeId
     )
-    const challengePoints =
-        row.completed && selectedChallenge ? selectedChallenge.pointValue : 0
 
-    return pages * pointsPerPage + minutes * pointsPerMinute + challengePoints
+    if (!row.completed || !selectedChallenge) {
+        return basePoints
+    }
+
+    return (
+        basePoints +
+        selectedChallenge.pointValue +
+        basePoints * selectedChallenge.pageMinuteMultiplier
+    )
 }
 
 function toNonNegativeNumber(value: string) {
@@ -855,4 +1031,18 @@ function formatProgressPoints(value: number) {
     return new Intl.NumberFormat('en-US', {
         maximumFractionDigits: 2,
     }).format(value)
+}
+
+function formatChallengeValue(value: number) {
+    if (value === 0) {
+        return ''
+    }
+
+    return Number.isInteger(value)
+        ? value.toString()
+        : value.toFixed(2).replace(/\.00$/, '').replace(/0$/, '')
+}
+
+function serializeWorkspaceState(workspaceState: CampaignWorkspaceState) {
+    return JSON.stringify(workspaceState)
 }

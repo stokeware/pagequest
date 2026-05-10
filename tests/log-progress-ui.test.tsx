@@ -1,5 +1,13 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const routerRefreshMock = vi.fn()
+
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({
+        refresh: routerRefreshMock,
+    }),
+}))
 
 import {
     calculateProgressRowPoints,
@@ -9,6 +17,10 @@ import {
 } from '@/app/(competitor)/log-progress/log-progress-screen'
 
 describe('log progress competitor UI', () => {
+    beforeEach(() => {
+        routerRefreshMock.mockReset()
+    })
+
     it('renders the redesigned challenges tab with personal fields and achieved rows', () => {
         const html = renderToStaticMarkup(
             <LogProgressScreen
@@ -16,17 +28,23 @@ describe('log progress competitor UI', () => {
                 campaignChallenges={[
                     {
                         achieved: true,
-                        id: 'campaign-challenge-1',
+                        id: 'challenge-1',
+                        kind: 'RECOMMENDATION_INSTANCE',
+                        ownedByCurrentParticipant: false,
+                        pageMinuteMultiplier: 0,
                         pointValue: 25,
-                        pointsLabel: '25 points',
+                        sourceBookTitle: 'Friend recommendation book',
                         title: 'Friend recommendation',
                     },
                     {
                         achieved: false,
-                        id: 'campaign-challenge-2',
+                        id: 'challenge-2',
+                        kind: 'PERSONAL_GOAL_INSTANCE',
+                        ownedByCurrentParticipant: true,
+                        pageMinuteMultiplier: 1.5,
                         pointValue: 40,
-                        pointsLabel: '40 points',
-                        title: 'Epic page turner',
+                        sourceBookTitle: 'Epic page turner',
+                        title: 'Personal Goal',
                     },
                 ]}
                 campaignParticipantId='participant-1'
@@ -37,7 +55,7 @@ describe('log progress competitor UI', () => {
                     pointsPerPage: 1,
                 }}
                 workspaceState={{
-                    epicReadTitle: '',
+                    personalGoalTitle: 'Epic page turner',
                     progressRows: [],
                     recommendationTitle: '',
                 }}
@@ -48,15 +66,17 @@ describe('log progress competitor UI', () => {
         expect(html).toContain('May 12 - August 15')
         expect(html).toContain('Challenges')
         expect(html).toContain('Progress')
-        expect(html).toContain('Recommendation Challenge (For Others)')
-        expect(html).toContain('Epic Read Challenge (For Myself)')
+        expect(html).toContain('Recommendation Book')
+        expect(html).toContain('Personal Goal Book')
         expect(html).toContain('Save changes')
         expect(html).toContain('Friend recommendation')
-        expect(html).toContain('Epic page turner')
-        expect(html).toContain('25 points')
-        expect(html).toContain('40 points')
+        expect(html).toContain('Personal Goal')
+        expect(html).toContain('25')
+        expect(html).toContain('1.5')
         expect(html).toContain('Achieved')
         expect(html).toContain('✓')
+        expect(html).not.toContain('Campaign changes saved.')
+        expect(html).toContain('disabled=""')
     })
 
     it('renders the empty challenge note when no campaign challenges exist', () => {
@@ -72,7 +92,7 @@ describe('log progress competitor UI', () => {
                     pointsPerPage: 1,
                 }}
                 workspaceState={{
-                    epicReadTitle: '',
+                    personalGoalTitle: '',
                     progressRows: [],
                     recommendationTitle: '',
                 }}
@@ -93,17 +113,23 @@ describe('log progress competitor UI', () => {
                 campaignChallenges={[
                     {
                         achieved: false,
-                        id: 'campaign-challenge-1',
+                        id: 'challenge-1',
+                        kind: 'RECOMMENDATION_INSTANCE',
+                        ownedByCurrentParticipant: false,
+                        pageMinuteMultiplier: 0,
                         pointValue: 25,
-                        pointsLabel: '25 points',
+                        sourceBookTitle: 'Friend recommendation book',
                         title: 'Friend recommendation',
                     },
                     {
                         achieved: false,
-                        id: 'campaign-challenge-2',
-                        pointValue: 40,
-                        pointsLabel: '40 points',
-                        title: 'Epic page turner',
+                        id: 'challenge-2',
+                        kind: 'PERSONAL_GOAL_INSTANCE',
+                        ownedByCurrentParticipant: true,
+                        pageMinuteMultiplier: 2,
+                        pointValue: 0,
+                        sourceBookTitle: 'Epic page turner',
+                        title: 'Personal Goal',
                     },
                 ]}
                 campaignParticipantId='participant-1'
@@ -113,7 +139,7 @@ describe('log progress competitor UI', () => {
                     pointsPerPage: 1,
                 }}
                 workspaceState={{
-                    epicReadTitle: '',
+                    personalGoalTitle: 'Epic page turner',
                     progressRows: [],
                     recommendationTitle: '',
                 }}
@@ -130,17 +156,25 @@ describe('log progress competitor UI', () => {
         expect(html).toContain('New Book')
         expect(html).toContain('Save Changes')
         expect(html).toContain('Delete')
+        expect(html).toContain(
+            'aria-label="Challenge progress-row-personal-goal"'
+        )
+        expect(html).toContain('disabled=""')
+        expect(html).toContain(
+            '<option value="challenge-2" selected="">Personal Goal</option>'
+        )
     })
 
     it('filters challenge choices by row assignments and the own recommendation rule', () => {
         const progressRows: ProgressRow[] = [
             {
                 bookName: 'Shared pick',
-                challengeId: 'campaign-challenge-2',
+                challengeId: 'challenge-3',
                 completed: false,
                 id: 'progress-row-1',
                 minutes: '20',
                 pages: '10',
+                rowType: 'STANDARD',
             },
             {
                 bookName: 'My favorite recommendation',
@@ -149,6 +183,7 @@ describe('log progress competitor UI', () => {
                 id: 'progress-row-2',
                 minutes: '',
                 pages: '',
+                rowType: 'STANDARD',
             },
         ]
 
@@ -156,33 +191,41 @@ describe('log progress competitor UI', () => {
             campaignChallenges: [
                 {
                     achieved: false,
-                    id: 'campaign-challenge-1',
+                    id: 'challenge-1',
+                    kind: 'RECOMMENDATION_INSTANCE',
+                    ownedByCurrentParticipant: true,
+                    pageMinuteMultiplier: 0,
                     pointValue: 25,
-                    pointsLabel: '25 points',
+                    sourceBookTitle: 'My favorite recommendation',
                     title: 'Friend recommendation',
                 },
                 {
                     achieved: false,
-                    id: 'campaign-challenge-2',
+                    id: 'challenge-2',
+                    kind: 'RECOMMENDATION_INSTANCE',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
                     pointValue: 40,
-                    pointsLabel: '40 points',
-                    title: 'Epic page turner',
+                    sourceBookTitle: 'My favorite recommendation',
+                    title: "Clara's Recommendation: My favorite recommendation",
                 },
                 {
                     achieved: false,
-                    id: 'campaign-challenge-3',
+                    id: 'challenge-3',
+                    kind: 'ADMIN',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
                     pointValue: 15,
-                    pointsLabel: '15 points',
+                    sourceBookTitle: null,
                     title: 'Library visit',
                 },
             ],
             progressRows,
-            recommendationTitle: 'My favorite recommendation',
             rowId: 'progress-row-2',
         })
 
         expect(availableChallenges.map((challenge) => challenge.title)).toEqual(
-            ['Library visit']
+            ["Clara's Recommendation: My favorite recommendation"]
         )
     })
 
@@ -191,9 +234,12 @@ describe('log progress competitor UI', () => {
             campaignChallenges: [
                 {
                     achieved: false,
-                    id: 'campaign-challenge-1',
+                    id: 'challenge-1',
+                    kind: 'ADMIN',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
                     pointValue: 25,
-                    pointsLabel: '25 points',
+                    sourceBookTitle: null,
                     title: 'Friend recommendation',
                 },
             ],
@@ -201,11 +247,12 @@ describe('log progress competitor UI', () => {
             pointsPerPage: 1,
             row: {
                 bookName: 'A long read',
-                challengeId: 'campaign-challenge-1',
+                challengeId: 'challenge-1',
                 completed: true,
                 id: 'progress-row-1',
                 minutes: '20',
                 pages: '10',
+                rowType: 'STANDARD',
             },
         })
 

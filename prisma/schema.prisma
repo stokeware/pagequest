@@ -44,6 +44,19 @@ enum ChallengeReviewState {
     AUTO_APPROVED
 }
 
+enum ChallengeKind {
+    ADMIN
+    RECOMMENDATION_TEMPLATE
+    PERSONAL_GOAL_TEMPLATE
+    RECOMMENDATION_INSTANCE
+    PERSONAL_GOAL_INSTANCE
+}
+
+enum ParticipantChallengeSourceKind {
+    RECOMMENDATION
+    PERSONAL_GOAL
+}
+
 enum NotificationDeliveryStatus {
     PENDING
     SENDING
@@ -105,10 +118,10 @@ model Campaign {
     createdAt                   DateTime         @default(now())
     updatedAt                   DateTime         @updatedAt
     auditLogs                   AuditLog[]
+    challenges                  Challenge[]
     createdBy                   User?            @relation("CampaignCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
     invitations                 Invitation[]
     participants                CampaignParticipant[]
-    campaignChallenges             CampaignChallenge[]
     notificationDeliveries      NotificationDelivery[]
 }
 
@@ -129,8 +142,10 @@ model CampaignParticipant {
     acceptedInvitation     Invitation?         @relation("AcceptedParticipant")
     auditLogs              AuditLog[]
     challengeCompletions   ChallengeCompletion[]
+    challengeSources       ParticipantChallengeSource[]
     campaign                  Campaign               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
     notificationDeliveries  NotificationDelivery[]
+    ownedChallenges        Challenge[]          @relation("ChallengeOwner")
     readingEntries         ReadingEntry[]
     user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -166,32 +181,51 @@ model Invitation {
 }
 
 model Challenge {
-    id                 String                @id @default(cuid())
-    title              String
-    pointValue         Decimal?              @db.Decimal(12, 4)
-    createdByUserId    String?
-    createdAt          DateTime              @default(now())
-    updatedAt          DateTime              @updatedAt
-    auditLogs          AuditLog[]
-    challengeCompletions ChallengeCompletion[]
-    createdBy          User?                 @relation("ChallengeCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-    campaignChallenges    CampaignChallenge[]
+    id                       String                     @id @default(cuid())
+    campaignId               String
+    title                    String
+    kind                     ChallengeKind              @default(ADMIN)
+    pointValue               Decimal                    @default(0) @db.Decimal(12, 4)
+    pageMinuteMultiplier     Decimal                    @default(0) @db.Decimal(12, 4)
+    createdByUserId          String?
+    ownerParticipantId       String?
+    templateChallengeId      String?
+    sourceBookTitle          String?
+    normalizedSourceBookTitle String?
+    isActive                 Boolean                    @default(true)
+    createdAt                DateTime                   @default(now())
+    updatedAt                DateTime                   @updatedAt
+    auditLogs                AuditLog[]
+    challengeCompletions     ChallengeCompletion[]
+    campaign                 Campaign                   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+    createdBy                User?                      @relation("ChallengeCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+    generatedSources         ParticipantChallengeSource[]
+    ownerParticipant         CampaignParticipant?       @relation("ChallengeOwner", fields: [ownerParticipantId], references: [id], onDelete: SetNull)
+    templateChallenge        Challenge?                 @relation("ChallengeTemplate", fields: [templateChallengeId], references: [id], onDelete: SetNull)
+    templateInstances        Challenge[]                @relation("ChallengeTemplate")
+
+    @@unique([campaignId, title])
+    @@unique([ownerParticipantId, kind])
+    @@index([campaignId, kind, isActive], map: "Challenge_campaignId_kind_isActive_idx")
+    @@index([campaignId, ownerParticipantId, kind], map: "Challenge_campaignId_ownerParticipantId_kind_idx")
+    @@index([campaignId, normalizedSourceBookTitle], map: "Challenge_campaignId_normalizedSourceBookTitle_idx")
 }
 
-model CampaignChallenge {
-    id                 String                @id @default(cuid())
-    campaignId            String
-    challengeId        String
-    sortOrder          Int                   @default(0)
-    pointValueOverride Decimal?              @db.Decimal(12, 4)
-    isActive           Boolean               @default(true)
-    createdAt          DateTime              @default(now())
-    updatedAt          DateTime              @updatedAt
-    challenge          Challenge             @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-    challengeCompletions ChallengeCompletion[]
-    campaign              Campaign                 @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+model ParticipantChallengeSource {
+    id                    String                         @id @default(cuid())
+    campaignParticipantId String
+    kind                  ParticipantChallengeSourceKind
+    bookTitle             String
+    normalizedBookTitle   String
+    generatedChallengeId  String
+    createdAt             DateTime                       @default(now())
+    updatedAt             DateTime                       @updatedAt
+    campaignParticipant   CampaignParticipant            @relation(fields: [campaignParticipantId], references: [id], onDelete: Cascade)
+    generatedChallenge    Challenge                      @relation(fields: [generatedChallengeId], references: [id], onDelete: Cascade)
 
-    @@unique([campaignId, challengeId])
+    @@unique([campaignParticipantId, kind])
+    @@unique([generatedChallengeId])
+    @@index([campaignParticipantId, normalizedBookTitle], map: "ParticipantChallengeSource_title_idx")
 }
 
 model ReadingEntry {
@@ -222,7 +256,6 @@ model ChallengeCompletion {
     readingEntryId     String               @unique
     campaignParticipantId String
     challengeId        String
-    campaignChallengeId   String?
     reviewState        ChallengeReviewState @default(PENDING)
     evidenceText       String?
     reviewNotes        String?
@@ -233,10 +266,11 @@ model ChallengeCompletion {
     updatedAt          DateTime             @updatedAt
     auditLogs          AuditLog[]
     challenge          Challenge            @relation(fields: [challengeId], references: [id], onDelete: Restrict)
-    campaignChallenge     CampaignChallenge?      @relation(fields: [campaignChallengeId], references: [id], onDelete: SetNull)
     campaignParticipant   CampaignParticipant     @relation(fields: [campaignParticipantId], references: [id], onDelete: Cascade)
     readingEntry       ReadingEntry         @relation(fields: [readingEntryId], references: [id], onDelete: Cascade)
     reviewedBy         User?                @relation("ChallengeReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+    @@index([campaignParticipantId, challengeId], map: "ChallengeCompletion_participantId_challengeId_idx")
 }
 
 model AuditLog {

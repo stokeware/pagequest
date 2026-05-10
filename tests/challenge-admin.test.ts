@@ -11,6 +11,7 @@ import {
 function buildChallengeFormData(overrides?: Record<string, string>) {
     const formData = new FormData()
     const fields = {
+        pageMinuteMultiplier: '0',
         pointValue: '15',
         title: 'Biography bonus',
         ...overrides,
@@ -32,7 +33,8 @@ describe('challenge admin helpers', () => {
         const values = parseChallengeFormValues(formData)
 
         expect(values.title).toBe('Biography bonus')
-        expect(values.pointValue).toBeNull()
+        expect(values.pointValue.toString()).toBe('0')
+        expect(values.pageMinuteMultiplier.toString()).toBe('0')
     })
 
     it('rejects negative point values', () => {
@@ -59,8 +61,7 @@ describe('challenge admin helpers', () => {
     it('blocks deletion when a challenge already has usage', () => {
         expect(() =>
             assertChallengeCanDelete({
-                challengeCompletions: 0,
-                campaignChallenges: 1,
+                challengeCompletions: 1,
             })
         ).toThrowError(
             expect.objectContaining<Partial<ChallengeAdminError>>({
@@ -71,7 +72,6 @@ describe('challenge admin helpers', () => {
         expect(() =>
             assertChallengeCanDelete({
                 challengeCompletions: 0,
-                campaignChallenges: 0,
             })
         ).not.toThrow()
     })

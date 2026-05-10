@@ -3,6 +3,10 @@
 import { revalidatePath } from 'next/cache'
 
 import { requireAuthenticatedActionUser } from '@/lib/auth/session'
+import {
+    getParticipantChallengeLabel,
+    syncParticipantChallengeSources,
+} from '@/lib/challenge-config'
 import type { LogProgressFormValues } from '@/lib/log-progress'
 import {
     recordLogProgressEntry,
@@ -111,6 +115,12 @@ export async function saveCampaignWorkspaceAction(
             id: true,
             removedAt: true,
             userId: true,
+            user: {
+                select: {
+                    email: true,
+                    name: true,
+                },
+            },
         },
         where: {
             id: input.campaignParticipantId,
@@ -144,23 +154,36 @@ export async function saveCampaignWorkspaceAction(
     const parsedWorkspaceState = parseCampaignWorkspaceState(
         input.workspaceState
     )
-    const workspaceState = {
-        ...parsedWorkspaceState,
-        progressRows: parsedWorkspaceState.progressRows.filter(
-            (row) => row.bookName.length > 0
-        ),
-    }
-
-    await prisma.auditLog.create({
-        data: {
-            action: campaignWorkspaceAuditAction,
-            actorUserId: actor.id,
+    const workspaceState = await prisma.$transaction(async (transaction) => {
+        await syncParticipantChallengeSources(transaction, {
             campaignId: participant.campaignId,
             campaignParticipantId: participant.id,
-            entityId: participant.id,
-            entityType: 'CampaignParticipant',
-            metadata: workspaceState,
-        },
+            participantLabel: getParticipantChallengeLabel(participant.user),
+            personalGoalTitle: parsedWorkspaceState.personalGoalTitle,
+            recommendationTitle: parsedWorkspaceState.recommendationTitle,
+        })
+
+        const nextWorkspaceState = {
+            ...parsedWorkspaceState,
+            progressRows: parsedWorkspaceState.progressRows.filter(
+                (row) =>
+                    row.rowType === 'PERSONAL_GOAL' || row.bookName.length > 0
+            ),
+        }
+
+        await transaction.auditLog.create({
+            data: {
+                action: campaignWorkspaceAuditAction,
+                actorUserId: actor.id,
+                campaignId: participant.campaignId,
+                campaignParticipantId: participant.id,
+                entityId: participant.id,
+                entityType: 'CampaignParticipant',
+                metadata: nextWorkspaceState,
+            },
+        })
+
+        return nextWorkspaceState
     })
 
     revalidatePath('/log-progress')

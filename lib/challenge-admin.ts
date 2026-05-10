@@ -11,7 +11,8 @@ export class ChallengeAdminError extends Error {
 }
 
 export type ChallengeFormValues = {
-    pointValue: Prisma.Decimal | null
+    pageMinuteMultiplier: Prisma.Decimal
+    pointValue: Prisma.Decimal
     title: string
 }
 
@@ -19,18 +20,21 @@ export type ChallengeWriteValues = ChallengeFormValues
 
 export type ChallengeUsageSnapshot = {
     challengeCompletions: number
-    campaignChallenges: number
 }
 
 export function parseChallengeFormValues(
     formData: FormData
 ): ChallengeFormValues {
     return {
-        pointValue: getOptionalDecimal(
-            formData,
-            'pointValue',
-            'invalid-point-value'
-        ),
+        pageMinuteMultiplier:
+            getOptionalDecimal(
+                formData,
+                'pageMinuteMultiplier',
+                'invalid-page-minute-multiplier'
+            ) ?? new Prisma.Decimal(0),
+        pointValue:
+            getOptionalDecimal(formData, 'pointValue', 'invalid-point-value') ??
+            new Prisma.Decimal(0),
         title: getRequiredString(formData, 'title', 'missing-title'),
     }
 }
@@ -48,10 +52,10 @@ export function prepareChallengeUpdateValues(
 }
 
 export function assertChallengeCanDelete(snapshot: ChallengeUsageSnapshot) {
-    if (snapshot.campaignChallenges > 0 || snapshot.challengeCompletions > 0) {
+    if (snapshot.challengeCompletions > 0) {
         throw new ChallengeAdminError(
             'challenge-in-use',
-            'Challenges linked to campaigns or historical completions cannot be deleted.'
+            'Challenges with historical completions cannot be deleted.'
         )
     }
 }

@@ -105,16 +105,16 @@ describe('admin campaign challenge actions', () => {
         vi.useRealTimers()
     })
 
-    it('creates a new challenge and assigns it to the selected campaign', async () => {
+    it('creates a new campaign-owned admin challenge', async () => {
         campaignActionMocks.prisma.campaign.findUnique.mockResolvedValue({
             archivedAt: null,
             id: 'campaign-1',
         })
-        campaignActionMocks.prisma.campaignChallenge.count.mockResolvedValue(2)
 
         const formData = new FormData()
         formData.set('campaignId', 'campaign-1')
         formData.set('pointValue', '15')
+        formData.set('pageMinuteMultiplier', '0')
         formData.set('title', 'Night Reading')
 
         await expect(
@@ -127,7 +127,10 @@ describe('admin campaign challenge actions', () => {
             campaignActionMocks.transaction.challenge.create
         ).toHaveBeenCalledWith({
             data: {
+                campaignId: 'campaign-1',
                 createdByUserId: 'admin-1',
+                kind: 'ADMIN',
+                pageMinuteMultiplier: expect.anything(),
                 pointValue: expect.anything(),
                 title: 'Night Reading',
             },
@@ -136,44 +139,24 @@ describe('admin campaign challenge actions', () => {
                 title: true,
             },
         })
-        expect(
-            campaignActionMocks.transaction.campaignChallenge.create
-        ).toHaveBeenCalledWith({
-            data: {
-                campaignId: 'campaign-1',
-                challengeId: 'challenge-1',
-                isActive: true,
-                pointValueOverride: null,
-                sortOrder: 2,
-            },
-            select: {
-                id: true,
-            },
-        })
     })
 
-    it('removes only the campaign assignment when a shared challenge is deleted', async () => {
+    it('deletes a direct campaign-owned challenge when it has no history', async () => {
         campaignActionMocks.prisma.campaign.findUnique.mockResolvedValue({
             archivedAt: null,
             id: 'campaign-1',
         })
-        campaignActionMocks.prisma.campaignChallenge.findFirst.mockResolvedValue(
-            {
-                challenge: {
-                    _count: {
-                        campaignChallenges: 2,
-                        challengeCompletions: 0,
-                    },
-                    id: 'challenge-1',
-                    title: 'Night Reading',
-                },
-                id: 'assignment-1',
-            }
-        )
+        campaignActionMocks.prisma.challenge.findFirst.mockResolvedValue({
+            _count: {
+                challengeCompletions: 0,
+            },
+            id: 'challenge-1',
+            title: 'Night Reading',
+        })
 
         const formData = new FormData()
-        formData.set('campaignChallengeId', 'assignment-1')
         formData.set('campaignId', 'campaign-1')
+        formData.set('challengeId', 'challenge-1')
 
         await expect(
             deleteCampaignChallengeAction(formData)
@@ -182,28 +165,24 @@ describe('admin campaign challenge actions', () => {
         })
 
         expect(
-            campaignActionMocks.transaction.campaignChallenge.delete
+            campaignActionMocks.transaction.challenge.delete
         ).toHaveBeenCalledWith({
             where: {
-                id: 'assignment-1',
+                id: 'challenge-1',
             },
         })
-        expect(
-            campaignActionMocks.transaction.challenge.delete
-        ).not.toHaveBeenCalled()
         expect(
             campaignActionMocks.transaction.auditLog.create
         ).toHaveBeenCalledWith({
             data: {
-                action: 'campaign.challenge-removed',
+                action: 'challenge.deleted',
                 actorUserId: 'admin-1',
                 challengeId: 'challenge-1',
                 campaignId: 'campaign-1',
-                entityId: 'assignment-1',
-                entityType: 'CampaignChallenge',
+                entityId: 'challenge-1',
+                entityType: 'Challenge',
                 metadata: {
                     challengeTitle: 'Night Reading',
-                    deletedChallenge: false,
                 },
             },
         })

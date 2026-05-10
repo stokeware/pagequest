@@ -8,16 +8,17 @@ export type PersistedProgressRow = {
     id: string
     minutes: string
     pages: string
+    rowType: 'PERSONAL_GOAL' | 'STANDARD'
 }
 
 export type CampaignWorkspaceState = {
-    epicReadTitle: string
+    personalGoalTitle: string
     progressRows: PersistedProgressRow[]
     recommendationTitle: string
 }
 
 export const emptyCampaignWorkspaceState: CampaignWorkspaceState = {
-    epicReadTitle: '',
+    personalGoalTitle: '',
     progressRows: [],
     recommendationTitle: '',
 }
@@ -43,13 +44,19 @@ export function parseCampaignWorkspaceState(
                       id: getStringValue(row.id) || `progress-row-${index + 1}`,
                       minutes: getStringValue(row.minutes),
                       pages: getStringValue(row.pages),
+                      rowType:
+                          getStringValue(row.rowType) === 'PERSONAL_GOAL'
+                              ? 'PERSONAL_GOAL'
+                              : 'STANDARD',
                   },
               ]
           })
         : []
 
     return {
-        epicReadTitle: getStringValue(metadata.epicReadTitle),
+        personalGoalTitle:
+            getStringValue(metadata.personalGoalTitle) ||
+            getStringValue(metadata.epicReadTitle),
         progressRows,
         recommendationTitle: getStringValue(metadata.recommendationTitle),
     }

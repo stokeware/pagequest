@@ -16,7 +16,6 @@ import {
     selectDefaultAdminCampaignId,
     sortAdminCampaignTabs,
 } from '@/lib/admin-campaign-workbench'
-import { resolveEpicReadPageMultiplier } from '@/lib/campaign-admin'
 import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
 import { prisma } from '@/lib/prisma'
 
@@ -25,6 +24,7 @@ import {
     deleteCampaignChallengeAction,
     updateCampaignAction,
     updateCampaignChallengeAction,
+    updateCompetitorChallengeAction,
 } from './actions'
 
 type CampaignsPageProps = {
@@ -65,8 +65,8 @@ const errorDetailMessages: Record<string, string> = {
     'challenge-not-found': 'That challenge record is no longer available.',
     'invalid-campaign-window':
         'Campaign start must be on or before the end date.',
-    'invalid-epic-read-page-multiplier':
-        'Epic read multiplier must be a valid number that is zero or greater.',
+    'invalid-page-minute-multiplier':
+        'Challenge multipliers must be valid numbers that are zero or greater.',
     'invalid-point-value':
         'Challenge points must be a valid number that is zero or greater, or left blank.',
     'invalid-points-per-audiobook-minute':
@@ -163,28 +163,20 @@ async function loadCampaigns() {
     const campaigns = await prisma.campaign.findMany({
         select: {
             archivedAt: true,
-            campaignChallenges: {
+            challenges: {
                 orderBy: [
-                    {
-                        sortOrder: 'asc',
-                    },
                     {
                         createdAt: 'asc',
                     },
                 ],
                 select: {
-                    challenge: {
-                        select: {
-                            id: true,
-                            pointValue: true,
-                            title: true,
-                        },
-                    },
                     id: true,
-                    sortOrder: true,
+                    kind: true,
+                    pageMinuteMultiplier: true,
+                    pointValue: true,
+                    title: true,
                 },
             },
-            challengeCategoryBonuses: true,
             endAt: true,
             id: true,
             name: true,
@@ -251,10 +243,6 @@ function CampaignSettingsForm({
 }: {
     campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
 }) {
-    const epicReadPageMultiplier = resolveEpicReadPageMultiplier(
-        campaign.challengeCategoryBonuses
-    )
-
     return (
         <Card className='surface-card'>
             <CardContent className='pt-6'>
@@ -371,23 +359,6 @@ function CampaignSettingsForm({
                                 )}
                             />
                         </FormField>
-
-                        <FormField
-                            label='Epic read page multiplier'
-                            htmlFor={`${campaign.id}-epicReadPageMultiplier`}
-                        >
-                            <Input
-                                id={`${campaign.id}-epicReadPageMultiplier`}
-                                name='epicReadPageMultiplier'
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                defaultValue={
-                                    epicReadPageMultiplier?.toString() ?? ''
-                                }
-                                placeholder='1'
-                            />
-                        </FormField>
                     </div>
 
                     <div className='flex justify-end'>
@@ -401,11 +372,132 @@ function CampaignSettingsForm({
     )
 }
 
+function CompetitorChallengesTable({
+    campaign,
+}: {
+    campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
+}) {
+    const recommendationChallenge = campaign.challenges.find(
+        (challenge) => challenge.kind === 'RECOMMENDATION_TEMPLATE'
+    )
+    const personalGoalChallenge = campaign.challenges.find(
+        (challenge) => challenge.kind === 'PERSONAL_GOAL_TEMPLATE'
+    )
+
+    const templateRows = [
+        {
+            challenge: recommendationChallenge,
+            kind: 'RECOMMENDATION_TEMPLATE' as const,
+            label: 'Recommendation',
+        },
+        {
+            challenge: personalGoalChallenge,
+            kind: 'PERSONAL_GOAL_TEMPLATE' as const,
+            label: 'Personal Goal',
+        },
+    ]
+
+    return (
+        <Card className='surface-card'>
+            <CardHeader>
+                <CardTitle>Competitor Challenges</CardTitle>
+            </CardHeader>
+            <CardContent className='space-y-4'>
+                <div
+                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto]'
+                    role='row'
+                >
+                    <div role='columnheader'>Challenge</div>
+                    <div role='columnheader'>Points</div>
+                    <div role='columnheader'>Multiplier</div>
+                    <div role='columnheader'>Actions</div>
+                </div>
+
+                {templateRows.map(({ challenge, kind, label }) => (
+                    <form
+                        key={kind}
+                        action={updateCompetitorChallengeAction}
+                        className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
+                        role='row'
+                    >
+                        <input
+                            type='hidden'
+                            name='campaignId'
+                            value={campaign.id}
+                        />
+                        <input type='hidden' name='kind' value={kind} />
+                        <input type='hidden' name='title' value={label} />
+
+                        <div role='cell'>
+                            <p className='font-medium text-foreground'>
+                                {label}
+                            </p>
+                        </div>
+
+                        <div role='cell'>
+                            <label
+                                htmlFor={`${campaign.id}-${kind}-points`}
+                                className='sr-only'
+                            >
+                                {label} points
+                            </label>
+                            <Input
+                                id={`${campaign.id}-${kind}-points`}
+                                name='pointValue'
+                                type='number'
+                                min='0'
+                                step='0.01'
+                                defaultValue={formatPoints(
+                                    challenge?.pointValue ?? null
+                                )}
+                                placeholder='0'
+                            />
+                        </div>
+
+                        <div role='cell'>
+                            <label
+                                htmlFor={`${campaign.id}-${kind}-multiplier`}
+                                className='sr-only'
+                            >
+                                {label} multiplier
+                            </label>
+                            <Input
+                                id={`${campaign.id}-${kind}-multiplier`}
+                                name='pageMinuteMultiplier'
+                                type='number'
+                                min='0'
+                                step='0.01'
+                                defaultValue={formatPoints(
+                                    challenge?.pageMinuteMultiplier ?? null
+                                )}
+                                placeholder='0'
+                            />
+                        </div>
+
+                        <div
+                            role='cell'
+                            className='flex items-start gap-2 lg:justify-end'
+                        >
+                            <Button nativeButton type='submit'>
+                                Save
+                            </Button>
+                        </div>
+                    </form>
+                ))}
+            </CardContent>
+        </Card>
+    )
+}
+
 function CampaignChallengesTable({
     campaign,
 }: {
     campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
 }) {
+    const adminChallenges = campaign.challenges.filter(
+        (challenge) => challenge.kind === 'ADMIN'
+    )
+
     return (
         <Card className='surface-card'>
             <CardHeader>
@@ -413,26 +505,27 @@ function CampaignChallengesTable({
             </CardHeader>
             <CardContent className='space-y-4'>
                 <div
-                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto]'
+                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto]'
                     role='row'
                 >
                     <div role='columnheader'>Challenge name</div>
                     <div role='columnheader'>Points</div>
+                    <div role='columnheader'>Multiplier</div>
                     <div role='columnheader'>Actions</div>
                 </div>
 
-                {campaign.campaignChallenges.length > 0 ? (
+                {adminChallenges.length > 0 ? (
                     <div
                         className='space-y-4'
                         role='table'
                         aria-label='Campaign challenges'
                     >
-                        {campaign.campaignChallenges.map((assignment) => {
+                        {adminChallenges.map((challenge) => {
                             return (
                                 <form
-                                    key={assignment.id}
+                                    key={challenge.id}
                                     action={updateCampaignChallengeAction}
-                                    className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto] lg:items-center'
+                                    className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
                                     role='row'
                                 >
                                     <input
@@ -443,47 +536,60 @@ function CampaignChallengesTable({
                                     <input
                                         type='hidden'
                                         name='challengeId'
-                                        value={assignment.challenge.id}
-                                    />
-                                    <input
-                                        type='hidden'
-                                        name='campaignChallengeId'
-                                        value={assignment.id}
+                                        value={challenge.id}
                                     />
 
                                     <div role='cell'>
                                         <label
-                                            htmlFor={`${assignment.id}-title`}
+                                            htmlFor={`${challenge.id}-title`}
                                             className='sr-only'
                                         >
                                             Challenge name
                                         </label>
                                         <Input
-                                            id={`${assignment.id}-title`}
+                                            id={`${challenge.id}-title`}
                                             name='title'
-                                            defaultValue={
-                                                assignment.challenge.title
-                                            }
+                                            defaultValue={challenge.title}
                                         />
                                     </div>
 
                                     <div role='cell'>
                                         <label
-                                            htmlFor={`${assignment.id}-pointValue`}
+                                            htmlFor={`${challenge.id}-pointValue`}
                                             className='sr-only'
                                         >
                                             Challenge points
                                         </label>
                                         <Input
-                                            id={`${assignment.id}-pointValue`}
+                                            id={`${challenge.id}-pointValue`}
                                             name='pointValue'
                                             type='number'
                                             min='0'
                                             step='0.01'
                                             defaultValue={formatPoints(
-                                                assignment.challenge.pointValue
+                                                challenge.pointValue
                                             )}
-                                            placeholder='Campaign default'
+                                            placeholder='0'
+                                        />
+                                    </div>
+
+                                    <div role='cell'>
+                                        <label
+                                            htmlFor={`${challenge.id}-pageMinuteMultiplier`}
+                                            className='sr-only'
+                                        >
+                                            Challenge multiplier
+                                        </label>
+                                        <Input
+                                            id={`${challenge.id}-pageMinuteMultiplier`}
+                                            name='pageMinuteMultiplier'
+                                            type='number'
+                                            min='0'
+                                            step='0.01'
+                                            defaultValue={formatPoints(
+                                                challenge.pageMinuteMultiplier
+                                            )}
+                                            placeholder='0'
                                         />
                                     </div>
 
@@ -512,7 +618,7 @@ function CampaignChallengesTable({
 
                         <form
                             action={createCampaignChallengeAction}
-                            className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto] lg:items-center'
+                            className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
                             role='row'
                         >
                             <input
@@ -548,7 +654,24 @@ function CampaignChallengesTable({
                                     type='number'
                                     min='0'
                                     step='0.01'
-                                    placeholder='Points'
+                                    placeholder='0'
+                                />
+                            </div>
+
+                            <div role='cell'>
+                                <label
+                                    htmlFor={`${campaign.id}-new-pageMinuteMultiplier`}
+                                    className='sr-only'
+                                >
+                                    New challenge multiplier
+                                </label>
+                                <Input
+                                    id={`${campaign.id}-new-pageMinuteMultiplier`}
+                                    name='pageMinuteMultiplier'
+                                    type='number'
+                                    min='0'
+                                    step='0.01'
+                                    placeholder='0'
                                 />
                             </div>
 
@@ -565,7 +688,7 @@ function CampaignChallengesTable({
                 ) : (
                     <form
                         action={createCampaignChallengeAction}
-                        className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto] lg:items-center'
+                        className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
                     >
                         <input
                             type='hidden'
@@ -600,7 +723,24 @@ function CampaignChallengesTable({
                                 type='number'
                                 min='0'
                                 step='0.01'
-                                placeholder='Points'
+                                placeholder='0'
+                            />
+                        </div>
+
+                        <div>
+                            <label
+                                htmlFor={`${campaign.id}-empty-new-pageMinuteMultiplier`}
+                                className='sr-only'
+                            >
+                                New challenge multiplier
+                            </label>
+                            <Input
+                                id={`${campaign.id}-empty-new-pageMinuteMultiplier`}
+                                name='pageMinuteMultiplier'
+                                type='number'
+                                min='0'
+                                step='0.01'
+                                placeholder='0'
                             />
                         </div>
 
@@ -666,6 +806,7 @@ export default async function AdminCampaignsPage({
             />
 
             <CampaignSettingsForm campaign={selectedCampaign} />
+            <CompetitorChallengesTable campaign={selectedCampaign} />
             <CampaignChallengesTable campaign={selectedCampaign} />
         </div>
     )

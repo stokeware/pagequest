@@ -2,22 +2,20 @@ import {
     Prisma,
     type CampaignStatus,
     type CampaignVisibility,
+    type ChallengeKind,
 } from '@prisma/client'
 
 export type AdminCampaignChallengeSummary = {
-    challenge: {
-        id: string
-        pointValue: Prisma.Decimal | null
-        title: string
-    }
     id: string
-    sortOrder: number
+    kind: ChallengeKind
+    pageMinuteMultiplier: Prisma.Decimal
+    pointValue: Prisma.Decimal
+    title: string
 }
 
 export type AdminCampaignWorkbenchSummary = {
     archivedAt: Date | null
-    campaignChallenges: AdminCampaignChallengeSummary[]
-    challengeCategoryBonuses: Prisma.JsonValue | null
+    challenges: AdminCampaignChallengeSummary[]
     endAt: Date
     id: string
     name: string
