@@ -231,16 +231,15 @@ export const authOptions: NextAuthOptions = {
                 token.userId = user.id
             }
 
-            if (
-                typeof token.email === 'string' &&
-                (!Array.isArray(token.roles) ||
-                    typeof token.userId !== 'string')
-            ) {
+            if (typeof token.email === 'string') {
                 const persistedUser = await loadUserByEmail(token.email)
 
                 if (persistedUser) {
                     token.roles = persistedUser.roles
                     token.userId = persistedUser.id
+                } else {
+                    token.roles = []
+                    delete token.userId
                 }
             }
 

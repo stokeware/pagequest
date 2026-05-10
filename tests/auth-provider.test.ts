@@ -39,6 +39,16 @@ function getHostedSignInCallback() {
     return callback
 }
 
+function getJwtCallback() {
+    const callback = authOptions.callbacks?.jwt
+
+    if (!callback) {
+        throw new Error('Expected authOptions.callbacks.jwt to be defined.')
+    }
+
+    return callback
+}
+
 describe('auth hosted sign-in callback', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -130,5 +140,61 @@ describe('auth hosted sign-in callback', () => {
 
         expect(result).toBe(false)
         expect(authProviderMocks.prisma.user.upsert).not.toHaveBeenCalled()
+    })
+
+    it('refreshes stale jwt user ids from the current persisted user record', async () => {
+        const jwt = getJwtCallback()
+
+        authProviderMocks.prisma.user.findUnique.mockResolvedValue({
+            email: 'reader@example.com',
+            id: 'user-current',
+            image: null,
+            name: 'Reader One',
+            roleAssignments: [
+                {
+                    role: 'COMPETITOR',
+                },
+            ],
+        })
+
+        const token = await jwt({
+            token: {
+                email: 'reader@example.com',
+                roles: ['COMPETITOR'],
+                userId: 'user-stale',
+            },
+        } as never)
+
+        expect(authProviderMocks.prisma.user.findUnique).toHaveBeenCalledWith({
+            include: {
+                roleAssignments: {
+                    select: {
+                        role: true,
+                    },
+                },
+            },
+            where: {
+                email: 'reader@example.com',
+            },
+        })
+        expect(token.userId).toBe('user-current')
+        expect(token.roles).toEqual(['COMPETITOR'])
+    })
+
+    it('clears jwt roles and user id when the persisted user record no longer exists', async () => {
+        const jwt = getJwtCallback()
+
+        authProviderMocks.prisma.user.findUnique.mockResolvedValue(null)
+
+        const token = await jwt({
+            token: {
+                email: 'reader@example.com',
+                roles: ['COMPETITOR'],
+                userId: 'user-stale',
+            },
+        } as never)
+
+        expect(token.userId).toBeUndefined()
+        expect(token.roles).toEqual([])
     })
 })

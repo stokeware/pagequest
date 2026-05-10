@@ -247,6 +247,7 @@ export async function acceptInvitationAction(formData: FormData) {
     }
 
     revalidatePath('/accept-invitation')
+    revalidatePath('/admin/members')
     revalidatePath('/admin/invitations')
     revalidatePath('/dashboard')
     redirect('/dashboard?invitationAccepted=1')

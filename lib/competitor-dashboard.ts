@@ -1,13 +1,13 @@
-import type { ChallengeReviewState } from '@prisma/client'
 import { cache } from 'react'
 
 import {
     getCompetitorCampaignContext,
-    type CompetitorCampaignContext,
+    type CompetitorCampaignContextWithScoring,
     type CompetitorCampaignParticipantRecord,
     type CompetitorCampaignStatus,
     type CompetitorRecentEntryRecord,
 } from '@/lib/competitor-queries'
+import { calculateEntryPoints } from '@/lib/campaign-domain'
 import { getReadingEntryMetadataSummary } from '@/lib/log-progress'
 
 export { getCompetitorCampaignContext } from '@/lib/competitor-queries'
@@ -32,8 +32,11 @@ type DashboardSummaryMetric = {
 }
 
 type DashboardRecentActivityItem = {
-    description: string
+    challengeLabel: string | null
+    completedAtLabel: string
     id: string
+    pointsLabel: string
+    progressLabel: string
     title: string
 }
 
@@ -109,18 +112,20 @@ export const getCompetitorDashboardViewModel = cache(
 )
 
 export function buildCompetitorDashboardViewModel(
-    selection: CompetitorCampaignContext | null,
+    selection: CompetitorCampaignContextWithScoring | null,
     now: Date
 ): CompetitorDashboardViewModel {
     if (!selection) {
         return defaultCompetitorDashboardViewModel
     }
 
-    const { participant, recentEntries, standings } = selection
+    const { participant, recentEntries, scoringRules, standings } = selection
     const rankedStandings = rankStandings(standings)
-    const recentActivity = recentEntries.map((entry) =>
-        toRecentActivityItem(entry, participant.campaign.timezone)
-    )
+    const recentActivity = buildCompletedBookActivityItems({
+        entries: recentEntries,
+        scoringRules,
+        timezone: participant.campaign.timezone,
+    })
     const participantStanding = rankedStandings.find(
         (entry) => entry.id === participant.id
     )
@@ -132,30 +137,16 @@ export function buildCompetitorDashboardViewModel(
     const snapshotCards: DashboardSnapshotCard[] = [
         {
             description: getRankDescription({
-                leaderPoints,
-                participantPoints,
                 pointsBehindLeader,
                 rankNumber,
-                readerCount: rankedStandings.length,
             }),
             title: 'Current rank',
             value: rankNumber ? `#${rankNumber}` : 'Unranked',
         },
-        getTimeRemainingCard(participant, now),
         {
             description: getPointsDescription(participant),
             title: 'Total points',
             value: formatPoints(participant.totalPoints),
-        },
-        {
-            description:
-                recentActivity[0]?.title ??
-                'Your next reading entry will show up here.',
-            title: 'Recent activity',
-            value:
-                recentActivity.length > 0
-                    ? `${recentActivity.length} recent ${pluralize('entry', recentActivity.length)}`
-                    : 'No entries yet',
         },
     ]
 
@@ -180,40 +171,14 @@ export function buildCompetitorDashboardViewModel(
             },
             {
                 detail:
-                    recentActivity[0]?.description ??
-                    'Add your first reading entry to build momentum.',
+                    recentActivity[0]?.completedAtLabel ??
+                    'Finish a book to start building your recent activity list.',
                 label: 'Recent activity',
-                value: recentActivity[0]?.title ?? 'No entries logged yet',
+                value: recentActivity[0]?.title ?? 'No completed books yet',
             },
         ],
         snapshotCards,
-        summaryMetrics: [
-            {
-                detail: 'Combined reading, listening, and challenge scoring.',
-                label: 'Points earned',
-                value: formatPoints(participant.totalPoints),
-            },
-            {
-                detail: 'Page totals logged toward this campaign.',
-                label: 'Pages read',
-                value: formatCount(participant.totalPages),
-            },
-            {
-                detail: 'Completed books counted so far.',
-                label: 'Books finished',
-                value: formatCount(participant.totalBooks),
-            },
-            {
-                detail: 'Audiobook minutes included in your score.',
-                label: 'Audiobook minutes',
-                value: formatCount(participant.totalAudiobookMinutes),
-            },
-            {
-                detail: 'Campaign challenges recorded for this season.',
-                label: 'Challenges completed',
-                value: formatCount(participant.totalChallenges),
-            },
-        ],
+        summaryMetrics: [],
     }
 }
 
@@ -249,33 +214,6 @@ function getCampaignStatusLabel(status: CompetitorCampaignStatus) {
     }
 }
 
-function getTimeRemainingCard(
-    participant: CompetitorCampaignParticipantRecord,
-    now: Date
-): DashboardSnapshotCard {
-    if (participant.campaign.status === 'SCHEDULED') {
-        return {
-            description: `Campaign starts ${formatBoundaryDate(participant.campaign.startAt, participant.campaign.timezone)}.`,
-            title: 'Time until start',
-            value: getDurationLabel(participant.campaign.startAt, now),
-        }
-    }
-
-    if (participant.campaign.status === 'COMPLETED') {
-        return {
-            description: `Campaign closed ${formatBoundaryDate(participant.campaign.endAt, participant.campaign.timezone)}.`,
-            title: 'Campaign status',
-            value: 'Completed',
-        }
-    }
-
-    return {
-        description: `Campaign closes ${formatBoundaryDate(participant.campaign.endAt, participant.campaign.timezone)}.`,
-        title: 'Time remaining',
-        value: getDurationLabel(participant.campaign.endAt, now),
-    }
-}
-
 function getPointsDescription(
     participant: CompetitorCampaignParticipantRecord
 ) {
@@ -300,35 +238,17 @@ function getPointsDescription(
 }
 
 function getRankDescription({
-    leaderPoints,
-    participantPoints,
     pointsBehindLeader,
     rankNumber,
-    readerCount,
 }: {
-    leaderPoints: number
-    participantPoints: number
     pointsBehindLeader: number
     rankNumber: number | null
-    readerCount: number
 }) {
-    if (!rankNumber || readerCount === 0) {
+    if (!rankNumber) {
         return 'Leaderboard placement appears after this campaign has active participants.'
     }
 
-    if (readerCount === 1) {
-        return 'You are the only reader on this board so far.'
-    }
-
-    if (rankNumber === 1) {
-        return `Leading ${readerCount} readers with ${formatPointsFromNumber(participantPoints)}.`
-    }
-
-    if (pointsBehindLeader === 0 && leaderPoints === participantPoints) {
-        return `Tied on points with the campaign leader across ${readerCount} readers.`
-    }
-
-    return `${formatPointsFromNumber(pointsBehindLeader)} behind first place out of ${readerCount} readers.`
+    return `${formatPointsFromNumber(pointsBehindLeader)} behind first place.`
 }
 
 function getShellCampaignDetail(
@@ -347,69 +267,184 @@ function getShellCampaignDetail(
     }
 }
 
-function toRecentActivityItem(
-    entry: CompetitorRecentEntryRecord,
+function buildCompletedBookActivityItems({
+    entries,
+    scoringRules,
+    timezone,
+}: {
+    entries: CompetitorRecentEntryRecord[]
+    scoringRules: CompetitorCampaignContextWithScoring['scoringRules']
     timezone: string
-): DashboardRecentActivityItem {
-    const metadataSummary = getReadingEntryMetadataSummary({
-        bookAuthor: entry.bookAuthor,
-        bookTitle: entry.bookTitle,
-    })
-    const dateLabel = formatActivityDate(entry.activityDate, timezone)
+}) {
+    const completionEntries = entries.filter(
+        (entry) => entry.type === 'BOOK_COMPLETION'
+    )
 
-    switch (entry.type) {
-        case 'BOOK_COMPLETION':
-            return {
-                description: metadataSummary
-                    ? `${metadataSummary}. Logged ${dateLabel}.`
-                    : `Logged ${dateLabel}.`,
-                id: entry.id,
-                title: `Finished ${formatCount(entry.value)} ${pluralize('book', entry.value)}`,
-            }
-        case 'PAGES_READ':
-            return {
-                description: metadataSummary
-                    ? `${metadataSummary}. Logged ${dateLabel}.`
-                    : `Logged ${dateLabel}.`,
-                id: entry.id,
-                title: `Read ${formatCount(entry.value)} pages`,
-            }
-        case 'AUDIOBOOK_MINUTES':
-            return {
-                description: metadataSummary
-                    ? `${metadataSummary}. Logged ${dateLabel}.`
-                    : `Logged ${dateLabel}.`,
-                id: entry.id,
-                title: `Logged ${formatCount(entry.value)} audiobook minutes`,
-            }
-        case 'CHALLENGE_COMPLETION':
-            return {
-                description: `${getChallengeReviewLabel(entry.challengeCompletion?.reviewState)} Logged ${dateLabel}.`,
-                id: entry.id,
-                title: entry.challengeCompletion?.challenge.title
-                    ? `Completed ${entry.challengeCompletion.challenge.title}`
-                    : `Logged ${formatCount(entry.value)} ${pluralize('challenge completion', entry.value)}`,
-            }
-        default:
-            return assertNever(entry.type)
+    return completionEntries.map((entry) =>
+        toCompletedBookActivityItem({
+            allEntries: entries,
+            completionEntries,
+            entry,
+            scoringRules,
+            timezone,
+        })
+    )
+}
+
+function toCompletedBookActivityItem({
+    allEntries,
+    completionEntries,
+    entry,
+    scoringRules,
+    timezone,
+}: {
+    allEntries: CompetitorRecentEntryRecord[]
+    completionEntries: CompetitorRecentEntryRecord[]
+    entry: CompetitorRecentEntryRecord
+    scoringRules: CompetitorCampaignContextWithScoring['scoringRules']
+    timezone: string
+}): DashboardRecentActivityItem {
+    const previousCompletionBoundary = getPreviousCompletionBoundary({
+        completionEntries,
+        entry,
+    })
+    const relatedEntries = getRelatedBookProgressEntries({
+        allEntries,
+        entry,
+        previousCompletionBoundary,
+    })
+    const totalPages = relatedEntries
+        .filter((relatedEntry) => relatedEntry.type === 'PAGES_READ')
+        .reduce((sum, relatedEntry) => sum + relatedEntry.value, 0)
+    const totalMinutes = relatedEntries
+        .filter((relatedEntry) => relatedEntry.type === 'AUDIOBOOK_MINUTES')
+        .reduce((sum, relatedEntry) => sum + relatedEntry.value, 0)
+    const pointsAchieved = relatedEntries.reduce(
+        (total, relatedEntry) =>
+            total.plus(calculateEntryPoints(relatedEntry, scoringRules)),
+        calculateEntryPoints(entry, scoringRules)
+    )
+
+    return {
+        challengeLabel: entry.challengeCompletion?.challenge.title ?? null,
+        completedAtLabel: formatActivityDate(entry.activityDate, timezone),
+        id: entry.id,
+        pointsLabel: formatPoints(pointsAchieved),
+        progressLabel: getCompletedBookProgressLabel({
+            totalMinutes,
+            totalPages,
+        }),
+        title: getCompletedBookTitle(entry),
     }
 }
 
-function getChallengeReviewLabel(
-    reviewState: ChallengeReviewState | undefined
-) {
-    switch (reviewState) {
-        case 'APPROVED':
-            return 'Approved challenge.'
-        case 'AUTO_APPROVED':
-            return 'Auto-approved challenge.'
-        case 'PENDING':
-            return 'Awaiting review.'
-        case 'REJECTED':
-            return 'Challenge marked rejected.'
-        default:
-            return 'Challenge logged.'
+function getPreviousCompletionBoundary({
+    completionEntries,
+    entry,
+}: {
+    completionEntries: CompetitorRecentEntryRecord[]
+    entry: CompetitorRecentEntryRecord
+}) {
+    const bookKey = getReadingEntryBookKey(entry)
+
+    if (!bookKey) {
+        return null
     }
+
+    return (
+        completionEntries.find((completionEntry) => {
+            if (completionEntry.id === entry.id) {
+                return false
+            }
+
+            return (
+                getReadingEntryBookKey(completionEntry) === bookKey &&
+                completionEntry.activityDate < entry.activityDate
+            )
+        })?.activityDate ?? null
+    )
+}
+
+function getRelatedBookProgressEntries({
+    allEntries,
+    entry,
+    previousCompletionBoundary,
+}: {
+    allEntries: CompetitorRecentEntryRecord[]
+    entry: CompetitorRecentEntryRecord
+    previousCompletionBoundary: Date | null
+}) {
+    const bookKey = getReadingEntryBookKey(entry)
+
+    if (!bookKey) {
+        return []
+    }
+
+    return allEntries.filter((candidateEntry) => {
+        if (
+            candidateEntry.type !== 'PAGES_READ' &&
+            candidateEntry.type !== 'AUDIOBOOK_MINUTES'
+        ) {
+            return false
+        }
+
+        if (getReadingEntryBookKey(candidateEntry) !== bookKey) {
+            return false
+        }
+
+        if (candidateEntry.activityDate > entry.activityDate) {
+            return false
+        }
+
+        if (
+            previousCompletionBoundary &&
+            candidateEntry.activityDate <= previousCompletionBoundary
+        ) {
+            return false
+        }
+
+        return true
+    })
+}
+
+function getCompletedBookTitle(entry: CompetitorRecentEntryRecord) {
+    return (
+        entry.bookTitle?.trim() ||
+        getReadingEntryMetadataSummary({
+            bookAuthor: entry.bookAuthor,
+            bookTitle: entry.bookTitle,
+        }) ||
+        'Completed book'
+    )
+}
+
+function getCompletedBookProgressLabel({
+    totalMinutes,
+    totalPages,
+}: {
+    totalMinutes: number
+    totalPages: number
+}) {
+    if (totalPages > 0) {
+        return `${formatCount(totalPages)} ${pluralize('page', totalPages)}`
+    }
+
+    if (totalMinutes > 0) {
+        return `${formatCount(totalMinutes)} audiobook ${pluralize('minute', totalMinutes)}`
+    }
+
+    return 'No page or audiobook totals linked'
+}
+
+function getReadingEntryBookKey(entry: CompetitorRecentEntryRecord) {
+    const normalizedTitle = entry.bookTitle?.trim().toLowerCase() ?? ''
+    const normalizedAuthor = entry.bookAuthor?.trim().toLowerCase() ?? ''
+
+    if (!normalizedTitle && !normalizedAuthor) {
+        return null
+    }
+
+    return `${normalizedTitle}::${normalizedAuthor}`
 }
 
 function getDurationLabel(target: Date, now: Date) {

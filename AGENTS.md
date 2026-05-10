@@ -22,3 +22,9 @@ Color palette
 - dusty olive: #878355
 - soft fawn: #dfc68c
 - light grey: #f0f0f0
+
+## Testing and Validation
+
+As new features are added, create tests to ensure reasonable coverage of the new functionality. As bugs are investigated, add tests to help isolate error causes and to prevent future regressions.
+
+Before completing any request involving code changes, run scripts/check to confirm that all lint checks and unit tests are passing. If any errors are encountered, determine the cause of the errors and fix them. Re-run the check as many times as is needed to achieve a clean run.

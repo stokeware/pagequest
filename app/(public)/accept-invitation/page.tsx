@@ -130,15 +130,11 @@ function InvitationTokenCard({
         )
     }
 
-    if (access.state === 'revoked' || access.state === 'expired') {
+    if (access.state === 'revoked') {
         return (
             <EmptyState
                 eyebrow='Secure invite link'
-                title={
-                    access.state === 'revoked'
-                        ? 'This invite link was revoked.'
-                        : 'This invite link expired.'
-                }
+                title='This invite link was revoked.'
                 description={access.summary}
             />
         )
@@ -299,7 +295,6 @@ function InvitationAccessCard({
     }
 
     const titleByState = {
-        expired: 'Your invitation needs a resend.',
         pending: 'Your invitation is ready to accept.',
         revoked: 'This invitation is no longer active.',
     }
@@ -337,7 +332,7 @@ function InvitationAccessCard({
                 <Button disabled>
                     {access.state === 'pending'
                         ? 'Check your invitation email'
-                        : 'Ask an administrator for a fresh invite'}
+                        : 'Ask an administrator for a new invite'}
                 </Button>
             </FormActions>
         </FormCard>

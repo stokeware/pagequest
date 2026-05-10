@@ -17,6 +17,10 @@ These scripts are the command-line entrypoints for routine local development tas
 - `./scripts/db-migrate`: run `prisma migrate dev`.
 - `./scripts/db-migrate-deploy`: run `prisma migrate deploy` against `DIRECT_URL` for hosted environments.
 - `./scripts/db-seed`: run the Prisma seed command.
+- `./scripts/create-admin`: create or update a user in the configured database and ensure the `ADMIN` role exists for that user. Hosted targets require `DIRECT_URL` plus `PAGEQUEST_ADMIN_BOOTSTRAP_SECRET` from a secure out-of-band source.
+
+For hosted admin provisioning, keep `PAGEQUEST_ADMIN_BOOTSTRAP_SECRET` in your password manager or local secret store, export it only for the current shell session, and do not store it in Neon, Vercel, `.env`, or `.env.local`.
+
 - `./scripts/run-job`: run a background job locally, with optional `--now` and `--payload` overrides for validation.
 - `./scripts/services-up`: start Docker Compose services.
 - `./scripts/services-down`: stop Docker Compose services.

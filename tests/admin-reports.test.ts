@@ -220,7 +220,7 @@ describe('admin reports view model', () => {
         expect(viewModel.summaryCards[1]).toMatchObject({
             label: 'Accepted invites',
             value: '1',
-            detail: '1 pending • 1 expired • 1 revoked',
+            detail: '2 pending • 0 expired • 1 revoked',
         })
         expect(viewModel.summaryCards[4]).toMatchObject({
             label: 'Total points awarded',

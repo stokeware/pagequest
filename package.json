@@ -18,6 +18,7 @@
         "db:migrate": "./scripts/db-migrate",
         "db:migrate:deploy": "./scripts/db-migrate-deploy",
         "db:seed": "./scripts/db-seed",
+        "db:create-admin": "./scripts/create-admin",
         "dev:services": "./scripts/services-up"
     },
     "dependencies": {

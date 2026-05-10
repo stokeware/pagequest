@@ -1,6 +1,5 @@
 import {
     AppShell,
-    type ShellMetric,
     type ShellNavItem,
 } from '@/components/authenticated/app-shell'
 import {
@@ -11,7 +10,6 @@ import {
     getRoleAwareSession,
     protectAuthenticatedRoute,
 } from '@/lib/auth/session'
-import { getCompetitorDashboardViewModel } from '@/lib/competitor-dashboard'
 import { redirect } from 'next/navigation'
 
 const competitorNavItems: ShellNavItem[] = [
@@ -48,20 +46,10 @@ export default async function CompetitorLayout({
     if (invitationRedirectPath) {
         redirect(invitationRedirectPath)
     }
-
-    const dashboardViewModel = await getCompetitorDashboardViewModel(
-        viewer.userId
-    )
-    const competitorMetrics: ShellMetric[] = dashboardViewModel.shellMetrics
-
     return (
         <AppShell
             shellVariant='competitor'
-            audienceLabel='Competitor experience'
-            title='A focused reading hub for logging progress and checking the race.'
-            description='Track your campaign standing, latest entries, and next move from one place.'
             navItems={competitorNavItems}
-            metrics={competitorMetrics}
             viewer={viewer}
         >
             {children}

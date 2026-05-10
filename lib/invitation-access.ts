@@ -1,5 +1,9 @@
 import type { AppRole, InvitationStatus, CampaignStatus } from '@prisma/client'
 
+import {
+    ensureMemberCampaignParticipants,
+    getAcceptedMemberRecord,
+} from '@/lib/member-access'
 import { prisma } from '@/lib/prisma'
 
 type InvitationCampaignRecord = {
@@ -20,9 +24,13 @@ type ParticipantRecord = {
     campaign: InvitationCampaignRecord
 }
 
+type AcceptedMemberRecord = {
+    acceptedAt: Date | null
+    email: string
+}
+
 export type InvitationAccessState =
     | 'accepted'
-    | 'expired'
     | 'missing'
     | 'pending'
     | 'revoked'
@@ -46,12 +54,12 @@ const protectedCampaignStatuses: CampaignStatus[] = [
 function deriveInvitationAccessProfile({
     email,
     invitation,
-    now,
+    member,
     participant,
 }: {
     email: string | null
     invitation: InvitationRecord | null
-    now: Date
+    member: AcceptedMemberRecord | null
     participant: ParticipantRecord | null
 }): InvitationAccessProfile {
     if (!email) {
@@ -74,6 +82,18 @@ function deriveInvitationAccessProfile({
             redirectPath: null,
             state: 'accepted',
             summary: `Invitation already accepted for ${participant.campaign.name}. You can open the competitor experience directly.`,
+        }
+    }
+
+    if (member) {
+        return {
+            allowCompetitorRoutes: true,
+            invitationEmail: member.email,
+            campaignName: null,
+            redirectPath: null,
+            state: 'accepted',
+            summary:
+                'This account is a confirmed competitor and can access current and future campaigns.',
         }
     }
 
@@ -100,17 +120,6 @@ function deriveInvitationAccessProfile({
         }
     }
 
-    if (invitation.status === 'EXPIRED' || invitation.expiresAt < now) {
-        return {
-            allowCompetitorRoutes: false,
-            invitationEmail: email,
-            campaignName: invitation.campaign.name,
-            redirectPath: '/accept-invitation',
-            state: 'expired',
-            summary: `The invitation for ${invitation.campaign.name} is no longer valid. An administrator will need to resend it before you can join.`,
-        }
-    }
-
     return {
         allowCompetitorRoutes: false,
         invitationEmail: email,
@@ -132,8 +141,20 @@ export async function getInvitationAccessProfile({
         return deriveInvitationAccessProfile({
             email: null,
             invitation: null,
-            now: new Date(),
+            member: null,
             participant: null,
+        })
+    }
+
+    const member = await getAcceptedMemberRecord({
+        userEmail,
+        userId,
+    })
+
+    if (member) {
+        await ensureMemberCampaignParticipants({
+            memberSince: member.acceptedAt ?? new Date(),
+            userId,
         })
     }
 
@@ -177,6 +198,9 @@ export async function getInvitationAccessProfile({
             },
             where: {
                 email: userEmail,
+                status: {
+                    not: 'ACCEPTED',
+                },
                 campaign: {
                     status: {
                         in: protectedCampaignStatuses,
@@ -190,7 +214,7 @@ export async function getInvitationAccessProfile({
     return deriveInvitationAccessProfile({
         email: userEmail,
         invitation,
-        now: new Date(),
+        member,
         participant,
     })
 }

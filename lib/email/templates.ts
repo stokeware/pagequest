@@ -72,12 +72,10 @@ function buildEmailMessage({
 }
 
 export function buildInvitationEmailMessage({
-    expiresAt,
     invitationUrl,
     campaignName,
     recipientEmail,
 }: InvitationEmailInput): EmailDeliveryMessage {
-    const formattedExpiry = formatBoundaryDate(expiresAt)
     const safeCampaignName = escapeHtml(campaignName)
     const safeRecipientEmail = escapeHtml(recipientEmail)
     const safeInvitationUrl = escapeHtml(invitationUrl)
@@ -86,7 +84,7 @@ export function buildInvitationEmailMessage({
         htmlParts: [
             `<p>You've been invited to join <strong>${safeCampaignName}</strong> on Page Quest.</p>`,
             `<p><a href="${safeInvitationUrl}">Open your secure invitation link</a></p>`,
-            `<p>This link is reserved for <strong>${safeRecipientEmail}</strong> and expires on ${escapeHtml(formattedExpiry)}.</p>`,
+            `<p>This link is reserved for <strong>${safeRecipientEmail}</strong>.</p>`,
             '<p>If you were not expecting this invitation, you can ignore this email.</p>',
         ],
         plainTextLines: [
@@ -94,7 +92,7 @@ export function buildInvitationEmailMessage({
             '',
             `Use this secure link to sign in and accept your invitation: ${invitationUrl}`,
             '',
-            `This link is reserved for ${recipientEmail} and expires on ${formattedExpiry}.`,
+            `This link is reserved for ${recipientEmail}.`,
             '',
             'If you were not expecting this invitation, you can ignore this email.',
         ],

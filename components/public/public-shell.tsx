@@ -14,7 +14,6 @@ import {
 const navigationLinks = [
     { href: '/', label: 'Home' },
     { href: '/how-it-works', label: 'How it works' },
-    { href: '/sign-in', label: 'Sign in' },
     { href: '/accept-invitation', label: 'Accept invitation' },
 ]
 
@@ -80,6 +79,10 @@ export function PublicShell({
                         </Link>
                     ))}
                 </nav>
+
+                <div className='public-topbar-actions'>
+                    <Button render={<Link href='/sign-in' />}>Sign in</Button>
+                </div>
             </header>
 
             <main id='main-content' tabIndex={-1} className='public-main'>

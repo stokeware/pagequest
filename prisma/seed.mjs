@@ -7,7 +7,37 @@ const { PrismaPg } = require('@prisma/adapter-pg')
 const localDatabaseUrl =
     'postgresql://pagequest:pagequest@127.0.0.1:5433/pagequest?schema=public'
 
-const adapter = new PrismaPg(process.env.DATABASE_URL ?? localDatabaseUrl)
+const legacySslModeAliases = new Set(['prefer', 'require', 'verify-ca'])
+
+function normalizeConnectionString(connectionString) {
+    try {
+        const url = new URL(connectionString)
+
+        if (!['postgres:', 'postgresql:'].includes(url.protocol)) {
+            return connectionString
+        }
+
+        if (url.searchParams.get('uselibpqcompat') === 'true') {
+            return connectionString
+        }
+
+        const sslMode = url.searchParams.get('sslmode')
+
+        if (!sslMode || !legacySslModeAliases.has(sslMode)) {
+            return connectionString
+        }
+
+        url.searchParams.set('sslmode', 'verify-full')
+
+        return url.toString()
+    } catch {
+        return connectionString
+    }
+}
+
+const adapter = new PrismaPg(
+    normalizeConnectionString(process.env.DATABASE_URL ?? localDatabaseUrl)
+)
 const prisma = new PrismaClient({ adapter })
 
 const campaignScoring = {

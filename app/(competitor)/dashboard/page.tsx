@@ -60,32 +60,10 @@ export default async function DashboardPage({
 
             {viewModel.hasQuest ? (
                 <>
-                    <Card className='surface-card'>
-                        <CardHeader>
-                            <CardTitle>{viewModel.campaignName}</CardTitle>
-                            <CardDescription>
-                                {viewModel.campaignStatusLabel}.{' '}
-                                {viewModel.participantSummary}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className='auth-inline-actions'>
-                            <Button render={<Link href='/log-progress' />}>
-                                Log today&apos;s progress
-                            </Button>
-                            <Button
-                                variant='outline'
-                                render={<Link href='/leaderboard' />}
-                            >
-                                Open leaderboard
-                            </Button>
-                        </CardContent>
-                    </Card>
-
                     <div className='auth-card-grid'>
                         {viewModel.snapshotCards.map((card) => (
                             <StatCard
                                 key={card.title}
-                                eyebrow='Competitor snapshot'
                                 title={card.title}
                                 value={card.value}
                                 description={card.description}
@@ -93,35 +71,9 @@ export default async function DashboardPage({
                         ))}
                     </div>
 
-                    <Card className='surface-warm'>
-                        <CardHeader>
-                            <CardTitle>Summary stats</CardTitle>
-                            <CardDescription>
-                                Totals for your selected campaign profile.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className='auth-card-grid'>
-                                {viewModel.summaryMetrics.map((metric) => (
-                                    <StatCard
-                                        key={metric.label}
-                                        eyebrow={metric.label}
-                                        title={metric.value}
-                                        description={metric.detail}
-                                        className='surface-card'
-                                    />
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-
                     <Card className='surface-card'>
                         <CardHeader>
                             <CardTitle>Recent activity</CardTitle>
-                            <CardDescription>
-                                Your latest reading and challenge entries for
-                                this campaign.
-                            </CardDescription>
                         </CardHeader>
                         <CardContent className='space-y-4'>
                             {viewModel.recentActivity.length > 0 ? (
@@ -130,18 +82,33 @@ export default async function DashboardPage({
                                         key={item.id}
                                         className='rounded-2xl border border-border/70 bg-background/80 px-4 py-3'
                                     >
-                                        <p className='font-medium'>
-                                            {item.title}
-                                        </p>
-                                        <p className='text-sm text-muted-foreground'>
-                                            {item.description}
-                                        </p>
+                                        <div className='space-y-2'>
+                                            <p className='font-medium'>
+                                                {item.title}
+                                            </p>
+                                            <p className='text-sm text-muted-foreground'>
+                                                Completed{' '}
+                                                {item.completedAtLabel}
+                                            </p>
+                                            {item.challengeLabel ? (
+                                                <p className='text-sm text-muted-foreground'>
+                                                    Challenge:{' '}
+                                                    {item.challengeLabel}
+                                                </p>
+                                            ) : null}
+                                            <div className='flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground'>
+                                                <span>
+                                                    {item.progressLabel}
+                                                </span>
+                                                <span>{item.pointsLabel}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 ))
                             ) : (
                                 <p className='text-sm text-muted-foreground'>
-                                    Your latest entries will appear here after
-                                    you log progress.
+                                    Completed books will appear here after you
+                                    log a book completion.
                                 </p>
                             )}
                         </CardContent>
