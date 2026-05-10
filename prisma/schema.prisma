@@ -37,11 +37,6 @@ enum ReadingEntryType {
     CHALLENGE_COMPLETION
 }
 
-enum ChallengeAvailability {
-    ONE_TIME
-    REPEATABLE
-}
-
 enum ChallengeReviewState {
     PENDING
     APPROVED
@@ -173,12 +168,7 @@ model Invitation {
 model Challenge {
     id                 String                @id @default(cuid())
     title              String
-    description        String?
-    category           String?
     pointValue         Decimal?              @db.Decimal(12, 4)
-    availability       ChallengeAvailability @default(ONE_TIME)
-    requiresReview     Boolean               @default(false)
-    evidencePrompt     String?
     createdByUserId    String?
     createdAt          DateTime              @default(now())
     updatedAt          DateTime              @updatedAt

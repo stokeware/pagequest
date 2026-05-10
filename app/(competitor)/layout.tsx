@@ -20,7 +20,6 @@ const competitorNavItems: ShellNavItem[] = [
         icon: 'clipboard-pen-line',
     },
     { href: '/leaderboard', label: 'Leaderboard', icon: 'trophy' },
-    { href: '/history', label: 'My history', icon: 'history' },
 ]
 
 export default async function CompetitorLayout({

@@ -6,14 +6,10 @@ import {
 } from '@/lib/log-progress-service'
 
 function buildParticipantSnapshot({
-    challengeRequiresReview = false,
-    challengeAvailability = 'ONE_TIME',
     challengePointValue = null,
     pointValueOverride = '15',
 }: {
-    challengeAvailability?: 'ONE_TIME' | 'REPEATABLE'
     challengePointValue?: { toString(): string } | null
-    challengeRequiresReview?: boolean
     pointValueOverride?: string | null
 } = {}) {
     return {
@@ -32,9 +28,7 @@ function buildParticipantSnapshot({
             campaignChallenges: [
                 {
                     challenge: {
-                        availability: challengeAvailability,
                         pointValue: challengePointValue,
-                        requiresReview: challengeRequiresReview,
                         title: 'Friend recommendation',
                     },
                     challengeId: 'challenge-1',
@@ -251,75 +245,6 @@ describe('recordLogProgressEntry', () => {
         expect(result.challengeCompletionId).toBe('completion-1')
         expect(result.totals.totalChallenges).toBe(1)
         expect(result.totals.totalPoints.toString()).toBe('15')
-    })
-
-    it('keeps pending review challenge completions out of participant totals', async () => {
-        const transaction = buildTransaction({
-            participant: buildParticipantSnapshot({
-                challengeRequiresReview: true,
-            }),
-            persistedEntries: [
-                {
-                    activityDate: new Date('2026-05-07T12:00:00.000Z'),
-                    challengeCompletion: null,
-                    type: 'PAGES_READ',
-                    value: 30,
-                },
-                {
-                    activityDate: new Date('2026-05-08T12:00:00.000Z'),
-                    challengeCompletion: {
-                        awardedPoints: null,
-                        reviewState: 'PENDING',
-                    },
-                    type: 'CHALLENGE_COMPLETION',
-                    value: 1,
-                },
-            ],
-        })
-
-        const result = await recordLogProgressEntry(transaction, {
-            actorUserId: 'user-1',
-            formValues: {
-                activityDate: '2026-05-08',
-                bookAuthor: '',
-                bookTitle: '',
-                challengeId: 'campaign-challenge-1',
-                notes: 'Needs admin review',
-                type: 'CHALLENGE_COMPLETION',
-                value: '1',
-            },
-            now: new Date('2026-05-08T20:00:00.000Z'),
-            campaignParticipantId: 'participant-1',
-        })
-
-        expect(transaction.challengeCompletion.create).toHaveBeenCalledWith({
-            data: expect.objectContaining({
-                reviewState: 'PENDING',
-            }),
-            select: {
-                id: true,
-            },
-        })
-        expect(transaction.auditLog.create).toHaveBeenNthCalledWith(2, {
-            data: {
-                action: 'challenge-completion.submitted',
-                actorUserId: 'user-1',
-                challengeCompletionId: 'completion-1',
-                challengeId: 'challenge-1',
-                entityId: 'completion-1',
-                entityType: 'ChallengeCompletion',
-                metadata: {
-                    challengeTitle: 'Friend recommendation',
-                    reviewState: 'PENDING',
-                    value: 1,
-                },
-                campaignId: 'campaign-1',
-                campaignParticipantId: 'participant-1',
-                readingEntryId: 'entry-1',
-            },
-        })
-        expect(result.totals.totalChallenges).toBe(0)
-        expect(result.totals.totalPoints.toString()).toBe('30')
     })
 })
 

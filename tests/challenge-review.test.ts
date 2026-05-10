@@ -151,42 +151,30 @@ describe('challenge review helpers', () => {
         expect(getChallengeReviewStateLabel('REJECTED')).toBe('Rejected')
     })
 
-    it('blocks duplicate completions for one-time challenges unless prior submissions were rejected', () => {
+    it('blocks duplicate completions unless prior submissions were rejected', () => {
         expect(() =>
             assertChallengeCompletionAllowed({
-                availability: 'ONE_TIME',
                 existingReviewStates: ['APPROVED'],
             })
         ).toThrowError(
             expect.objectContaining<Partial<ChallengeReviewError>>({
-                code: 'duplicate-one-time-challenge-completion',
+                code: 'duplicate-challenge-completion',
             })
         )
 
         expect(() =>
             assertChallengeCompletionAllowed({
-                availability: 'ONE_TIME',
                 existingReviewStates: ['PENDING'],
             })
         ).toThrowError(
             expect.objectContaining<Partial<ChallengeReviewError>>({
-                code: 'duplicate-one-time-challenge-completion',
+                code: 'duplicate-challenge-completion',
             })
         )
 
         expect(() =>
             assertChallengeCompletionAllowed({
-                availability: 'ONE_TIME',
                 existingReviewStates: ['REJECTED'],
-            })
-        ).not.toThrow()
-    })
-
-    it('allows duplicate completions for repeatable challenges', () => {
-        expect(() =>
-            assertChallengeCompletionAllowed({
-                availability: 'REPEATABLE',
-                existingReviewStates: ['APPROVED', 'PENDING'],
             })
         ).not.toThrow()
     })

@@ -1,9 +1,5 @@
 import { type Prisma } from '@prisma/client'
-import type {
-    ChallengeAvailability,
-    ChallengeReviewState,
-    ReadingEntryType,
-} from '@prisma/client'
+import type { ChallengeReviewState, ReadingEntryType } from '@prisma/client'
 
 import {
     assertChallengeCompletionAllowed,
@@ -39,9 +35,7 @@ type ParticipantSnapshot = {
         pointsPerPage: { toString(): string }
         campaignChallenges: Array<{
             challenge: {
-                availability: ChallengeAvailability
                 pointValue: { toString(): string } | null
-                requiresReview: boolean
                 title: string
             }
             challengeId: string
@@ -158,9 +152,7 @@ type LogProgressTransaction = {
                             select: {
                                 challenge: {
                                     select: {
-                                        availability: true
                                         pointValue: true
-                                        requiresReview: true
                                         title: true
                                     }
                                 }
@@ -247,9 +239,7 @@ type LogProgressTransaction = {
                                     select: {
                                         challenge: {
                                             select: {
-                                                availability: true
                                                 pointValue: true
-                                                requiresReview: true
                                                 title: true
                                             }
                                         }
@@ -370,9 +360,7 @@ export async function recordLogProgressEntry(
                         select: {
                             challenge: {
                                 select: {
-                                    availability: true,
                                     pointValue: true,
-                                    requiresReview: true,
                                     title: true,
                                 },
                             },
@@ -512,104 +500,63 @@ export async function recordLogProgressEntry(
             })
 
         assertChallengeCompletionAllowed({
-            availability: selectedCampaignChallenge.challenge.availability,
             existingReviewStates: existingCompletions.map(
                 (completion) => completion.reviewState
             ),
         })
 
-        if (selectedCampaignChallenge.challenge.requiresReview) {
-            const challengeCompletion =
-                await transaction.challengeCompletion.create({
-                    data: {
-                        challengeId: selectedCampaignChallenge.challengeId,
-                        evidenceText: notes,
-                        campaignChallengeId: selectedCampaignChallenge.id,
-                        campaignParticipantId: participant.id,
-                        readingEntryId: readingEntry.id,
-                        reviewState: 'PENDING',
-                    },
-                    select: {
-                        id: true,
-                    },
-                })
+        const autoApprovedValues = prepareAutoApprovedChallengeCompletionValues(
+            {
+                awardedPoints: resolveChallengeCompletionDefaultPoints({
+                    challengePointValue:
+                        selectedCampaignChallenge.challenge.pointValue?.toString() ??
+                        null,
+                    campaignChallengePointValueOverride:
+                        selectedCampaignChallenge.pointValueOverride?.toString() ??
+                        null,
+                    campaignPointsPerChallengeCompletion:
+                        participant.campaign.pointsPerChallengeCompletion.toString(),
+                }),
+                now: input.now,
+            }
+        )
 
-            challengeCompletionId = challengeCompletion.id
-
-            await transaction.auditLog.create({
+        const challengeCompletion =
+            await transaction.challengeCompletion.create({
                 data: {
-                    action: 'challenge-completion.submitted',
-                    actorUserId: input.actorUserId,
-                    challengeCompletionId,
+                    ...autoApprovedValues,
                     challengeId: selectedCampaignChallenge.challengeId,
-                    entityId: challengeCompletion.id,
-                    entityType: 'ChallengeCompletion',
-                    metadata: {
-                        challengeTitle:
-                            selectedCampaignChallenge.challenge.title,
-                        reviewState: 'PENDING',
-                        value: 1,
-                    },
-                    campaignId: participant.campaign.id,
+                    evidenceText: notes,
+                    campaignChallengeId: selectedCampaignChallenge.id,
                     campaignParticipantId: participant.id,
                     readingEntryId: readingEntry.id,
                 },
-            })
-        } else {
-            const autoApprovedValues =
-                prepareAutoApprovedChallengeCompletionValues({
-                    awardedPoints: resolveChallengeCompletionDefaultPoints({
-                        challengePointValue:
-                            selectedCampaignChallenge.challenge.pointValue?.toString() ??
-                            null,
-                        campaignChallengePointValueOverride:
-                            selectedCampaignChallenge.pointValueOverride?.toString() ??
-                            null,
-                        campaignPointsPerChallengeCompletion:
-                            participant.campaign.pointsPerChallengeCompletion.toString(),
-                    }),
-                    now: input.now,
-                })
-
-            const challengeCompletion =
-                await transaction.challengeCompletion.create({
-                    data: {
-                        ...autoApprovedValues,
-                        challengeId: selectedCampaignChallenge.challengeId,
-                        evidenceText: notes,
-                        campaignChallengeId: selectedCampaignChallenge.id,
-                        campaignParticipantId: participant.id,
-                        readingEntryId: readingEntry.id,
-                    },
-                    select: {
-                        id: true,
-                    },
-                })
-
-            challengeCompletionId = challengeCompletion.id
-
-            await transaction.auditLog.create({
-                data: {
-                    action: 'challenge-completion.submitted',
-                    actorUserId: input.actorUserId,
-                    challengeCompletionId,
-                    challengeId: selectedCampaignChallenge.challengeId,
-                    entityId: challengeCompletion.id,
-                    entityType: 'ChallengeCompletion',
-                    metadata: {
-                        awardedPoints:
-                            autoApprovedValues.awardedPoints.toString(),
-                        challengeTitle:
-                            selectedCampaignChallenge.challenge.title,
-                        reviewState: autoApprovedValues.reviewState,
-                        value: 1,
-                    },
-                    campaignId: participant.campaign.id,
-                    campaignParticipantId: participant.id,
-                    readingEntryId: readingEntry.id,
+                select: {
+                    id: true,
                 },
             })
-        }
+
+        challengeCompletionId = challengeCompletion.id
+
+        await transaction.auditLog.create({
+            data: {
+                action: 'challenge-completion.submitted',
+                actorUserId: input.actorUserId,
+                challengeCompletionId,
+                challengeId: selectedCampaignChallenge.challengeId,
+                entityId: challengeCompletion.id,
+                entityType: 'ChallengeCompletion',
+                metadata: {
+                    awardedPoints: autoApprovedValues.awardedPoints.toString(),
+                    challengeTitle: selectedCampaignChallenge.challenge.title,
+                    reviewState: autoApprovedValues.reviewState,
+                    value: 1,
+                },
+                campaignId: participant.campaign.id,
+                campaignParticipantId: participant.id,
+                readingEntryId: readingEntry.id,
+            },
+        })
     }
 
     const totals = await recalculateParticipantTotals(transaction, participant)
@@ -655,9 +602,7 @@ export async function updateReadingEntryAsAdmin(
                                 select: {
                                     challenge: {
                                         select: {
-                                            availability: true,
                                             pointValue: true,
-                                            requiresReview: true,
                                             title: true,
                                         },
                                     },

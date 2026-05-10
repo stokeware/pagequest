@@ -53,7 +53,6 @@ export async function submitLogProgressAction(
         )
 
         revalidatePath('/dashboard')
-        revalidatePath('/history')
         revalidatePath('/leaderboard')
         revalidatePath('/log-progress')
 

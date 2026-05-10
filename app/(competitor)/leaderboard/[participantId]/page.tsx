@@ -49,19 +49,9 @@ export default async function ParticipantDetailPage({
                     </Button>
                     <Button
                         variant='outline'
-                        render={
-                            <Link
-                                href={
-                                    viewModel.isViewer
-                                        ? '/history'
-                                        : '/dashboard'
-                                }
-                            />
-                        }
+                        render={<Link href='/dashboard' />}
                     >
-                        {viewModel.isViewer
-                            ? 'Open my history'
-                            : 'Return to dashboard'}
+                        Return to dashboard
                     </Button>
                 </CardContent>
             </Card>

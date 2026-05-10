@@ -88,13 +88,8 @@ async function loadChallenge(challengeId: string) {
                     campaignChallenges: true,
                 },
             },
-            availability: true,
-            category: true,
-            description: true,
-            evidencePrompt: true,
             id: true,
             pointValue: true,
-            requiresReview: true,
             title: true,
         },
         where: {
@@ -151,10 +146,7 @@ export async function createChallengeAction(formData: FormData) {
                         challengeId: challenge.id,
                         entityId: challenge.id,
                         entityType: 'Challenge',
-                        metadata: {
-                            availability: values.availability,
-                            requiresReview: values.requiresReview,
-                        },
+                        metadata: {},
                     },
                 })
 
@@ -217,10 +209,7 @@ export async function updateChallengeAction(formData: FormData) {
                     challengeId: challenge.id,
                     entityId: challenge.id,
                     entityType: 'Challenge',
-                    metadata: {
-                        availability: values.availability,
-                        requiresReview: values.requiresReview,
-                    },
+                    metadata: {},
                 },
             })
         })

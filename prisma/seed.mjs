@@ -86,23 +86,13 @@ const challengeDefinitions = [
     {
         key: 'biography',
         title: 'Read a Biography',
-        description: 'Finish a biography or memoir during the campaign.',
-        category: 'genre',
-        availability: 'ONE_TIME',
-        requiresReview: false,
         pointValue: new Prisma.Decimal(40),
-        evidencePrompt: null,
         sortOrder: 1,
     },
     {
         key: 'recommended',
         title: 'Friend Recommendation',
-        description: 'Complete a book recommended by another participant.',
-        category: 'community',
-        availability: 'REPEATABLE',
-        requiresReview: true,
         pointValue: new Prisma.Decimal(50),
-        evidencePrompt: 'Share who recommended the book and why you picked it.',
         sortOrder: 2,
     },
 ]
@@ -351,12 +341,7 @@ async function seed() {
         const challenge = await prisma.challenge.create({
             data: {
                 title: definition.title,
-                description: definition.description,
-                category: definition.category,
                 pointValue: definition.pointValue,
-                availability: definition.availability,
-                requiresReview: definition.requiresReview,
-                evidencePrompt: definition.evidencePrompt,
                 createdByUserId: admin.id,
                 campaignChallenges: {
                     create: {

@@ -17,6 +17,9 @@ export class CampaignAdminError extends Error {
 }
 
 export type CampaignFormValues = {
+    challengeCategoryBonuses:
+        | Prisma.InputJsonValue
+        | Prisma.NullableJsonNullValueInput
     description: string | null
     endAt: Date
     entryDeleteWindowMinutes: number | null
@@ -37,6 +40,7 @@ type CampaignLifecycleValues = {
 }
 
 type CampaignWritableRecord = CampaignLifecycleValues & {
+    challengeCategoryBonuses: Prisma.JsonValue | null
     description: string | null
     endAt: Date
     entryDeleteWindowMinutes: number | null
@@ -87,6 +91,7 @@ export type CampaignChallengeWriteValues =
     }
 
 const inviteOnlyVisibility = 'INVITE_ONLY' satisfies CampaignVisibility
+const epicReadPageMultiplierKey = 'epicReadPageMultiplier'
 
 const campaignStatusLabels: Record<CampaignStatus, string> = {
     ACTIVE: 'Active',
@@ -111,6 +116,7 @@ export function parseCampaignFormValues(
     assertValidCampaignWindow(startAt, endAt)
 
     return {
+        challengeCategoryBonuses: getChallengeCategoryBonuses(formData),
         description: getOptionalString(formData, 'description'),
         endAt,
         entryDeleteWindowMinutes: getOptionalInteger(
@@ -251,6 +257,9 @@ export function prepareCampaignDuplicateValues(
     return finalizeCampaignWriteValues({
         archivedAt: null,
         formValues: {
+            challengeCategoryBonuses: normalizeChallengeCategoryBonusesInput(
+                campaign.challengeCategoryBonuses
+            ),
             description: campaign.description,
             endAt: campaign.endAt,
             entryDeleteWindowMinutes: campaign.entryDeleteWindowMinutes,
@@ -279,6 +288,26 @@ export function getCampaignStatusLabel(status: CampaignStatus) {
 
 export function getCampaignVisibilityLabel(visibility: CampaignVisibility) {
     return campaignVisibilityLabels[visibility]
+}
+
+export function resolveEpicReadPageMultiplier(
+    challengeCategoryBonuses: Prisma.JsonValue | null
+) {
+    if (
+        !challengeCategoryBonuses ||
+        Array.isArray(challengeCategoryBonuses) ||
+        typeof challengeCategoryBonuses !== 'object'
+    ) {
+        return null
+    }
+
+    const multiplier = challengeCategoryBonuses[epicReadPageMultiplierKey]
+
+    if (typeof multiplier !== 'string' || multiplier.trim().length === 0) {
+        return null
+    }
+
+    return toDecimal(multiplier, 'invalid-epic-read-page-multiplier')
 }
 
 export function describeCampaignLifecycle(snapshot: CampaignLifecycleSnapshot) {
@@ -495,6 +524,19 @@ function getRequiredDate(
         )
     }
 
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const parsedDate = new Date(`${value}T12:00:00.000Z`)
+
+        if (Number.isNaN(parsedDate.getTime())) {
+            throw new CampaignAdminError(
+                `invalid-${fieldName}`,
+                `${fieldName} must be a valid date.`
+            )
+        }
+
+        return parsedDate
+    }
+
     const parsedValue = new Date(value)
 
     if (Number.isNaN(parsedValue.getTime())) {
@@ -588,6 +630,32 @@ function getOptionalDecimal(
     }
 
     return decimalValue
+}
+
+function getChallengeCategoryBonuses(formData: FormData) {
+    const epicReadPageMultiplier = getOptionalDecimal(
+        formData,
+        'epicReadPageMultiplier',
+        'invalid-epic-read-page-multiplier'
+    )
+
+    if (!epicReadPageMultiplier) {
+        return Prisma.DbNull
+    }
+
+    return {
+        [epicReadPageMultiplierKey]: epicReadPageMultiplier.toString(),
+    } satisfies Prisma.JsonObject
+}
+
+function normalizeChallengeCategoryBonusesInput(
+    value: Prisma.JsonValue | null
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput {
+    if (value === null) {
+        return Prisma.DbNull
+    }
+
+    return value as Prisma.InputJsonValue
 }
 
 function assertValidCampaignWindow(startAt: Date, endAt: Date) {

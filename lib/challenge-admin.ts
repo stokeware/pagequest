@@ -1,4 +1,4 @@
-import { Prisma, type ChallengeAvailability } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 
 export class ChallengeAdminError extends Error {
     code: string
@@ -11,12 +11,7 @@ export class ChallengeAdminError extends Error {
 }
 
 export type ChallengeFormValues = {
-    availability: ChallengeAvailability
-    category: string | null
-    description: string | null
-    evidencePrompt: string | null
     pointValue: Prisma.Decimal | null
-    requiresReview: boolean
     title: string
 }
 
@@ -27,28 +22,15 @@ export type ChallengeUsageSnapshot = {
     campaignChallenges: number
 }
 
-const challengeAvailabilityLabels: Record<ChallengeAvailability, string> = {
-    ONE_TIME: 'One-time',
-    REPEATABLE: 'Repeatable',
-}
-
-const oneTimeAvailability = 'ONE_TIME' satisfies ChallengeAvailability
-const repeatableAvailability = 'REPEATABLE' satisfies ChallengeAvailability
-
 export function parseChallengeFormValues(
     formData: FormData
 ): ChallengeFormValues {
     return {
-        availability: getChallengeAvailability(formData),
-        category: getOptionalString(formData, 'category'),
-        description: getOptionalString(formData, 'description'),
-        evidencePrompt: getOptionalString(formData, 'evidencePrompt'),
         pointValue: getOptionalDecimal(
             formData,
             'pointValue',
             'invalid-point-value'
         ),
-        requiresReview: getBooleanField(formData, 'requiresReview'),
         title: getRequiredString(formData, 'title', 'missing-title'),
     }
 }
@@ -65,22 +47,6 @@ export function prepareChallengeUpdateValues(
     return formValues
 }
 
-export function getChallengeAvailabilityLabel(
-    availability: ChallengeAvailability
-) {
-    return challengeAvailabilityLabels[availability]
-}
-
-export function getChallengeReviewLabel(requiresReview: boolean) {
-    return requiresReview ? 'Manual review' : 'Auto-approved'
-}
-
-export function describeChallengeReviewRequirement(requiresReview: boolean) {
-    return requiresReview
-        ? 'Submissions stay pending until an administrator approves or rejects them.'
-        : 'Submissions can be credited immediately without an admin review step.'
-}
-
 export function assertChallengeCanDelete(snapshot: ChallengeUsageSnapshot) {
     if (snapshot.campaignChallenges > 0 || snapshot.challengeCompletions > 0) {
         throw new ChallengeAdminError(
@@ -88,23 +54,6 @@ export function assertChallengeCanDelete(snapshot: ChallengeUsageSnapshot) {
             'Challenges linked to campaigns or historical completions cannot be deleted.'
         )
     }
-}
-
-function getChallengeAvailability(formData: FormData) {
-    const value = getOptionalString(formData, 'availability')
-
-    if (!value) {
-        return oneTimeAvailability
-    }
-
-    if (value !== oneTimeAvailability && value !== repeatableAvailability) {
-        throw new ChallengeAdminError(
-            'invalid-availability',
-            'Challenge availability must be one-time or repeatable.'
-        )
-    }
-
-    return value
 }
 
 function getRequiredString(
@@ -154,10 +103,6 @@ function getOptionalDecimal(
     }
 
     return decimalValue
-}
-
-function getBooleanField(formData: FormData, fieldName: string) {
-    return formData.has(fieldName)
 }
 
 function toDecimal(

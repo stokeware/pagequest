@@ -1,125 +1,54 @@
 import Link from 'next/link'
 
-import { Prisma } from '@prisma/client'
-import type { CampaignStatus, CampaignVisibility } from '@prisma/client'
-
 import {
     Button,
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
     EmptyState,
-    FormActions,
-    FormCard,
     FormField,
     Input,
-    StatCard,
-    TableCard,
 } from '@/components/ui'
-import { prisma } from '@/lib/prisma'
+import {
+    formatCampaignDateInput,
+    getAdminCampaignBucket,
+    selectDefaultAdminCampaignId,
+    sortAdminCampaignTabs,
+} from '@/lib/admin-campaign-workbench'
+import { resolveEpicReadPageMultiplier } from '@/lib/campaign-admin'
 import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
+import { prisma } from '@/lib/prisma'
 
 import {
-    buildCampaignScoringPreviewItems,
-    describeCampaignLifecycle,
-    getCampaignStatusLabel,
-    getCampaignVisibilityLabel,
-} from '@/lib/campaign-admin'
-
-import {
-    archiveCampaignAction,
-    assignCampaignChallengeAction,
-    createCampaignAction,
-    duplicateCampaignAction,
-    publishCampaignAction,
+    createCampaignChallengeAction,
+    deleteCampaignChallengeAction,
     updateCampaignAction,
+    updateCampaignChallengeAction,
 } from './actions'
-import { CampaignChallengeAssignmentsPanel } from './campaign-challenge-assignment-panel'
 
 type CampaignsPageProps = {
     searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-type CampaignFormDefaults = {
-    description: string
-    endAt: string
-    entryDeleteWindowMinutes: string
-    entryEditWindowMinutes: string
-    name: string
-    pointsPerAudiobookMinute: string
-    pointsPerBook: string
-    pointsPerChallengeCompletion: string
-    pointsPerPage: string
-    startAt: string
-    timezone: string
-    visibility: 'INVITE_ONLY'
-}
-
-type CampaignLifecycleView = {
-    archivedAt: Date | null
-    endAt: Date
-    publishedAt: Date | null
-    startAt: Date
-    status: CampaignStatus
-    visibility: CampaignVisibility
-}
-
-const selectClassName = [
-    'h-10 w-full rounded-[calc(var(--radius-lg)-2px)] border border-input bg-card/72 px-3 py-2',
-    'text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] outline-none transition-[border-color,background-color,box-shadow]',
-    'focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/50',
-    'disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50',
-].join(' ')
-
-const textareaClassName = [
-    'min-h-28 w-full rounded-[calc(var(--radius-lg)-2px)] border border-input bg-card/72 px-3 py-2',
-    'text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] outline-none transition-[border-color,background-color,box-shadow]',
-    'focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/50',
-    'disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50',
-].join(' ')
-
 const noticeContent = {
-    archived: {
-        description:
-            'The campaign is now preserved as historical context and no longer appears as a live competition surface.',
-        title: 'Campaign archived.',
+    'challenge-created': {
+        title: 'Challenge created.',
         tone: 'success',
     },
-    created: {
-        description:
-            'The campaign record is now available for editing, publication, and future participant setup.',
-        title: 'Campaign created.',
+    'challenge-deleted': {
+        title: 'Challenge deleted.',
         tone: 'success',
     },
-    'challenge-assigned': {
-        description:
-            'The selected catalog challenge is now attached to this campaign with its campaign-specific sort order and optional point override.',
-        title: 'Challenge assigned.',
-        tone: 'success',
-    },
-    duplicated: {
-        description:
-            'A new draft copy was created with the same core configuration but without participants, invitations, or history.',
-        title: 'Campaign duplicated.',
+    'challenge-updated': {
+        title: 'Challenge updated.',
         tone: 'success',
     },
     error: {
-        description:
-            'The campaign change could not be completed. Review the detail below and try again.',
         title: 'Campaign update blocked.',
         tone: 'error',
     },
-    published: {
-        description:
-            'The campaign is now published and its lifecycle status reflects the configured date window.',
-        title: 'Campaign published.',
-        tone: 'success',
-    },
     updated: {
-        description:
-            'The campaign configuration was saved and its stored lifecycle status was recalculated.',
         title: 'Campaign updated.',
         tone: 'success',
     },
@@ -127,41 +56,30 @@ const noticeContent = {
 
 const errorDetailMessages: Record<string, string> = {
     'active-campaign-conflict':
-        'Only one campaign can be active at a time. Archive or let the current live campaign complete before activating another one.',
+        'Only one campaign can be active at a time. Adjust the dates or archive the current live campaign first.',
+    'campaign-not-editable':
+        'Archived campaigns stay visible here but cannot be edited from this screen.',
+    'campaign-not-found': 'That campaign record is no longer available.',
+    'challenge-in-use':
+        'Challenges with historical completions cannot be deleted because scores and reports still reference them.',
     'challenge-not-found': 'That challenge record is no longer available.',
-    'duplicate-campaign-challenge':
-        'That challenge is already attached to this campaign. Adjust its campaign-specific settings from the current assignment list instead of adding it again.',
-    'invalid-challenge-point-override':
-        'Campaign challenge point overrides must be a valid number that is zero or greater, or left blank to use the campaign default.',
-    'invalid-challenge-sort-order':
-        'Campaign challenge sort order must be a whole number that is zero or greater.',
-    'invalid-entry-delete-window':
-        'Entry delete window must be a whole number of minutes or left blank.',
-    'invalid-entry-edit-window':
-        'Entry edit window must be a whole number of minutes or left blank.',
+    'invalid-campaign-window':
+        'Campaign start must be on or before the end date.',
+    'invalid-epic-read-page-multiplier':
+        'Epic read multiplier must be a valid number that is zero or greater.',
+    'invalid-point-value':
+        'Challenge points must be a valid number that is zero or greater, or left blank.',
     'invalid-points-per-audiobook-minute':
         'Audiobook minute scoring must be a valid number that is zero or greater.',
     'invalid-points-per-book':
         'Book scoring must be a valid number that is zero or greater.',
-    'invalid-points-per-challenge-completion':
-        'Challenge completion scoring must be a valid number that is zero or greater.',
     'invalid-points-per-page':
         'Page scoring must be a valid number that is zero or greater.',
-    'invalid-campaign-window':
-        'Campaign start must be on or before the end time.',
-    'invalid-visibility':
-        'Only invite-only campaigns are available in the current MVP.',
-    'missing-end-at': 'Choose an end date and time for the campaign.',
-    'missing-challenge': 'Choose a catalog challenge before adding it.',
-    'missing-name': 'Enter a campaign name before saving.',
-    'missing-campaign': 'Choose a valid campaign before running that action.',
-    'missing-start-at': 'Choose a start date and time for the campaign.',
-    'missing-timezone': 'Enter a timezone for the campaign schedule.',
-    'campaign-already-archived':
-        'Archived campaigns cannot return to a published state from this surface.',
-    'campaign-not-editable':
-        'Archived campaigns are read-only here. Duplicate the campaign to create a new draft.',
-    'campaign-not-found': 'That campaign record is no longer available.',
+    'missing-campaign': 'Choose a valid campaign before saving.',
+    'missing-challenge': 'Choose a valid challenge before running that action.',
+    'missing-end-at': 'Choose an end date for the campaign.',
+    'missing-name': 'Enter a challenge name before saving.',
+    'missing-start-at': 'Choose a start date for the campaign.',
     'unexpected-error':
         'An unexpected error interrupted the campaign action. Check the server logs if this keeps happening.',
 }
@@ -176,36 +94,11 @@ function getFirstSearchParamValue(
     return value ?? null
 }
 
-function formatDateTime(value: Date | null) {
+function formatPoints(value: { toString(): string } | null) {
     if (!value) {
-        return 'Not yet'
+        return ''
     }
 
-    return new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(value)
-}
-
-function formatCampaignWindow(startAt: Date, endAt: Date) {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
-    })
-
-    return `${formatter.format(startAt)} to ${formatter.format(endAt)}`
-}
-
-function formatDateTimeInput(value: Date) {
-    const year = value.getFullYear()
-    const month = `${value.getMonth() + 1}`.padStart(2, '0')
-    const day = `${value.getDate()}`.padStart(2, '0')
-    const hours = `${value.getHours()}`.padStart(2, '0')
-    const minutes = `${value.getMinutes()}`.padStart(2, '0')
-
-    return `${year}-${month}-${day}T${hours}:${minutes}`
-}
-
-function formatPoints(value: { toString(): string }) {
     const numericValue = Number(value.toString())
 
     return Number.isInteger(numericValue)
@@ -213,45 +106,11 @@ function formatPoints(value: { toString(): string }) {
         : numericValue.toFixed(2).replace(/\.00$/, '').replace(/0$/, '')
 }
 
-function getCampaignStatusPillClass(status: CampaignStatus) {
-    const baseClassName =
-        'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]'
-
-    if (status === 'ACTIVE') {
-        return `${baseClassName} bg-[rgba(135,131,85,0.16)] text-[color:var(--dusty-olive)]`
-    }
-
-    if (status === 'ARCHIVED') {
-        return `${baseClassName} bg-[rgba(156,63,43,0.12)] text-[color:var(--destructive)]`
-    }
-
-    if (status === 'COMPLETED') {
-        return `${baseClassName} bg-[rgba(218,165,24,0.18)] text-[color:var(--dusty-olive)]`
-    }
-
-    if (status === 'SCHEDULED') {
-        return `${baseClassName} bg-[rgba(64,105,124,0.12)] text-[color:var(--blue-slate)]`
-    }
-
-    return `${baseClassName} bg-muted text-foreground`
-}
-
-function getVisibilityPillClass(visibility: CampaignVisibility) {
-    const baseClassName =
-        'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]'
-
-    if (visibility === 'INVITE_ONLY') {
-        return `${baseClassName} bg-[rgba(64,105,124,0.12)] text-[color:var(--blue-slate)]`
-    }
-
-    return `${baseClassName} bg-muted text-foreground`
-}
-
 function getNotice(
     outcome: string | null,
     detail: string | null
 ): {
-    description: string
+    description?: string
     title: string
     tone: 'error' | 'success'
 } | null {
@@ -268,499 +127,492 @@ function getNotice(
     return {
         ...content,
         description: detail
-            ? (errorDetailMessages[detail] ?? content.description)
-            : content.description,
+            ? (errorDetailMessages[detail] ??
+              'Review the values and try again.')
+            : 'Review the values and try again.',
     }
 }
 
-function getCampaignFormDefaults(
-    campaign?: {
-        description: string | null
-        endAt: Date
-        entryDeleteWindowMinutes: number | null
-        entryEditWindowMinutes: number | null
-        name: string
-        pointsPerAudiobookMinute: { toString(): string }
-        pointsPerBook: { toString(): string }
-        pointsPerChallengeCompletion: { toString(): string }
-        pointsPerPage: { toString(): string }
-        startAt: Date
-        timezone: string
-        visibility: 'INVITE_ONLY'
-    } | null
-): CampaignFormDefaults {
-    if (!campaign) {
-        return {
-            description: '',
-            endAt: '',
-            entryDeleteWindowMinutes: '',
-            entryEditWindowMinutes: '',
-            name: '',
-            pointsPerAudiobookMinute: '0.75',
-            pointsPerBook: '1',
-            pointsPerChallengeCompletion: '1',
-            pointsPerPage: '1',
-            startAt: '',
-            timezone: 'America/Chicago',
-            visibility: 'INVITE_ONLY',
-        }
+function getBucketLabel(bucket: ReturnType<typeof getAdminCampaignBucket>) {
+    if (bucket === 'current') {
+        return 'Current'
     }
 
-    return {
-        description: campaign.description ?? '',
-        endAt: formatDateTimeInput(campaign.endAt),
-        entryDeleteWindowMinutes:
-            campaign.entryDeleteWindowMinutes?.toString() ?? '',
-        entryEditWindowMinutes:
-            campaign.entryEditWindowMinutes?.toString() ?? '',
-        name: campaign.name,
-        pointsPerAudiobookMinute: campaign.pointsPerAudiobookMinute.toString(),
-        pointsPerBook: campaign.pointsPerBook.toString(),
-        pointsPerChallengeCompletion:
-            campaign.pointsPerChallengeCompletion.toString(),
-        pointsPerPage: campaign.pointsPerPage.toString(),
-        startAt: formatDateTimeInput(campaign.startAt),
-        timezone: campaign.timezone,
-        visibility: campaign.visibility,
-    }
-}
-
-function formatLifecycleDescription(lifecycle: CampaignLifecycleView) {
-    let description = describeCampaignLifecycle(lifecycle)
-        .replaceAll(
-            lifecycle.startAt.toISOString(),
-            formatDateTime(lifecycle.startAt)
-        )
-        .replaceAll(
-            lifecycle.endAt.toISOString(),
-            formatDateTime(lifecycle.endAt)
-        )
-
-    if (lifecycle.archivedAt) {
-        description = description.replaceAll(
-            lifecycle.archivedAt.toISOString(),
-            formatDateTime(lifecycle.archivedAt)
-        )
+    if (bucket === 'future') {
+        return 'Future'
     }
 
-    return description
+    return 'Past'
 }
 
-function CampaignLifecyclePanel({
-    lifecycle,
-    campaignId,
-}: {
-    lifecycle: CampaignLifecycleView
-    campaignId?: string
-}) {
-    const statusLabel = getCampaignStatusLabel(lifecycle.status)
-    const visibilityLabel = getCampaignVisibilityLabel(lifecycle.visibility)
-    const lifecycleDescription = formatLifecycleDescription(lifecycle)
-
-    return (
-        <Card className='surface-card'>
-            <CardHeader>
-                <CardTitle>Lifecycle and access</CardTitle>
-                <CardDescription>
-                    Status is derived from publication and archive events plus
-                    the configured campaign dates. Visibility defines who can
-                    join.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className='grid gap-4'>
-                <div className='flex flex-wrap gap-3'>
-                    <span
-                        className={getCampaignStatusPillClass(lifecycle.status)}
-                    >
-                        {statusLabel}
-                    </span>
-                    <span
-                        className={getVisibilityPillClass(lifecycle.visibility)}
-                    >
-                        {visibilityLabel}
-                    </span>
-                </div>
-
-                <div className='grid gap-3 md:grid-cols-2'>
-                    <div className='stack-sm'>
-                        <p className='type-muted text-xs'>Current status</p>
-                        <strong>{statusLabel}</strong>
-                        <p className='type-muted text-xs'>
-                            {lifecycleDescription}
-                        </p>
-                    </div>
-                    <div className='stack-sm'>
-                        <p className='type-muted text-xs'>Visibility</p>
-                        <strong>{visibilityLabel}</strong>
-                        <p className='type-muted text-xs'>
-                            Invite-only campaigns require the invitation flow
-                            before a competitor can join.
-                        </p>
-                    </div>
-                </div>
-
-                <div className='grid gap-3 md:grid-cols-2'>
-                    <div className='stack-sm'>
-                        <p className='type-muted text-xs'>Published at</p>
-                        <strong>{formatDateTime(lifecycle.publishedAt)}</strong>
-                    </div>
-                    <div className='stack-sm'>
-                        <p className='type-muted text-xs'>Archived at</p>
-                        <strong>{formatDateTime(lifecycle.archivedAt)}</strong>
-                    </div>
-                </div>
-
-                {campaignId ? (
-                    <div className='flex flex-wrap gap-2'>
-                        {!lifecycle.archivedAt && !lifecycle.publishedAt ? (
-                            <form action={publishCampaignAction}>
-                                <input
-                                    type='hidden'
-                                    name='campaignId'
-                                    value={campaignId}
-                                />
-                                <Button nativeButton type='submit' size='sm'>
-                                    Publish from configuration
-                                </Button>
-                            </form>
-                        ) : null}
-
-                        {!lifecycle.archivedAt ? (
-                            <form action={archiveCampaignAction}>
-                                <input
-                                    type='hidden'
-                                    name='campaignId'
-                                    value={campaignId}
-                                />
-                                <Button
-                                    nativeButton
-                                    type='submit'
-                                    size='sm'
-                                    variant='destructive'
-                                >
-                                    Archive from configuration
-                                </Button>
-                            </form>
-                        ) : null}
-                    </div>
-                ) : (
-                    <p className='type-muted text-xs'>
-                        New campaigns begin as draft and stay invite-only until
-                        you create the record and publish it.
-                    </p>
-                )}
-            </CardContent>
-        </Card>
-    )
+function getNoticeClassName(tone: 'error' | 'success') {
+    return tone === 'error'
+        ? 'border-destructive/30 bg-destructive/8 text-foreground'
+        : 'border-[rgba(135,131,85,0.28)] bg-[rgba(135,131,85,0.12)] text-foreground'
 }
 
-function CampaignScoringPanel({
-    scoringRules,
-}: {
-    scoringRules: Pick<
-        CampaignFormDefaults,
-        | 'pointsPerAudiobookMinute'
-        | 'pointsPerBook'
-        | 'pointsPerChallengeCompletion'
-        | 'pointsPerPage'
-    >
-}) {
-    const previewItems = buildCampaignScoringPreviewItems({
-        pointsPerAudiobookMinute: new Prisma.Decimal(
-            scoringRules.pointsPerAudiobookMinute
-        ),
-        pointsPerBook: new Prisma.Decimal(scoringRules.pointsPerBook),
-        pointsPerChallengeCompletion: new Prisma.Decimal(
-            scoringRules.pointsPerChallengeCompletion
-        ),
-        pointsPerPage: new Prisma.Decimal(scoringRules.pointsPerPage),
+function getTabClassName(isSelected: boolean) {
+    return isSelected
+        ? 'border-[color:var(--spicy-paprika)] bg-[rgba(202,89,47,0.12)] text-foreground shadow-[0_0.75rem_1.6rem_rgba(202,89,47,0.12)]'
+        : 'border-border bg-card/72 text-muted-foreground hover:border-[rgba(64,105,124,0.28)] hover:text-foreground'
+}
+
+async function loadCampaigns() {
+    await synchronizeDerivedCampaignStatuses()
+
+    const campaigns = await prisma.campaign.findMany({
+        select: {
+            archivedAt: true,
+            campaignChallenges: {
+                orderBy: [
+                    {
+                        sortOrder: 'asc',
+                    },
+                    {
+                        createdAt: 'asc',
+                    },
+                ],
+                select: {
+                    challenge: {
+                        select: {
+                            id: true,
+                            pointValue: true,
+                            title: true,
+                        },
+                    },
+                    id: true,
+                    sortOrder: true,
+                },
+            },
+            challengeCategoryBonuses: true,
+            endAt: true,
+            id: true,
+            name: true,
+            pointsPerAudiobookMinute: true,
+            pointsPerBook: true,
+            pointsPerChallengeCompletion: true,
+            pointsPerPage: true,
+            publishedAt: true,
+            startAt: true,
+            status: true,
+            timezone: true,
+            visibility: true,
+        },
+        orderBy: [
+            {
+                startAt: 'asc',
+            },
+        ],
     })
 
+    return sortAdminCampaignTabs(campaigns)
+}
+
+function CampaignTabs({
+    campaigns,
+    selectedCampaignId,
+}: {
+    campaigns: Awaited<ReturnType<typeof loadCampaigns>>
+    selectedCampaignId: string
+}) {
     return (
-        <Card className='surface-card'>
-            <CardHeader>
-                <CardTitle>Scoring rules</CardTitle>
-                <CardDescription>
-                    Configure how the campaign awards points for books, pages,
-                    audiobook minutes, and challenge completions.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className='grid gap-4'>
-                <div className='grid gap-3 md:grid-cols-2'>
-                    {previewItems.map((item) => (
-                        <div
-                            key={item.title}
-                            className='rounded-[calc(var(--radius-lg)-2px)] border border-(--line-strong) bg-card/72 p-3'
-                        >
-                            <p className='type-muted text-xs'>{item.title}</p>
-                            <strong>{formatPoints(item.points)} points</strong>
-                            <p className='type-muted text-xs'>
-                                {item.description}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-                <p className='type-muted text-xs'>
-                    Use zero to keep an entry type available without awarding
-                    points yet. Negative scoring is blocked to keep campaign
-                    totals predictable.
-                </p>
-            </CardContent>
-        </Card>
+        <div className='flex flex-wrap gap-2'>
+            {campaigns.map((campaign) => {
+                const bucket = getAdminCampaignBucket(campaign)
+
+                return (
+                    <Button
+                        key={campaign.id}
+                        variant='outline'
+                        className={`h-auto min-h-14 justify-start px-4 py-3 text-left ${getTabClassName(
+                            campaign.id === selectedCampaignId
+                        )}`}
+                        render={
+                            <Link
+                                href={`/admin/campaigns?selectedCampaignId=${campaign.id}`}
+                            />
+                        }
+                    >
+                        <span className='flex flex-col items-start gap-1'>
+                            <span className='text-xs uppercase tracking-[0.16em] text-muted-foreground'>
+                                {getBucketLabel(bucket)}
+                            </span>
+                            <span>{campaign.name}</span>
+                        </span>
+                    </Button>
+                )
+            })}
+        </div>
     )
 }
 
-function CampaignForm({
-    action,
-    defaultValues,
-    lifecycle,
-    note,
-    campaignId,
-    submitLabel,
-    title,
+function CampaignSettingsForm({
+    campaign,
 }: {
-    action: (formData: FormData) => Promise<void>
-    defaultValues: CampaignFormDefaults
-    lifecycle: CampaignLifecycleView
-    note: string
-    campaignId?: string
-    submitLabel: string
-    title: string
+    campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
 }) {
+    const epicReadPageMultiplier = resolveEpicReadPageMultiplier(
+        campaign.challengeCategoryBonuses
+    )
+
     return (
-        <FormCard
-            title={title}
-            description='Dates, scoring, and entry windows can be tuned here before or after publication.'
-        >
-            <form action={action} className='ui-form-shell'>
-                {campaignId ? (
-                    <input type='hidden' name='campaignId' value={campaignId} />
-                ) : null}
-
-                <FormField
-                    label='Campaign name'
-                    htmlFor={`${campaignId ?? 'new'}-name`}
-                    hint='Use a clear seasonal or thematic name that reads well in invitations and standings.'
-                >
-                    <Input
-                        id={`${campaignId ?? 'new'}-name`}
-                        name='name'
-                        defaultValue={defaultValues.name}
-                        placeholder='Summer Reading Rally'
+        <Card className='surface-card'>
+            <CardContent className='pt-6'>
+                <form action={updateCampaignAction} className='ui-form-shell'>
+                    <input
+                        type='hidden'
+                        name='campaignId'
+                        value={campaign.id}
                     />
-                </FormField>
-
-                <FormField
-                    label='Description'
-                    htmlFor={`${campaignId ?? 'new'}-description`}
-                    hint='Optional context for admins and future competitor-facing surfaces.'
-                >
-                    <textarea
-                        id={`${campaignId ?? 'new'}-description`}
-                        name='description'
-                        defaultValue={defaultValues.description}
-                        className={textareaClassName}
-                        placeholder='A short summary of the campaign theme, audience, or pacing.'
+                    <input
+                        type='hidden'
+                        name='pointsPerChallengeCompletion'
+                        value={formatPoints(
+                            campaign.pointsPerChallengeCompletion
+                        )}
                     />
-                </FormField>
+                    <input
+                        type='hidden'
+                        name='timezone'
+                        value={campaign.timezone}
+                    />
+                    <input
+                        type='hidden'
+                        name='visibility'
+                        value={campaign.visibility}
+                    />
 
-                <div className='grid gap-4 md:grid-cols-2'>
-                    <FormField
-                        label='Start at'
-                        htmlFor={`${campaignId ?? 'new'}-startAt`}
-                        hint='Publication status and the date window together determine draft, scheduled, active, or completed states.'
-                    >
-                        <Input
-                            id={`${campaignId ?? 'new'}-startAt`}
-                            name='startAt'
-                            type='datetime-local'
-                            defaultValue={defaultValues.startAt}
-                        />
-                    </FormField>
-
-                    <FormField
-                        label='End at'
-                        htmlFor={`${campaignId ?? 'new'}-endAt`}
-                        hint='Use the same timezone reference you plan to communicate to participants.'
-                    >
-                        <Input
-                            id={`${campaignId ?? 'new'}-endAt`}
-                            name='endAt'
-                            type='datetime-local'
-                            defaultValue={defaultValues.endAt}
-                        />
-                    </FormField>
-                </div>
-
-                <div className='grid gap-4 md:grid-cols-2'>
-                    <FormField
-                        label='Timezone'
-                        htmlFor={`${campaignId ?? 'new'}-timezone`}
-                        hint='Store the IANA timezone that should anchor the campaign schedule.'
-                    >
-                        <Input
-                            id={`${campaignId ?? 'new'}-timezone`}
-                            name='timezone'
-                            defaultValue={defaultValues.timezone}
-                            placeholder='America/Chicago'
-                        />
-                    </FormField>
-
-                    <FormField
-                        label='Visibility'
-                        htmlFor={`${campaignId ?? 'new'}-visibility`}
-                        hint='This is explicit configuration even though the MVP currently supports only one visibility mode.'
-                    >
-                        <select
-                            id={`${campaignId ?? 'new'}-visibility`}
-                            name='visibility'
-                            className={selectClassName}
-                            defaultValue={defaultValues.visibility}
+                    <div className='grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_minmax(0,1fr)]'>
+                        <FormField
+                            label='Campaign name'
+                            htmlFor={`${campaign.id}-name`}
                         >
-                            <option value='INVITE_ONLY'>Invite only</option>
-                        </select>
-                    </FormField>
+                            <Input
+                                id={`${campaign.id}-name`}
+                                name='name'
+                                defaultValue={campaign.name}
+                            />
+                        </FormField>
 
-                    <FormField
-                        label='Status'
-                        htmlFor={`${campaignId ?? 'new'}-status`}
-                        hint='Status is calculated from publish and archive events plus the campaign dates, so it is informative rather than directly editable.'
-                    >
-                        <div
-                            id={`${campaignId ?? 'new'}-status`}
-                            className='flex min-h-10 items-center rounded-[calc(var(--radius-lg)-2px)] border border-input bg-card/72 px-3 py-2'
+                        <FormField
+                            label='Start date'
+                            htmlFor={`${campaign.id}-startAt`}
                         >
-                            <span
-                                className={getCampaignStatusPillClass(
-                                    lifecycle.status
+                            <Input
+                                id={`${campaign.id}-startAt`}
+                                name='startAt'
+                                type='date'
+                                defaultValue={formatCampaignDateInput(
+                                    campaign.startAt
                                 )}
-                            >
-                                {getCampaignStatusLabel(lifecycle.status)}
-                            </span>
-                        </div>
-                    </FormField>
-                </div>
+                            />
+                        </FormField>
 
-                <div className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-(--line-strong) bg-card/50 p-4'>
-                    <div className='stack-sm'>
-                        <h3 className='text-sm font-semibold'>
-                            Scoring configuration
-                        </h3>
-                        <p className='type-muted text-xs'>
-                            These stored rule values drive the leaderboard and
-                            progress totals once reading entries and challenge
-                            completions are logged.
-                        </p>
+                        <FormField
+                            label='End date'
+                            htmlFor={`${campaign.id}-endAt`}
+                        >
+                            <Input
+                                id={`${campaign.id}-endAt`}
+                                name='endAt'
+                                type='date'
+                                defaultValue={formatCampaignDateInput(
+                                    campaign.endAt
+                                )}
+                            />
+                        </FormField>
                     </div>
 
                     <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
                         <FormField
-                            label='Points per book'
-                            htmlFor={`${campaignId ?? 'new'}-pointsPerBook`}
-                            hint='Applied to each completed book entry.'
-                        >
-                            <Input
-                                id={`${campaignId ?? 'new'}-pointsPerBook`}
-                                name='pointsPerBook'
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                defaultValue={defaultValues.pointsPerBook}
-                            />
-                        </FormField>
-
-                        <FormField
                             label='Points per page'
-                            htmlFor={`${campaignId ?? 'new'}-pointsPerPage`}
-                            hint='Applied to each logged page.'
+                            htmlFor={`${campaign.id}-pointsPerPage`}
                         >
                             <Input
-                                id={`${campaignId ?? 'new'}-pointsPerPage`}
+                                id={`${campaign.id}-pointsPerPage`}
                                 name='pointsPerPage'
                                 type='number'
                                 min='0'
                                 step='0.01'
-                                defaultValue={defaultValues.pointsPerPage}
+                                defaultValue={formatPoints(
+                                    campaign.pointsPerPage
+                                )}
                             />
                         </FormField>
 
                         <FormField
-                            label='Points per audiobook minute'
-                            htmlFor={`${campaignId ?? 'new'}-pointsPerAudiobookMinute`}
-                            hint='Applied to every minute logged.'
+                            label='Points per minute listened'
+                            htmlFor={`${campaign.id}-pointsPerAudiobookMinute`}
                         >
                             <Input
-                                id={`${campaignId ?? 'new'}-pointsPerAudiobookMinute`}
+                                id={`${campaign.id}-pointsPerAudiobookMinute`}
                                 name='pointsPerAudiobookMinute'
                                 type='number'
                                 min='0'
                                 step='0.01'
-                                defaultValue={
-                                    defaultValues.pointsPerAudiobookMinute
-                                }
+                                defaultValue={formatPoints(
+                                    campaign.pointsPerAudiobookMinute
+                                )}
                             />
                         </FormField>
 
                         <FormField
-                            label='Points per challenge'
-                            htmlFor={`${campaignId ?? 'new'}-pointsPerChallengeCompletion`}
-                            hint='Default points for a completed challenge.'
+                            label='Points per completed book'
+                            htmlFor={`${campaign.id}-pointsPerBook`}
                         >
                             <Input
-                                id={`${campaignId ?? 'new'}-pointsPerChallengeCompletion`}
-                                name='pointsPerChallengeCompletion'
+                                id={`${campaign.id}-pointsPerBook`}
+                                name='pointsPerBook'
+                                type='number'
+                                min='0'
+                                step='0.01'
+                                defaultValue={formatPoints(
+                                    campaign.pointsPerBook
+                                )}
+                            />
+                        </FormField>
+
+                        <FormField
+                            label='Epic read page multiplier'
+                            htmlFor={`${campaign.id}-epicReadPageMultiplier`}
+                        >
+                            <Input
+                                id={`${campaign.id}-epicReadPageMultiplier`}
+                                name='epicReadPageMultiplier'
                                 type='number'
                                 min='0'
                                 step='0.01'
                                 defaultValue={
-                                    defaultValues.pointsPerChallengeCompletion
+                                    epicReadPageMultiplier?.toString() ?? ''
                                 }
+                                placeholder='1'
                             />
                         </FormField>
                     </div>
+
+                    <div className='flex justify-end'>
+                        <Button nativeButton type='submit'>
+                            Save changes
+                        </Button>
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
+    )
+}
+
+function CampaignChallengesTable({
+    campaign,
+}: {
+    campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
+}) {
+    return (
+        <Card className='surface-card'>
+            <CardHeader>
+                <CardTitle>Challenges</CardTitle>
+            </CardHeader>
+            <CardContent className='space-y-4'>
+                <div
+                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto]'
+                    role='row'
+                >
+                    <div role='columnheader'>Challenge name</div>
+                    <div role='columnheader'>Points</div>
+                    <div role='columnheader'>Actions</div>
                 </div>
 
-                <div className='grid gap-4 md:grid-cols-2'>
-                    <FormField
-                        label='Entry edit window (minutes)'
-                        htmlFor={`${campaignId ?? 'new'}-entryEditWindowMinutes`}
-                        hint='Leave blank to keep edits open until the tighter phase-7 rules land.'
+                {campaign.campaignChallenges.length > 0 ? (
+                    <div
+                        className='space-y-4'
+                        role='table'
+                        aria-label='Campaign challenges'
                     >
-                        <Input
-                            id={`${campaignId ?? 'new'}-entryEditWindowMinutes`}
-                            name='entryEditWindowMinutes'
-                            type='number'
-                            min='0'
-                            step='1'
-                            defaultValue={defaultValues.entryEditWindowMinutes}
-                        />
-                    </FormField>
+                        {campaign.campaignChallenges.map((assignment) => {
+                            return (
+                                <form
+                                    key={assignment.id}
+                                    action={updateCampaignChallengeAction}
+                                    className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto] lg:items-center'
+                                    role='row'
+                                >
+                                    <input
+                                        type='hidden'
+                                        name='campaignId'
+                                        value={campaign.id}
+                                    />
+                                    <input
+                                        type='hidden'
+                                        name='challengeId'
+                                        value={assignment.challenge.id}
+                                    />
+                                    <input
+                                        type='hidden'
+                                        name='campaignChallengeId'
+                                        value={assignment.id}
+                                    />
 
-                    <FormField
-                        label='Entry delete window (minutes)'
-                        htmlFor={`${campaignId ?? 'new'}-entryDeleteWindowMinutes`}
-                        hint='Leave blank to defer hard delete-window rules until entry logging is active.'
+                                    <div role='cell'>
+                                        <label
+                                            htmlFor={`${assignment.id}-title`}
+                                            className='sr-only'
+                                        >
+                                            Challenge name
+                                        </label>
+                                        <Input
+                                            id={`${assignment.id}-title`}
+                                            name='title'
+                                            defaultValue={
+                                                assignment.challenge.title
+                                            }
+                                        />
+                                    </div>
+
+                                    <div role='cell'>
+                                        <label
+                                            htmlFor={`${assignment.id}-pointValue`}
+                                            className='sr-only'
+                                        >
+                                            Challenge points
+                                        </label>
+                                        <Input
+                                            id={`${assignment.id}-pointValue`}
+                                            name='pointValue'
+                                            type='number'
+                                            min='0'
+                                            step='0.01'
+                                            defaultValue={formatPoints(
+                                                assignment.challenge.pointValue
+                                            )}
+                                            placeholder='Campaign default'
+                                        />
+                                    </div>
+
+                                    <div
+                                        role='cell'
+                                        className='flex items-start gap-2 lg:justify-end'
+                                    >
+                                        <Button nativeButton type='submit'>
+                                            Save
+                                        </Button>
+
+                                        <Button
+                                            nativeButton
+                                            type='submit'
+                                            formAction={
+                                                deleteCampaignChallengeAction
+                                            }
+                                            variant='destructive'
+                                        >
+                                            Delete
+                                        </Button>
+                                    </div>
+                                </form>
+                            )
+                        })}
+
+                        <form
+                            action={createCampaignChallengeAction}
+                            className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto] lg:items-center'
+                            role='row'
+                        >
+                            <input
+                                type='hidden'
+                                name='campaignId'
+                                value={campaign.id}
+                            />
+
+                            <div role='cell'>
+                                <label
+                                    htmlFor={`${campaign.id}-new-title`}
+                                    className='sr-only'
+                                >
+                                    New challenge name
+                                </label>
+                                <Input
+                                    id={`${campaign.id}-new-title`}
+                                    name='title'
+                                    placeholder='New challenge'
+                                />
+                            </div>
+
+                            <div role='cell'>
+                                <label
+                                    htmlFor={`${campaign.id}-new-pointValue`}
+                                    className='sr-only'
+                                >
+                                    New challenge points
+                                </label>
+                                <Input
+                                    id={`${campaign.id}-new-pointValue`}
+                                    name='pointValue'
+                                    type='number'
+                                    min='0'
+                                    step='0.01'
+                                    placeholder='Points'
+                                />
+                            </div>
+
+                            <div
+                                role='cell'
+                                className='flex items-start lg:justify-end'
+                            >
+                                <Button nativeButton type='submit'>
+                                    Create challenge
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                ) : (
+                    <form
+                        action={createCampaignChallengeAction}
+                        className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(7rem,0.5fr)_auto] lg:items-center'
                     >
-                        <Input
-                            id={`${campaignId ?? 'new'}-entryDeleteWindowMinutes`}
-                            name='entryDeleteWindowMinutes'
-                            type='number'
-                            min='0'
-                            step='1'
-                            defaultValue={
-                                defaultValues.entryDeleteWindowMinutes
-                            }
+                        <input
+                            type='hidden'
+                            name='campaignId'
+                            value={campaign.id}
                         />
-                    </FormField>
-                </div>
 
-                <FormActions note={note}>
-                    <Button nativeButton type='submit'>
-                        {submitLabel}
-                    </Button>
-                </FormActions>
-            </form>
-        </FormCard>
+                        <div>
+                            <label
+                                htmlFor={`${campaign.id}-empty-new-title`}
+                                className='sr-only'
+                            >
+                                New challenge name
+                            </label>
+                            <Input
+                                id={`${campaign.id}-empty-new-title`}
+                                name='title'
+                                placeholder='New challenge'
+                            />
+                        </div>
+
+                        <div>
+                            <label
+                                htmlFor={`${campaign.id}-empty-new-pointValue`}
+                                className='sr-only'
+                            >
+                                New challenge points
+                            </label>
+                            <Input
+                                id={`${campaign.id}-empty-new-pointValue`}
+                                name='pointValue'
+                                type='number'
+                                min='0'
+                                step='0.01'
+                                placeholder='Points'
+                            />
+                        </div>
+
+                        <div className='flex items-start lg:justify-end'>
+                            <Button nativeButton type='submit'>
+                                Create challenge
+                            </Button>
+                        </div>
+                    </form>
+                )}
+            </CardContent>
+        </Card>
     )
 }
 
@@ -770,402 +622,51 @@ export default async function AdminCampaignsPage({
     const resolvedSearchParams = searchParams ? await searchParams : {}
     const outcome = getFirstSearchParamValue(resolvedSearchParams.outcome)
     const detail = getFirstSearchParamValue(resolvedSearchParams.detail)
-    const selectedCampaignId = getFirstSearchParamValue(
+    const requestedCampaignId = getFirstSearchParamValue(
         resolvedSearchParams.selectedCampaignId
     )
     const notice = getNotice(outcome, detail)
-    await synchronizeDerivedCampaignStatuses()
-    const [campaigns, challenges] = await Promise.all([
-        prisma.campaign.findMany({
-            include: {
-                _count: {
-                    select: {
-                        invitations: true,
-                        participants: true,
-                        campaignChallenges: true,
-                    },
-                },
-                campaignChallenges: {
-                    include: {
-                        challenge: {
-                            select: {
-                                availability: true,
-                                category: true,
-                                requiresReview: true,
-                                title: true,
-                            },
-                        },
-                    },
-                    orderBy: [
-                        {
-                            sortOrder: 'asc',
-                        },
-                        {
-                            createdAt: 'asc',
-                        },
-                    ],
-                },
-            },
-            orderBy: [
-                {
-                    createdAt: 'desc',
-                },
-            ],
-        }),
-        prisma.challenge.findMany({
-            orderBy: [
-                {
-                    title: 'asc',
-                },
-            ],
-            select: {
-                id: true,
-                title: true,
-            },
-        }),
-    ])
+    const campaigns = await loadCampaigns()
 
-    const selectedQuest =
+    if (campaigns.length === 0) {
+        return (
+            <EmptyState
+                title='No campaigns are available.'
+                description='Create a campaign record first, then return here to manage dates, scoring, and challenges inline.'
+            />
+        )
+    }
+
+    const selectedCampaignId =
+        campaigns.find((campaign) => campaign.id === requestedCampaignId)?.id ??
+        selectDefaultAdminCampaignId(campaigns) ??
+        campaigns[0].id
+    const selectedCampaign =
         campaigns.find((campaign) => campaign.id === selectedCampaignId) ??
-        campaigns.find((campaign) => !campaign.archivedAt) ??
-        campaigns[0] ??
-        null
-
-    const totalCount = campaigns.length
-    const draftCount = campaigns.filter(
-        (campaign) => campaign.status === 'DRAFT'
-    ).length
-    const publishedCount = campaigns.filter(
-        (campaign) => campaign.publishedAt
-    ).length
-    const archivedCount = campaigns.filter(
-        (campaign) => campaign.status === 'ARCHIVED'
-    ).length
-
-    const rows = campaigns.map((campaign) => {
-        const canArchive = !campaign.archivedAt
-        const canPublish = !campaign.archivedAt && !campaign.publishedAt
-
-        return {
-            cells: [
-                <div key='campaign' className='stack-sm'>
-                    <strong>{campaign.name}</strong>
-                    <p className='type-muted text-xs'>
-                        {campaign.description || 'No campaign description yet.'}
-                    </p>
-                </div>,
-                <div key='window' className='stack-sm'>
-                    <strong>
-                        {formatCampaignWindow(campaign.startAt, campaign.endAt)}
-                    </strong>
-                    <p className='type-muted text-xs'>
-                        Timezone: {campaign.timezone}
-                    </p>
-                </div>,
-                <div key='status' className='stack-sm'>
-                    <span
-                        className={getCampaignStatusPillClass(campaign.status)}
-                    >
-                        {getCampaignStatusLabel(campaign.status)}
-                    </span>
-                    <p className='type-muted text-xs'>
-                        Published {formatDateTime(campaign.publishedAt)}
-                    </p>
-                    <p className='type-muted text-xs'>
-                        Archived {formatDateTime(campaign.archivedAt)}
-                    </p>
-                </div>,
-                <div key='rules' className='stack-sm'>
-                    <p className='type-muted text-xs'>
-                        Book {campaign.pointsPerBook.toString()} | Page{' '}
-                        {campaign.pointsPerPage.toString()}
-                    </p>
-                    <p className='type-muted text-xs'>
-                        Audio {campaign.pointsPerAudiobookMinute.toString()} |
-                        Challenge{' '}
-                        {campaign.pointsPerChallengeCompletion.toString()}
-                    </p>
-                    <p className='type-muted text-xs'>
-                        {campaign._count.participants} participants |{' '}
-                        {campaign._count.invitations} invitations |{' '}
-                        {campaign._count.campaignChallenges} challenges
-                    </p>
-                </div>,
-                <div key='actions' className='flex flex-wrap gap-2'>
-                    <Button
-                        size='sm'
-                        variant='outline'
-                        render={
-                            <Link
-                                href={`/admin/campaigns?selectedCampaignId=${campaign.id}`}
-                            />
-                        }
-                    >
-                        Edit
-                    </Button>
-
-                    <form action={duplicateCampaignAction}>
-                        <input
-                            type='hidden'
-                            name='campaignId'
-                            value={campaign.id}
-                        />
-                        <Button
-                            nativeButton
-                            type='submit'
-                            size='sm'
-                            variant='secondary'
-                        >
-                            Duplicate
-                        </Button>
-                    </form>
-
-                    {canPublish ? (
-                        <form action={publishCampaignAction}>
-                            <input
-                                type='hidden'
-                                name='campaignId'
-                                value={campaign.id}
-                            />
-                            <Button nativeButton type='submit' size='sm'>
-                                Publish
-                            </Button>
-                        </form>
-                    ) : null}
-
-                    {canArchive ? (
-                        <form action={archiveCampaignAction}>
-                            <input
-                                type='hidden'
-                                name='campaignId'
-                                value={campaign.id}
-                            />
-                            <Button
-                                nativeButton
-                                type='submit'
-                                size='sm'
-                                variant='destructive'
-                            >
-                                Archive
-                            </Button>
-                        </form>
-                    ) : null}
-
-                    {!canPublish && !canArchive ? (
-                        <p className='type-muted text-xs'>
-                            Lifecycle settled for this campaign.
-                        </p>
-                    ) : null}
-                </div>,
-            ],
-            key: campaign.id,
-        }
-    })
+        campaigns[0]
 
     return (
-        <div className='grid gap-6'>
+        <div className='space-y-6'>
             {notice ? (
-                <Card
-                    className={
-                        notice.tone === 'success'
-                            ? 'surface-tint'
-                            : 'surface-warm'
-                    }
+                <div
+                    className={`rounded-[calc(var(--radius-xl)-4px)] border px-4 py-3 ${getNoticeClassName(
+                        notice.tone
+                    )}`}
                 >
-                    <CardHeader>
-                        <CardTitle>{notice.title}</CardTitle>
-                        <CardDescription>{notice.description}</CardDescription>
-                    </CardHeader>
-                </Card>
+                    <p className='text-sm font-semibold'>{notice.title}</p>
+                    {notice.description ? (
+                        <p className='text-sm'>{notice.description}</p>
+                    ) : null}
+                </div>
             ) : null}
 
-            <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-                <StatCard
-                    eyebrow='Campaign roster'
-                    title='Tracked campaigns'
-                    value={totalCount}
-                    description='Every draft, published, and archived campaign configuration lives here.'
-                />
-                <StatCard
-                    eyebrow='Needs configuration'
-                    title='Draft campaigns'
-                    value={draftCount}
-                    description='Drafts can still change freely before they enter a published lifecycle state.'
-                />
-                <StatCard
-                    eyebrow='Publication surface'
-                    title='Published campaigns'
-                    value={publishedCount}
-                    description='Published campaigns derive scheduled, active, or completed states from their dates.'
-                />
-                <StatCard
-                    eyebrow='Historical archive'
-                    title='Archived campaigns'
-                    value={archivedCount}
-                    description='Archived campaigns remain visible for reporting, duplication, and historical context.'
-                />
-            </div>
+            <CampaignTabs
+                campaigns={campaigns}
+                selectedCampaignId={selectedCampaign.id}
+            />
 
-            <div className='grid gap-6 xl:grid-cols-2'>
-                <div className='grid gap-6'>
-                    <CampaignScoringPanel
-                        scoringRules={getCampaignFormDefaults()}
-                    />
-                    <CampaignForm
-                        action={createCampaignAction}
-                        defaultValues={getCampaignFormDefaults()}
-                        lifecycle={{
-                            archivedAt: null,
-                            endAt: new Date(),
-                            publishedAt: null,
-                            startAt: new Date(),
-                            status: 'DRAFT',
-                            visibility: 'INVITE_ONLY',
-                        }}
-                        note='Create stores the campaign immediately as a draft. Publish and archive controls appear in the table once the campaign exists.'
-                        submitLabel='Create campaign'
-                        title='Create a campaign'
-                    />
-                </div>
-
-                {selectedQuest ? (
-                    selectedQuest.archivedAt ? (
-                        <div className='grid gap-6'>
-                            <CampaignLifecyclePanel
-                                lifecycle={selectedQuest}
-                                campaignId={selectedQuest.id}
-                            />
-                            <CampaignScoringPanel
-                                scoringRules={getCampaignFormDefaults(
-                                    selectedQuest
-                                )}
-                            />
-                            <Card className='surface-warm'>
-                                <CardHeader>
-                                    <CardTitle>
-                                        {selectedQuest.name} is archived
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Archived campaigns stay read-only in
-                                        this editor. Duplicate this record to
-                                        spin up a fresh draft with the same
-                                        configuration.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className='grid gap-3'>
-                                    <p className='type-muted'>
-                                        Published{' '}
-                                        {formatDateTime(
-                                            selectedQuest.publishedAt
-                                        )}
-                                    </p>
-                                    <p className='type-muted'>
-                                        Archived{' '}
-                                        {formatDateTime(
-                                            selectedQuest.archivedAt
-                                        )}
-                                    </p>
-                                    <CampaignChallengeAssignmentsPanel
-                                        action={assignCampaignChallengeAction}
-                                        availableChallenges={challenges.filter(
-                                            (challenge) =>
-                                                !selectedQuest.campaignChallenges.some(
-                                                    (assignment) =>
-                                                        assignment.challengeId ===
-                                                        challenge.id
-                                                )
-                                        )}
-                                        assignments={
-                                            selectedQuest.campaignChallenges
-                                        }
-                                        canEdit={false}
-                                        campaignId={selectedQuest.id}
-                                    />
-                                    <form action={duplicateCampaignAction}>
-                                        <input
-                                            type='hidden'
-                                            name='campaignId'
-                                            value={selectedQuest.id}
-                                        />
-                                        <Button
-                                            nativeButton
-                                            type='submit'
-                                            variant='secondary'
-                                        >
-                                            Duplicate archived campaign
-                                        </Button>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    ) : (
-                        <div className='grid gap-6'>
-                            <CampaignLifecyclePanel
-                                lifecycle={selectedQuest}
-                                campaignId={selectedQuest.id}
-                            />
-                            <CampaignScoringPanel
-                                scoringRules={getCampaignFormDefaults(
-                                    selectedQuest
-                                )}
-                            />
-                            <CampaignForm
-                                action={updateCampaignAction}
-                                defaultValues={getCampaignFormDefaults(
-                                    selectedQuest
-                                )}
-                                lifecycle={selectedQuest}
-                                note='Edits recalculate the stored lifecycle status while preserving publication history.'
-                                campaignId={selectedQuest.id}
-                                submitLabel='Save campaign changes'
-                                title={`Edit ${selectedQuest.name}`}
-                            />
-                            <CampaignChallengeAssignmentsPanel
-                                action={assignCampaignChallengeAction}
-                                availableChallenges={challenges.filter(
-                                    (challenge) =>
-                                        !selectedQuest.campaignChallenges.some(
-                                            (assignment) =>
-                                                assignment.challengeId ===
-                                                challenge.id
-                                        )
-                                )}
-                                assignments={selectedQuest.campaignChallenges}
-                                canEdit={true}
-                                campaignId={selectedQuest.id}
-                            />
-                        </div>
-                    )
-                ) : (
-                    <EmptyState
-                        eyebrow='Campaign editor'
-                        title='No campaign has been selected yet.'
-                        description='Create the first campaign to unlock edit, publish, archive, and duplicate controls.'
-                    />
-                )}
-            </div>
-
-            {rows.length > 0 ? (
-                <TableCard
-                    title='Campaign management'
-                    description='This admin table supports listing, editing, publishing, archiving, and duplicating campaign records without touching participant history.'
-                    columns={[
-                        'Campaign',
-                        'Window',
-                        'Status',
-                        'Rules',
-                        'Actions',
-                    ]}
-                    rows={rows}
-                    ariaLabel='Campaign management table'
-                />
-            ) : (
-                <EmptyState
-                    eyebrow='Campaign history'
-                    title='No campaigns have been created yet.'
-                    description='Use the create form to add the first campaign. Publish, archive, and duplicate controls will appear as soon as there is at least one record.'
-                />
-            )}
+            <CampaignSettingsForm campaign={selectedCampaign} />
+            <CampaignChallengesTable campaign={selectedCampaign} />
         </div>
     )
 }

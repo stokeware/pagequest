@@ -1,7 +1,5 @@
 import Link from 'next/link'
 
-import type { ChallengeAvailability } from '@prisma/client'
-
 import {
     Button,
     Card,
@@ -22,10 +20,6 @@ import {
     getChallengeReviewStateLabel,
     resolveChallengeCompletionDefaultPoints,
 } from '@/lib/challenge-review'
-import {
-    getChallengeAvailabilityLabel,
-    getChallengeReviewLabel,
-} from '@/lib/challenge-admin'
 import { prisma } from '@/lib/prisma'
 
 import {
@@ -88,8 +82,6 @@ const errorDetailMessages: Record<string, string> = {
         'That submission has already been reviewed, so it is no longer available in the pending queue.',
     'invalid-awarded-points':
         'Awarded points must be a valid number that is zero or greater, or left blank to use the default challenge scoring.',
-    'invalid-availability':
-        'Choose whether the challenge can be completed once or repeated.',
     'invalid-point-value':
         'Point rule must be a valid number that is zero or greater, or left blank to use campaign defaults.',
     'invalid-review-decision':
@@ -122,28 +114,6 @@ function formatPoints(value: { toString(): string } | null) {
     return Number.isInteger(numericValue)
         ? numericValue.toString()
         : numericValue.toFixed(2).replace(/\.00$/, '').replace(/0$/, '')
-}
-
-function getAvailabilityPillClass(availability: ChallengeAvailability) {
-    const baseClassName =
-        'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]'
-
-    if (availability === 'REPEATABLE') {
-        return `${baseClassName} bg-[rgba(64,105,124,0.12)] text-[color:var(--blue-slate)]`
-    }
-
-    return `${baseClassName} bg-muted text-foreground`
-}
-
-function getReviewPillClass(requiresReview: boolean) {
-    const baseClassName =
-        'inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]'
-
-    if (requiresReview) {
-        return `${baseClassName} bg-[rgba(218,165,24,0.18)] text-[color:var(--dusty-olive)]`
-    }
-
-    return `${baseClassName} bg-[rgba(135,131,85,0.16)] text-[color:var(--dusty-olive)]`
 }
 
 function getNotice(
@@ -300,12 +270,6 @@ export default async function AdminChallengesPage({
         null
 
     const totalCount = challenges.length
-    const repeatableCount = challenges.filter(
-        (challenge) => challenge.availability === 'REPEATABLE'
-    ).length
-    const reviewCount = challenges.filter(
-        (challenge) => challenge.requiresReview
-    ).length
     const assignedCount = challenges.filter(
         (challenge) => challenge._count.campaignChallenges > 0
     ).length
@@ -382,42 +346,13 @@ export default async function AdminChallengesPage({
             cells: [
                 <div key='challenge' className='stack-sm'>
                     <strong>{challenge.title}</strong>
-                    <p className='type-muted text-xs'>
-                        {challenge.description ||
-                            'No challenge description yet.'}
-                    </p>
                 </div>,
                 <div key='details' className='stack-sm'>
-                    <p className='type-muted text-xs'>
-                        Category: {challenge.category || 'Uncategorized'}
-                    </p>
-                    <p className='type-muted text-xs'>
-                        Evidence: {challenge.evidencePrompt || 'No prompt set'}
-                    </p>
-                </div>,
-                <div key='rules' className='stack-sm'>
-                    <div className='flex flex-wrap gap-2'>
-                        <span
-                            className={getAvailabilityPillClass(
-                                challenge.availability
-                            )}
-                        >
-                            {getChallengeAvailabilityLabel(
-                                challenge.availability
-                            )}
-                        </span>
-                        <span
-                            className={getReviewPillClass(
-                                challenge.requiresReview
-                            )}
-                        >
-                            {getChallengeReviewLabel(challenge.requiresReview)}
-                        </span>
-                    </div>
                     <p className='type-muted text-xs'>
                         Point rule: {formatPoints(challenge.pointValue)}
                     </p>
                 </div>,
+                <div key='rules' className='stack-sm' />,
                 <div key='usage' className='stack-sm'>
                     <p className='type-muted text-xs'>
                         {challenge._count.campaignChallenges} campaign
@@ -495,18 +430,6 @@ export default async function AdminChallengesPage({
                     description='Every reusable challenge definition lives here before campaign assignment.'
                 />
                 <StatCard
-                    eyebrow='Flexible repeats'
-                    title='Repeatable'
-                    value={repeatableCount}
-                    description='These challenges can be credited more than once for the same participant.'
-                />
-                <StatCard
-                    eyebrow='Moderation load'
-                    title='Needs review'
-                    value={reviewCount}
-                    description='These catalog entries will queue for admin approval once completions are wired.'
-                />
-                <StatCard
                     eyebrow='Campaign usage'
                     title='Assigned'
                     value={assignedCount}
@@ -582,13 +505,7 @@ export default async function AdminChallengesPage({
                 <TableCard
                     title='Challenge catalog'
                     description='The catalog stays reusable across campaigns, with delete reserved for definitions that are still unused.'
-                    columns={[
-                        'Challenge',
-                        'Category and evidence',
-                        'Rules',
-                        'Usage',
-                        'Actions',
-                    ]}
+                    columns={['Challenge', 'Points', '', 'Usage', 'Actions']}
                     rows={rows}
                     ariaLabel='Challenge catalog table'
                 />

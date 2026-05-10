@@ -163,7 +163,7 @@ export function SignInForm({
                     />
                 ) : null}
 
-                <FormActions note='This local mode keeps Auth.js active without requiring a hosted identity tenant during routine development.'>
+                <FormActions>
                     <Button type='submit' disabled={!isHydrated || isPending}>
                         {isPending
                             ? 'Signing in...'
