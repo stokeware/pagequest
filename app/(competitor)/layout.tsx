@@ -16,7 +16,7 @@ const competitorNavItems: ShellNavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: 'book-marked' },
     {
         href: '/log-progress',
-        label: 'Log progress',
+        label: 'Campaign',
         icon: 'clipboard-pen-line',
     },
     { href: '/leaderboard', label: 'Leaderboard', icon: 'trophy' },

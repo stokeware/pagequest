@@ -7,6 +7,11 @@ import {
     LogProgressScreen,
     type LogProgressViewModel,
 } from './log-progress-screen'
+import {
+    campaignWorkspaceAuditAction,
+    emptyCampaignWorkspaceState,
+    parseCampaignWorkspaceState,
+} from './workspace-state'
 
 const loggableCampaignStatuses: CampaignStatus[] = [
     'ACTIVE',
@@ -15,19 +20,15 @@ const loggableCampaignStatuses: CampaignStatus[] = [
 ]
 
 const defaultViewModel: LogProgressViewModel = {
-    challengeOptions: [],
-    hasLiveQuest: false,
-    participantSummary:
-        'No active campaign participation is linked to this account yet. This screen is ready for reading entries once a campaign is available.',
+    campaignDateRange: null,
     campaignParticipantId: null,
-    campaignPolicy: null,
+    campaignChallenges: [],
     campaignName: 'Campaign assignment pending',
-    scoringSummary: {
-        audiobookMinutes: '0.75 points per minute',
-        bookCompletion: '1 point per book',
-        challengeCompletion: '1 point per completion',
-        pagesRead: '1 point per page',
+    progressScoring: {
+        pointsPerMinute: 0.75,
+        pointsPerPage: 1,
     },
+    workspaceState: emptyCampaignWorkspaceState,
 }
 
 async function getLogProgressViewModel(
@@ -43,17 +44,40 @@ async function getLogProgressViewModel(
         },
         select: {
             id: true,
+            auditLogs: {
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                select: {
+                    metadata: true,
+                },
+                take: 1,
+                where: {
+                    action: campaignWorkspaceAuditAction,
+                },
+            },
+            challengeCompletions: {
+                select: {
+                    campaignChallengeId: true,
+                },
+                where: {
+                    readingEntry: {
+                        deletedAt: null,
+                    },
+                    reviewState: {
+                        in: ['APPROVED', 'AUTO_APPROVED'],
+                    },
+                },
+            },
             campaign: {
                 select: {
-                    entryDeleteWindowMinutes: true,
-                    entryEditWindowMinutes: true,
                     endAt: true,
                     name: true,
                     pointsPerAudiobookMinute: true,
-                    pointsPerBook: true,
                     pointsPerChallengeCompletion: true,
                     pointsPerPage: true,
                     startAt: true,
+                    timezone: true,
                     campaignChallenges: {
                         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
                         select: {
@@ -73,7 +97,6 @@ async function getLogProgressViewModel(
                         },
                     },
                     status: true,
-                    timezone: true,
                 },
             },
         },
@@ -91,17 +114,51 @@ async function getLogProgressViewModel(
 
     const participant =
         participants.find((entry) => entry.campaign.status === 'ACTIVE') ??
-        participants[0] ??
+        participants
+            .filter((entry) => entry.campaign.status === 'SCHEDULED')
+            .sort(
+                (left, right) =>
+                    left.campaign.startAt.getTime() -
+                    right.campaign.startAt.getTime()
+            )[0] ??
+        participants
+            .filter((entry) => entry.campaign.status === 'COMPLETED')
+            .sort(
+                (left, right) =>
+                    right.campaign.endAt.getTime() -
+                    left.campaign.endAt.getTime()
+            )[0] ??
         null
 
     if (!participant) {
         return defaultViewModel
     }
 
+    const achievedChallengeIds = new Set(
+        participant.challengeCompletions.flatMap((completion) =>
+            completion.campaignChallengeId
+                ? [completion.campaignChallengeId]
+                : []
+        )
+    )
+
     return {
-        challengeOptions: participant.campaign.campaignChallenges.map(
+        campaignDateRange: formatCampaignDateRange(
+            participant.campaign.startAt,
+            participant.campaign.endAt,
+            participant.campaign.timezone
+        ),
+        campaignChallenges: participant.campaign.campaignChallenges.map(
             ({ challenge, id, pointValueOverride }) => ({
+                achieved: achievedChallengeIds.has(id),
                 id,
+                pointValue: Number(
+                    (
+                        pointValueOverride ??
+                        challenge.pointValue ??
+                        participant.campaign.pointsPerChallengeCompletion
+                    ).toString()
+                ),
                 pointsLabel: `${(
                     pointValueOverride ??
                     challenge.pointValue ??
@@ -110,27 +167,19 @@ async function getLogProgressViewModel(
                 title: challenge.title,
             })
         ),
-        hasLiveQuest: participant.campaign.status === 'ACTIVE',
-        participantSummary:
-            participant.campaign.status === 'ACTIVE'
-                ? 'Your current campaign is live, so this form is ready for book, page, audio, and challenge entries.'
-                : 'Your most recent campaign context is loaded here while active campaign logging is still pending for this account.',
         campaignParticipantId: participant.id,
-        campaignPolicy: {
-            entryDeleteWindowMinutes:
-                participant.campaign.entryDeleteWindowMinutes,
-            entryEditWindowMinutes: participant.campaign.entryEditWindowMinutes,
-            campaignEndAt: participant.campaign.endAt.toISOString(),
-            campaignStartAt: participant.campaign.startAt.toISOString(),
-            timezone: participant.campaign.timezone,
-        },
         campaignName: participant.campaign.name,
-        scoringSummary: {
-            audiobookMinutes: `${participant.campaign.pointsPerAudiobookMinute.toString()} points per minute`,
-            bookCompletion: `${participant.campaign.pointsPerBook.toString()} points per book`,
-            challengeCompletion: `${participant.campaign.pointsPerChallengeCompletion.toString()} points per completion`,
-            pagesRead: `${participant.campaign.pointsPerPage.toString()} points per page`,
+        progressScoring: {
+            pointsPerMinute: Number(
+                participant.campaign.pointsPerAudiobookMinute.toString()
+            ),
+            pointsPerPage: Number(
+                participant.campaign.pointsPerPage.toString()
+            ),
         },
+        workspaceState: parseCampaignWorkspaceState(
+            participant.auditLogs[0]?.metadata
+        ),
     }
 }
 
@@ -139,4 +188,14 @@ export default async function LogProgressPage() {
     const viewModel = await getLogProgressViewModel(viewer.userId)
 
     return <LogProgressScreen {...viewModel} />
+}
+
+function formatCampaignDateRange(startAt: Date, endAt: Date, timezone: string) {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        day: 'numeric',
+        month: 'long',
+        timeZone: timezone,
+    })
+
+    return `${formatter.format(startAt)} - ${formatter.format(endAt)}`
 }

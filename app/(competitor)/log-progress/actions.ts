@@ -10,15 +10,37 @@ import {
 } from '@/lib/log-progress-service'
 import { prisma } from '@/lib/prisma'
 
+import {
+    campaignWorkspaceAuditAction,
+    parseCampaignWorkspaceState,
+    type CampaignWorkspaceState,
+} from './workspace-state'
+
 type SubmitLogProgressInput = {
     campaignParticipantId: string | null
     values: LogProgressFormValues
 }
 
-type SubmitLogProgressResult =
+type SubmitLogProgressResult = {
+    message: string
+    outcome: 'success'
+}
+
+export type SaveCampaignWorkspaceInput = {
+    campaignParticipantId: string | null
+    workspaceState: CampaignWorkspaceState
+}
+
+type SaveCampaignWorkspaceResult =
     | {
           message: string
           outcome: 'success'
+          workspaceState: CampaignWorkspaceState
+      }
+    | {
+          detail: string
+          message: string
+          outcome: 'error'
       }
     | {
           detail: string
@@ -66,6 +88,87 @@ export async function submitLogProgressAction(
             message: resolveLogProgressErrorMessage(error),
             outcome: 'error',
         }
+    }
+}
+
+export async function saveCampaignWorkspaceAction(
+    input: SaveCampaignWorkspaceInput
+): Promise<SaveCampaignWorkspaceResult> {
+    const actor = await requireAuthenticatedActionUser('COMPETITOR')
+
+    if (!input.campaignParticipantId) {
+        return {
+            detail: 'missing-campaign-participant',
+            message:
+                'A campaign profile is required before you can save campaign workspace changes.',
+            outcome: 'error',
+        }
+    }
+
+    const participant = await prisma.campaignParticipant.findUnique({
+        select: {
+            campaignId: true,
+            id: true,
+            removedAt: true,
+            userId: true,
+        },
+        where: {
+            id: input.campaignParticipantId,
+        },
+    })
+
+    if (!participant) {
+        return {
+            detail: 'participant-not-found',
+            message: 'That campaign workspace is no longer available.',
+            outcome: 'error',
+        }
+    }
+
+    if (participant.removedAt) {
+        return {
+            detail: 'participant-removed',
+            message: 'This campaign participation is no longer active.',
+            outcome: 'error',
+        }
+    }
+
+    if (participant.userId !== actor.id) {
+        return {
+            detail: 'participant-access-denied',
+            message: 'You can only save your own campaign workspace.',
+            outcome: 'error',
+        }
+    }
+
+    const parsedWorkspaceState = parseCampaignWorkspaceState(
+        input.workspaceState
+    )
+    const workspaceState = {
+        ...parsedWorkspaceState,
+        progressRows: parsedWorkspaceState.progressRows.filter(
+            (row) => row.bookName.length > 0
+        ),
+    }
+
+    await prisma.auditLog.create({
+        data: {
+            action: campaignWorkspaceAuditAction,
+            actorUserId: actor.id,
+            campaignId: participant.campaignId,
+            campaignParticipantId: participant.id,
+            entityId: participant.id,
+            entityType: 'CampaignParticipant',
+            metadata: workspaceState,
+        },
+    })
+
+    revalidatePath('/log-progress')
+
+    return {
+        message: 'Campaign changes saved.',
+        outcome: 'success',
+        workspaceState,
     }
 }
 
