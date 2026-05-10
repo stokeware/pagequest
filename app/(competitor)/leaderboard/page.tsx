@@ -1,15 +1,6 @@
 import Link from 'next/link'
 
-import {
-    Button,
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    EmptyState,
-    StatCard,
-} from '@/components/ui'
+import { Button, Card, CardContent, EmptyState } from '@/components/ui'
 import {
     defaultCompetitorLeaderboardViewModel,
     getCompetitorLeaderboardViewModel,
@@ -47,57 +38,19 @@ export default async function LeaderboardPage() {
 
     return (
         <div className='auth-page-stack'>
-            <Card className='surface-card'>
-                <CardHeader>
-                    <CardTitle>{viewModel.campaignName}</CardTitle>
-                    <CardDescription>
-                        {viewModel.campaignStatusLabel}.{' '}
-                        {viewModel.campaignDescription}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className='auth-inline-actions'>
-                    <Button render={<Link href='/dashboard' />}>
-                        Return to dashboard
-                    </Button>
-                    <Button variant='outline' render={<Link href='/history' />}>
-                        Open my history
-                    </Button>
-                </CardContent>
-            </Card>
-
-            <div className='auth-card-grid'>
-                {viewModel.highlights.map((item) => (
-                    <StatCard
-                        key={item.label}
-                        eyebrow='Leaderboard snapshot'
-                        title={item.label}
-                        value={item.value}
-                        description={item.detail}
-                    />
-                ))}
-            </div>
-
             <Card className='surface-warm'>
-                <CardHeader>
-                    <CardTitle>Standings</CardTitle>
-                    <CardDescription>
-                        Points lead each row. Raw totals stay visible beside the
-                        scored order so households can see how each reader is
-                        building that score.
-                    </CardDescription>
-                </CardHeader>
                 <CardContent className='space-y-3'>
-                    <div className='hidden rounded-2xl bg-muted/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground md:grid md:grid-cols-[4.5rem_minmax(0,1.5fr)_9rem]'>
+                    <div className='hidden rounded-2xl bg-muted/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground md:grid md:grid-cols-[4rem_minmax(0,1.5fr)_7.5rem] md:gap-3'>
                         <span>Rank</span>
                         <span>Reader</span>
-                        <span>Points</span>
+                        <span className='text-center'>Points</span>
                     </div>
 
                     {viewModel.rows.map((row) => (
                         <Link
                             key={row.participantId}
                             href={row.participantHref}
-                            className='grid gap-3 rounded-3xl border border-border/70 bg-background/75 px-4 py-4 shadow-sm transition-colors hover:border-primary/40 hover:bg-background md:grid-cols-[4.5rem_minmax(0,1.5fr)_9rem] md:items-start'
+                            className='grid gap-3 rounded-3xl border border-border/70 bg-background/75 px-4 py-4 shadow-sm transition-colors hover:border-primary/40 hover:bg-background md:grid-cols-[4rem_minmax(0,1.5fr)_7.5rem] md:items-start'
                             aria-label={`Open details for ${row.readerLabel}`}
                         >
                             <div className='text-sm font-semibold text-muted-foreground'>
@@ -116,12 +69,6 @@ export default async function LeaderboardPage() {
                                 </div>
                                 <p className='text-sm text-muted-foreground'>
                                     {row.metricsLabel}
-                                </p>
-                                <p className='text-sm text-muted-foreground'>
-                                    {row.activityLabel}
-                                </p>
-                                <p className='text-sm font-medium text-primary'>
-                                    Open participant details
                                 </p>
                             </div>
                             <div className='text-left md:text-right'>

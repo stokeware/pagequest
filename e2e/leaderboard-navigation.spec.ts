@@ -91,14 +91,6 @@ test.describe('leaderboard navigation and refresh', () => {
             page.getByText('Ben Sparrow', { exact: true })
         ).toBeVisible()
         await expect(page.getByText(`Note: ${notes}`)).toBeVisible()
-
-        await page.getByRole('button', { name: 'Open my history' }).click()
-
-        await expect(page).toHaveURL(/\/history/)
-        await expect(
-            page.getByRole('main').getByText('My history', { exact: true })
-        ).toBeVisible()
-        await expect(page.getByText(`Note: ${notes}`)).toBeVisible()
     })
 })
 

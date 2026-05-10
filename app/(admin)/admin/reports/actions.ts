@@ -54,7 +54,6 @@ function finishAction({
 }): never {
     revalidatePath(adminReportsPath)
     revalidatePath('/dashboard')
-    revalidatePath('/history')
     revalidatePath('/leaderboard')
     revalidatePath('/log-progress')
 

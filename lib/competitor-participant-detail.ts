@@ -13,7 +13,7 @@ import {
     pluralize,
     type CompetitorHistoryItem,
     type CompetitorHistoryEntryRecord,
-} from '@/lib/competitor-history'
+} from '@/lib/competitor-history-format'
 import {
     getCompetitorCampaignContext,
     getParticipantReadingEntries,
