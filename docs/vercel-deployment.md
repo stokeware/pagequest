@@ -576,6 +576,117 @@ If it fails because an environment variable is missing, check that both
 
 ## Step 7: Trigger The First Production Deployment
 
+Before you sign in to the live admin area, provision at least one administrator
+record in Neon.
+
+### 6.3 Provision the first administrator account
+
+The hosted site uses Auth0 for sign-in, so this step creates the Page Quest
+user record and `ADMIN` role in Neon only.
+
+The CLI still prompts for `password` and `repeat password` so you can confirm
+the credential you intend to set in Auth0, but Page Quest does not store that
+password in Neon.
+
+The command now also requires a second secret, `PAGEQUEST_ADMIN_BOOTSTRAP_SECRET`,
+before it will touch a hosted database target. Keep that secret outside the
+repository and outside Vercel runtime env vars. Treat it like a break-glass
+operator secret stored in your password manager.
+
+What this secret is for:
+
+- It is a local operator authorization secret for `./scripts/create-admin`.
+- Neon does not read it.
+- Vercel does not need it.
+- Auth0 does not read it.
+
+Where to store it:
+
+- Store it in your password manager or another operator-only secret store.
+- Do not add it as a Neon project environment variable or Neon secret.
+- Do not add it as a Vercel environment variable.
+- Do not put it in `.env`, `.env.local`, or `.env.example`.
+
+Generate it once with a long random value, for example:
+
+```bash
+openssl rand -base64 48
+```
+
+Save that generated value in your password manager with a label such as
+`Page Quest admin bootstrap secret`.
+
+When you need to run the script locally, export it only for the current shell
+session and remove it again when you are done.
+
+Example using a one-off shell export:
+
+```bash
+export PAGEQUEST_ADMIN_BOOTSTRAP_SECRET='paste-the-break-glass-secret-here'
+```
+
+If you want to avoid putting the secret directly into shell history, you can
+load it with a silent prompt first:
+
+```bash
+read -rsp 'Bootstrap secret env value: ' PAGEQUEST_ADMIN_BOOTSTRAP_SECRET
+echo
+export PAGEQUEST_ADMIN_BOOTSTRAP_SECRET
+```
+
+From the repository root on your machine:
+
+```bash
+export DIRECT_URL='postgresql://USER:PASSWORD@HOSTNAME/pagequest?sslmode=require&channel_binding=require'
+export PAGEQUEST_ADMIN_BOOTSTRAP_SECRET='paste-the-break-glass-secret-here'
+./scripts/create-admin
+```
+
+Or use the package script alias:
+
+```bash
+export DIRECT_URL='postgresql://USER:PASSWORD@HOSTNAME/pagequest?sslmode=require&channel_binding=require'
+export PAGEQUEST_ADMIN_BOOTSTRAP_SECRET='paste-the-break-glass-secret-here'
+pnpm db:create-admin
+```
+
+The script prompts for:
+
+- your name
+- your email address
+- a password
+- the repeated password
+- the bootstrap secret again for interactive confirmation
+
+When it succeeds, it creates or updates the user row and ensures the `ADMIN`
+role assignment exists.
+
+Important operator note:
+
+- Export `DIRECT_URL` in the shell for this one-off command instead of replacing
+  your local `.env` values. The repo's shell wrappers preserve explicit exports
+  over `.env` and `.env.local`, so this is the safest way to target the hosted
+  Neon database without repointing local development at production.
+- Keep `PAGEQUEST_ADMIN_BOOTSTRAP_SECRET` in a password manager or other secret
+  store outside this repository. Do not commit it, do not put it in
+  `.env.example`, and do not expose it to the public deployment runtime.
+- Do not store `PAGEQUEST_ADMIN_BOOTSTRAP_SECRET` in Neon. Neon is only where
+  you get `DIRECT_URL`; the bootstrap secret is checked locally by the script
+  before it opens the hosted database connection.
+- Do not keep `PAGEQUEST_ADMIN_BOOTSTRAP_SECRET` in your local `.env` or
+  `.env.local`. Export it only for the current shell session, run the command,
+  then remove it.
+- After the command finishes, clear the shell variable:
+
+```bash
+unset PAGEQUEST_ADMIN_BOOTSTRAP_SECRET
+```
+
+- If either the direct Neon connection string or the bootstrap secret is ever
+  exposed, rotate both before using this flow again.
+- After the script finishes, create or rotate the user's password in Auth0 so
+  the hosted login can succeed with the same email address.
+
 ### 7.1 Start the deploy
 
 If the project has already been imported, do this in Vercel:
@@ -815,11 +926,13 @@ Use this checklist when you are ready to go live:
 9. Vercel build command is `pnpm build:vercel`.
 10. All required production environment variables are set in Vercel.
 11. `pnpm db:migrate:deploy` has been run successfully against Neon.
-12. The production deployment succeeds.
-13. `pagequest.ing` has been purchased in Vercel.
-14. `pagequest.ing` is attached to the project and has SSL.
-15. `APP_URL` and `NEXTAUTH_URL` now point to `https://pagequest.ing`.
-16. Hosted sign-in, invitation email delivery, and invitation acceptance all
+12. At least one administrator record has been provisioned in Neon.
+13. The matching login identity exists in Auth0.
+14. The production deployment succeeds.
+15. `pagequest.ing` has been purchased in Vercel.
+16. `pagequest.ing` is attached to the project and has SSL.
+17. `APP_URL` and `NEXTAUTH_URL` now point to `https://pagequest.ing`.
+18. Hosted sign-in, invitation email delivery, and invitation acceptance all
     work on the live site.
 
 ## Troubleshooting
