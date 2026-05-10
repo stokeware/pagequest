@@ -20,18 +20,26 @@ import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
 import { prisma } from '@/lib/prisma'
 
 import {
-    createCampaignChallengeAction,
+    createCampaignAction,
+    deleteCampaignAction,
     deleteCampaignChallengeAction,
+    saveCampaignChallengesAction,
     updateCampaignAction,
-    updateCampaignChallengeAction,
-    updateCompetitorChallengeAction,
+    updateCompetitorChallengesAction,
 } from './actions'
+import { ConfirmSubmitButton } from './confirm-submit-button'
+import { DismissibleNotice } from './dismissible-notice'
+import { DirtyFormActions } from './dirty-submit-button'
 
 type CampaignsPageProps = {
     searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 const noticeContent = {
+    created: {
+        title: 'Campaign created.',
+        tone: 'success',
+    },
     'challenge-created': {
         title: 'Challenge created.',
         tone: 'success',
@@ -42,6 +50,10 @@ const noticeContent = {
     },
     'challenge-updated': {
         title: 'Challenge updated.',
+        tone: 'success',
+    },
+    deleted: {
+        title: 'Campaign deleted.',
         tone: 'success',
     },
     error: {
@@ -67,6 +79,8 @@ const errorDetailMessages: Record<string, string> = {
         'Campaign start must be on or before the end date.',
     'invalid-page-minute-multiplier':
         'Challenge multipliers must be valid numbers that are zero or greater.',
+    'invalid-points-per-challenge-completion':
+        'Challenge completion scoring must be a valid number that is zero or greater.',
     'invalid-point-value':
         'Challenge points must be a valid number that is zero or greater, or left blank.',
     'invalid-points-per-audiobook-minute':
@@ -80,8 +94,49 @@ const errorDetailMessages: Record<string, string> = {
     'missing-end-at': 'Choose an end date for the campaign.',
     'missing-name': 'Enter a challenge name before saving.',
     'missing-start-at': 'Choose a start date for the campaign.',
+    'missing-timezone': 'Choose a timezone for the campaign before saving.',
     'unexpected-error':
         'An unexpected error interrupted the campaign action. Check the server logs if this keeps happening.',
+}
+
+type CampaignSummary = Awaited<ReturnType<typeof loadCampaigns>>[number]
+
+function addDays(date: Date, days: number) {
+    const nextDate = new Date(date)
+    nextDate.setUTCDate(nextDate.getUTCDate() + days)
+
+    return nextDate
+}
+
+function buildNewCampaignDefaults(baseCampaign?: CampaignSummary) {
+    const today = new Date()
+    const startAt = new Date(
+        Date.UTC(
+            today.getUTCFullYear(),
+            today.getUTCMonth(),
+            today.getUTCDate(),
+            12,
+            0,
+            0,
+            0
+        )
+    )
+
+    return {
+        endAt: addDays(startAt, 30),
+        name: 'New',
+        pointsPerAudiobookMinute:
+            formatPoints(baseCampaign?.pointsPerAudiobookMinute ?? null) ||
+            '0.75',
+        pointsPerBook: formatPoints(baseCampaign?.pointsPerBook ?? null) || '1',
+        pointsPerChallengeCompletion:
+            formatPoints(baseCampaign?.pointsPerChallengeCompletion ?? null) ||
+            '1',
+        pointsPerPage: formatPoints(baseCampaign?.pointsPerPage ?? null) || '1',
+        startAt,
+        timezone: baseCampaign?.timezone ?? 'America/Chicago',
+        visibility: baseCampaign?.visibility ?? 'INVITE_ONLY',
+    }
 }
 
 function getFirstSearchParamValue(
@@ -145,12 +200,6 @@ function getBucketLabel(bucket: ReturnType<typeof getAdminCampaignBucket>) {
     return 'Past'
 }
 
-function getNoticeClassName(tone: 'error' | 'success') {
-    return tone === 'error'
-        ? 'border-destructive/30 bg-destructive/8 text-foreground'
-        : 'border-[rgba(135,131,85,0.28)] bg-[rgba(135,131,85,0.12)] text-foreground'
-}
-
 function getTabClassName(isSelected: boolean) {
     return isSelected
         ? 'border-[color:var(--spicy-paprika)] bg-[rgba(202,89,47,0.12)] text-foreground shadow-[0_0.75rem_1.6rem_rgba(202,89,47,0.12)]'
@@ -204,7 +253,7 @@ function CampaignTabs({
     campaigns,
     selectedCampaignId,
 }: {
-    campaigns: Awaited<ReturnType<typeof loadCampaigns>>
+    campaigns: CampaignSummary[]
     selectedCampaignId: string
 }) {
     return (
@@ -238,15 +287,83 @@ function CampaignTabs({
     )
 }
 
-function CampaignSettingsForm({
-    campaign,
+function NewCampaignButton({
+    baseCampaign,
 }: {
-    campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
+    baseCampaign?: CampaignSummary
 }) {
+    const defaults = buildNewCampaignDefaults(baseCampaign)
+
     return (
-        <Card className='surface-card'>
+        <form action={createCampaignAction} className='sm:ml-auto'>
+            <input type='hidden' name='name' value={defaults.name} />
+            <input
+                type='hidden'
+                name='startAt'
+                value={formatCampaignDateInput(defaults.startAt)}
+            />
+            <input
+                type='hidden'
+                name='endAt'
+                value={formatCampaignDateInput(defaults.endAt)}
+            />
+            <input
+                type='hidden'
+                name='pointsPerPage'
+                value={defaults.pointsPerPage}
+            />
+            <input
+                type='hidden'
+                name='pointsPerAudiobookMinute'
+                value={defaults.pointsPerAudiobookMinute}
+            />
+            <input
+                type='hidden'
+                name='pointsPerBook'
+                value={defaults.pointsPerBook}
+            />
+            <input
+                type='hidden'
+                name='pointsPerChallengeCompletion'
+                value={defaults.pointsPerChallengeCompletion}
+            />
+            <input type='hidden' name='timezone' value={defaults.timezone} />
+            <input
+                type='hidden'
+                name='visibility'
+                value={defaults.visibility}
+            />
+
+            <Button
+                nativeButton
+                type='submit'
+                variant='outline'
+                className={`h-auto min-h-14 min-w-48 justify-start px-4 py-3 text-left ${getTabClassName(
+                    false
+                )}`}
+            >
+                <span className='flex flex-col items-start gap-1'>
+                    <span className='text-xs uppercase tracking-[0.16em] text-muted-foreground'>
+                        New
+                    </span>
+                    <span>Create new campaign</span>
+                </span>
+            </Button>
+        </form>
+    )
+}
+
+function CampaignSettingsForm({ campaign }: { campaign: CampaignSummary }) {
+    const formId = `${campaign.id}-settings-form`
+
+    return (
+        <Card key={campaign.id} className='surface-card'>
             <CardContent className='pt-6'>
-                <form action={updateCampaignAction} className='ui-form-shell'>
+                <form
+                    id={formId}
+                    action={updateCampaignAction}
+                    className='ui-form-shell'
+                >
                     <input
                         type='hidden'
                         name='campaignId'
@@ -361,11 +478,10 @@ function CampaignSettingsForm({
                         </FormField>
                     </div>
 
-                    <div className='flex justify-end'>
-                        <Button nativeButton type='submit'>
-                            Save changes
-                        </Button>
-                    </div>
+                    <DirtyFormActions
+                        formId={formId}
+                        pendingLabel='Saving changes...'
+                    />
                 </form>
             </CardContent>
         </Card>
@@ -375,7 +491,7 @@ function CampaignSettingsForm({
 function CompetitorChallengesTable({
     campaign,
 }: {
-    campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
+    campaign: CampaignSummary
 }) {
     const recommendationChallenge = campaign.challenges.find(
         (challenge) => challenge.kind === 'RECOMMENDATION_TEMPLATE'
@@ -387,15 +503,19 @@ function CompetitorChallengesTable({
     const templateRows = [
         {
             challenge: recommendationChallenge,
+            fieldPrefix: 'recommendation',
             kind: 'RECOMMENDATION_TEMPLATE' as const,
             label: 'Recommendation',
         },
         {
             challenge: personalGoalChallenge,
+            fieldPrefix: 'personalGoal',
             kind: 'PERSONAL_GOAL_TEMPLATE' as const,
             label: 'Personal Goal',
         },
     ]
+
+    const formId = `${campaign.id}-competitor-challenges-form`
 
     return (
         <Card className='surface-card'>
@@ -403,100 +523,110 @@ function CompetitorChallengesTable({
                 <CardTitle>Competitor Challenges</CardTitle>
             </CardHeader>
             <CardContent className='space-y-4'>
-                <div
-                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto]'
-                    role='row'
+                <form
+                    id={formId}
+                    action={updateCompetitorChallengesAction}
+                    className='space-y-4'
                 >
-                    <div role='columnheader'>Challenge</div>
-                    <div role='columnheader'>Points</div>
-                    <div role='columnheader'>Multiplier</div>
-                    <div role='columnheader'>Actions</div>
-                </div>
+                    <input
+                        type='hidden'
+                        name='campaignId'
+                        value={campaign.id}
+                    />
 
-                {templateRows.map(({ challenge, kind, label }) => (
-                    <form
-                        key={kind}
-                        action={updateCompetitorChallengeAction}
-                        className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
+                    <div
+                        className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)]'
                         role='row'
                     >
-                        <input
-                            type='hidden'
-                            name='campaignId'
-                            value={campaign.id}
-                        />
-                        <input type='hidden' name='kind' value={kind} />
-                        <input type='hidden' name='title' value={label} />
+                        <div role='columnheader'>Challenge</div>
+                        <div role='columnheader'>Points</div>
+                        <div role='columnheader'>Multiplier</div>
+                    </div>
 
-                        <div role='cell'>
-                            <p className='font-medium text-foreground'>
-                                {label}
-                            </p>
-                        </div>
+                    <div
+                        className='space-y-4'
+                        role='table'
+                        aria-label='Competitor challenges'
+                    >
+                        {templateRows.map(
+                            ({ challenge, fieldPrefix, kind, label }) => (
+                                <div
+                                    key={kind}
+                                    className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)] lg:items-center'
+                                    role='row'
+                                >
+                                    <div role='cell'>
+                                        <p className='font-medium text-foreground'>
+                                            {label}
+                                        </p>
+                                    </div>
 
-                        <div role='cell'>
-                            <label
-                                htmlFor={`${campaign.id}-${kind}-points`}
-                                className='sr-only'
-                            >
-                                {label} points
-                            </label>
-                            <Input
-                                id={`${campaign.id}-${kind}-points`}
-                                name='pointValue'
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                defaultValue={formatPoints(
-                                    challenge?.pointValue ?? null
-                                )}
-                                placeholder='0'
-                            />
-                        </div>
+                                    <div role='cell'>
+                                        <label
+                                            htmlFor={`${campaign.id}-${kind}-points`}
+                                            className='sr-only'
+                                        >
+                                            {label} points
+                                        </label>
+                                        <Input
+                                            id={`${campaign.id}-${kind}-points`}
+                                            name={`${fieldPrefix}PointValue`}
+                                            type='number'
+                                            min='0'
+                                            step='0.01'
+                                            defaultValue={formatPoints(
+                                                challenge?.pointValue ?? null
+                                            )}
+                                            placeholder='0'
+                                        />
+                                    </div>
 
-                        <div role='cell'>
-                            <label
-                                htmlFor={`${campaign.id}-${kind}-multiplier`}
-                                className='sr-only'
-                            >
-                                {label} multiplier
-                            </label>
-                            <Input
-                                id={`${campaign.id}-${kind}-multiplier`}
-                                name='pageMinuteMultiplier'
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                defaultValue={formatPoints(
-                                    challenge?.pageMinuteMultiplier ?? null
-                                )}
-                                placeholder='0'
-                            />
-                        </div>
+                                    <div role='cell'>
+                                        <label
+                                            htmlFor={`${campaign.id}-${kind}-multiplier`}
+                                            className='sr-only'
+                                        >
+                                            {label} multiplier
+                                        </label>
+                                        <Input
+                                            id={`${campaign.id}-${kind}-multiplier`}
+                                            name={`${fieldPrefix}PageMinuteMultiplier`}
+                                            type='number'
+                                            min='0'
+                                            step='0.01'
+                                            defaultValue={formatPoints(
+                                                challenge?.pageMinuteMultiplier ??
+                                                    null
+                                            )}
+                                            placeholder='0'
+                                        />
+                                    </div>
+                                </div>
+                            )
+                        )}
+                    </div>
 
-                        <div
-                            role='cell'
-                            className='flex items-start gap-2 lg:justify-end'
-                        >
-                            <Button nativeButton type='submit'>
-                                Save
-                            </Button>
-                        </div>
-                    </form>
-                ))}
+                    <DirtyFormActions
+                        formId={formId}
+                        pendingLabel='Saving changes...'
+                    />
+                </form>
             </CardContent>
         </Card>
     )
 }
 
-function CampaignChallengesTable({
+export function CampaignChallengesTable({
     campaign,
 }: {
-    campaign: Awaited<ReturnType<typeof loadCampaigns>>[number]
+    campaign: CampaignSummary
 }) {
     const adminChallenges = campaign.challenges.filter(
         (challenge) => challenge.kind === 'ADMIN'
     )
+    const formId = `${campaign.id}-campaign-challenges-form`
+    const tableGridColumns =
+        'lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_minmax(8.5rem,auto)]'
 
     return (
         <Card className='surface-card'>
@@ -504,129 +634,149 @@ function CampaignChallengesTable({
                 <CardTitle>Challenges</CardTitle>
             </CardHeader>
             <CardContent className='space-y-4'>
-                <div
-                    className='hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto]'
-                    role='row'
-                >
-                    <div role='columnheader'>Challenge name</div>
-                    <div role='columnheader'>Points</div>
-                    <div role='columnheader'>Multiplier</div>
-                    <div role='columnheader'>Actions</div>
-                </div>
+                {adminChallenges.map((challenge) => {
+                    const deleteFormId = `${challenge.id}-delete-form`
 
-                {adminChallenges.length > 0 ? (
-                    <div
-                        className='space-y-4'
-                        role='table'
-                        aria-label='Campaign challenges'
-                    >
-                        {adminChallenges.map((challenge) => {
-                            return (
-                                <form
-                                    key={challenge.id}
-                                    action={updateCampaignChallengeAction}
-                                    className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
-                                    role='row'
-                                >
-                                    <input
-                                        type='hidden'
-                                        name='campaignId'
-                                        value={campaign.id}
-                                    />
-                                    <input
-                                        type='hidden'
-                                        name='challengeId'
-                                        value={challenge.id}
-                                    />
-
-                                    <div role='cell'>
-                                        <label
-                                            htmlFor={`${challenge.id}-title`}
-                                            className='sr-only'
-                                        >
-                                            Challenge name
-                                        </label>
-                                        <Input
-                                            id={`${challenge.id}-title`}
-                                            name='title'
-                                            defaultValue={challenge.title}
-                                        />
-                                    </div>
-
-                                    <div role='cell'>
-                                        <label
-                                            htmlFor={`${challenge.id}-pointValue`}
-                                            className='sr-only'
-                                        >
-                                            Challenge points
-                                        </label>
-                                        <Input
-                                            id={`${challenge.id}-pointValue`}
-                                            name='pointValue'
-                                            type='number'
-                                            min='0'
-                                            step='0.01'
-                                            defaultValue={formatPoints(
-                                                challenge.pointValue
-                                            )}
-                                            placeholder='0'
-                                        />
-                                    </div>
-
-                                    <div role='cell'>
-                                        <label
-                                            htmlFor={`${challenge.id}-pageMinuteMultiplier`}
-                                            className='sr-only'
-                                        >
-                                            Challenge multiplier
-                                        </label>
-                                        <Input
-                                            id={`${challenge.id}-pageMinuteMultiplier`}
-                                            name='pageMinuteMultiplier'
-                                            type='number'
-                                            min='0'
-                                            step='0.01'
-                                            defaultValue={formatPoints(
-                                                challenge.pageMinuteMultiplier
-                                            )}
-                                            placeholder='0'
-                                        />
-                                    </div>
-
-                                    <div
-                                        role='cell'
-                                        className='flex items-start gap-2 lg:justify-end'
-                                    >
-                                        <Button nativeButton type='submit'>
-                                            Save
-                                        </Button>
-
-                                        <Button
-                                            nativeButton
-                                            type='submit'
-                                            formAction={
-                                                deleteCampaignChallengeAction
-                                            }
-                                            variant='destructive'
-                                        >
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </form>
-                            )
-                        })}
-
+                    return (
                         <form
-                            action={createCampaignChallengeAction}
-                            className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
-                            role='row'
+                            key={deleteFormId}
+                            id={deleteFormId}
+                            action={deleteCampaignChallengeAction}
+                            className='hidden'
                         >
                             <input
                                 type='hidden'
                                 name='campaignId'
                                 value={campaign.id}
                             />
+                            <input
+                                type='hidden'
+                                name='challengeId'
+                                value={challenge.id}
+                            />
+                        </form>
+                    )
+                })}
 
+                <form
+                    id={formId}
+                    action={saveCampaignChallengesAction}
+                    className='space-y-4'
+                >
+                    <input
+                        type='hidden'
+                        name='campaignId'
+                        value={campaign.id}
+                    />
+
+                    <div
+                        className={`hidden gap-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:grid ${tableGridColumns}`}
+                        role='row'
+                    >
+                        <div role='columnheader'>Challenge name</div>
+                        <div role='columnheader'>Points</div>
+                        <div role='columnheader'>Multiplier</div>
+                        <div role='columnheader'>Actions</div>
+                    </div>
+
+                    <div
+                        className='space-y-4'
+                        role='table'
+                        aria-label='Campaign challenges'
+                    >
+                        {adminChallenges.map((challenge) => {
+                            const deleteFormId = `${challenge.id}-delete-form`
+
+                            return (
+                                <div key={challenge.id}>
+                                    <input
+                                        type='hidden'
+                                        name='existingChallengeId'
+                                        value={challenge.id}
+                                    />
+
+                                    <div
+                                        className={`grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-3 lg:items-center ${tableGridColumns}`}
+                                        role='row'
+                                    >
+                                        <div role='cell'>
+                                            <label
+                                                htmlFor={`${challenge.id}-title`}
+                                                className='sr-only'
+                                            >
+                                                Challenge name
+                                            </label>
+                                            <Input
+                                                id={`${challenge.id}-title`}
+                                                name='existingTitle'
+                                                defaultValue={challenge.title}
+                                            />
+                                        </div>
+
+                                        <div role='cell'>
+                                            <label
+                                                htmlFor={`${challenge.id}-pointValue`}
+                                                className='sr-only'
+                                            >
+                                                Challenge points
+                                            </label>
+                                            <Input
+                                                id={`${challenge.id}-pointValue`}
+                                                name='existingPointValue'
+                                                type='number'
+                                                min='0'
+                                                step='0.01'
+                                                defaultValue={formatPoints(
+                                                    challenge.pointValue
+                                                )}
+                                                placeholder='0'
+                                            />
+                                        </div>
+
+                                        <div role='cell'>
+                                            <label
+                                                htmlFor={`${challenge.id}-pageMinuteMultiplier`}
+                                                className='sr-only'
+                                            >
+                                                Challenge multiplier
+                                            </label>
+                                            <Input
+                                                id={`${challenge.id}-pageMinuteMultiplier`}
+                                                name='existingPageMinuteMultiplier'
+                                                type='number'
+                                                min='0'
+                                                step='0.01'
+                                                defaultValue={formatPoints(
+                                                    challenge.pageMinuteMultiplier
+                                                )}
+                                                placeholder='0'
+                                            />
+                                        </div>
+
+                                        <div
+                                            role='cell'
+                                            className='flex items-start lg:justify-end'
+                                        >
+                                            <ConfirmSubmitButton
+                                                type='submit'
+                                                form={deleteFormId}
+                                                variant='destructive'
+                                                title='Delete challenge?'
+                                                description={`Delete ${challenge.title} from ${campaign.name}? This cannot be undone.`}
+                                                confirmLabel='Delete challenge'
+                                            >
+                                                Delete
+                                            </ConfirmSubmitButton>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+
+                        <div
+                            className={`grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:items-center ${tableGridColumns}`}
+                            role='row'
+                        >
                             <div role='cell'>
                                 <label
                                     htmlFor={`${campaign.id}-new-title`}
@@ -636,7 +786,7 @@ function CampaignChallengesTable({
                                 </label>
                                 <Input
                                     id={`${campaign.id}-new-title`}
-                                    name='title'
+                                    name='newTitle'
                                     placeholder='New challenge'
                                 />
                             </div>
@@ -650,7 +800,7 @@ function CampaignChallengesTable({
                                 </label>
                                 <Input
                                     id={`${campaign.id}-new-pointValue`}
-                                    name='pointValue'
+                                    name='newPointValue'
                                     type='number'
                                     min='0'
                                     step='0.01'
@@ -667,7 +817,7 @@ function CampaignChallengesTable({
                                 </label>
                                 <Input
                                     id={`${campaign.id}-new-pageMinuteMultiplier`}
-                                    name='pageMinuteMultiplier'
+                                    name='newPageMinuteMultiplier'
                                     type='number'
                                     min='0'
                                     step='0.01'
@@ -677,80 +827,17 @@ function CampaignChallengesTable({
 
                             <div
                                 role='cell'
-                                className='flex items-start lg:justify-end'
-                            >
-                                <Button nativeButton type='submit'>
-                                    Create challenge
-                                </Button>
-                            </div>
-                        </form>
+                                aria-hidden='true'
+                                className='lg:min-w-34'
+                            />
+                        </div>
                     </div>
-                ) : (
-                    <form
-                        action={createCampaignChallengeAction}
-                        className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-dashed border-border/70 bg-card/40 p-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.45fr)_minmax(7rem,0.45fr)_auto] lg:items-center'
-                    >
-                        <input
-                            type='hidden'
-                            name='campaignId'
-                            value={campaign.id}
-                        />
 
-                        <div>
-                            <label
-                                htmlFor={`${campaign.id}-empty-new-title`}
-                                className='sr-only'
-                            >
-                                New challenge name
-                            </label>
-                            <Input
-                                id={`${campaign.id}-empty-new-title`}
-                                name='title'
-                                placeholder='New challenge'
-                            />
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor={`${campaign.id}-empty-new-pointValue`}
-                                className='sr-only'
-                            >
-                                New challenge points
-                            </label>
-                            <Input
-                                id={`${campaign.id}-empty-new-pointValue`}
-                                name='pointValue'
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                placeholder='0'
-                            />
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor={`${campaign.id}-empty-new-pageMinuteMultiplier`}
-                                className='sr-only'
-                            >
-                                New challenge multiplier
-                            </label>
-                            <Input
-                                id={`${campaign.id}-empty-new-pageMinuteMultiplier`}
-                                name='pageMinuteMultiplier'
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                placeholder='0'
-                            />
-                        </div>
-
-                        <div className='flex items-start lg:justify-end'>
-                            <Button nativeButton type='submit'>
-                                Create challenge
-                            </Button>
-                        </div>
-                    </form>
-                )}
+                    <DirtyFormActions
+                        formId={formId}
+                        pendingLabel='Saving changes...'
+                    />
+                </form>
             </CardContent>
         </Card>
     )
@@ -767,47 +854,67 @@ export default async function AdminCampaignsPage({
     )
     const notice = getNotice(outcome, detail)
     const campaigns = await loadCampaigns()
-
-    if (campaigns.length === 0) {
-        return (
-            <EmptyState
-                title='No campaigns are available.'
-                description='Create a campaign record first, then return here to manage dates, scoring, and challenges inline.'
-            />
-        )
-    }
-
     const selectedCampaignId =
         campaigns.find((campaign) => campaign.id === requestedCampaignId)?.id ??
         selectDefaultAdminCampaignId(campaigns) ??
-        campaigns[0].id
+        null
     const selectedCampaign =
-        campaigns.find((campaign) => campaign.id === selectedCampaignId) ??
-        campaigns[0]
+        campaigns.find((campaign) => campaign.id === selectedCampaignId) ?? null
 
     return (
         <div className='space-y-6'>
-            {notice ? (
-                <div
-                    className={`rounded-[calc(var(--radius-xl)-4px)] border px-4 py-3 ${getNoticeClassName(
-                        notice.tone
-                    )}`}
-                >
-                    <p className='text-sm font-semibold'>{notice.title}</p>
-                    {notice.description ? (
-                        <p className='text-sm'>{notice.description}</p>
-                    ) : null}
-                </div>
-            ) : null}
+            {notice ? <DismissibleNotice {...notice} /> : null}
 
-            <CampaignTabs
-                campaigns={campaigns}
-                selectedCampaignId={selectedCampaign.id}
-            />
+            <div className='flex flex-wrap items-start gap-2'>
+                {selectedCampaignId ? (
+                    <CampaignTabs
+                        campaigns={campaigns}
+                        selectedCampaignId={selectedCampaignId}
+                    />
+                ) : campaigns.length > 0 ? (
+                    <CampaignTabs
+                        campaigns={campaigns}
+                        selectedCampaignId={campaigns[0].id}
+                    />
+                ) : null}
 
-            <CampaignSettingsForm campaign={selectedCampaign} />
-            <CompetitorChallengesTable campaign={selectedCampaign} />
-            <CampaignChallengesTable campaign={selectedCampaign} />
+                <NewCampaignButton
+                    baseCampaign={selectedCampaign ?? campaigns[0]}
+                />
+            </div>
+
+            {selectedCampaign ? (
+                <>
+                    <CampaignSettingsForm campaign={selectedCampaign} />
+                    <CompetitorChallengesTable campaign={selectedCampaign} />
+                    <CampaignChallengesTable campaign={selectedCampaign} />
+
+                    <form
+                        action={deleteCampaignAction}
+                        className='flex justify-end pt-2'
+                    >
+                        <input
+                            type='hidden'
+                            name='campaignId'
+                            value={selectedCampaign.id}
+                        />
+                        <ConfirmSubmitButton
+                            type='submit'
+                            variant='destructive'
+                            title='Delete campaign?'
+                            description={`Delete ${selectedCampaign.name} and all of its challenges? This cannot be undone.`}
+                            confirmLabel='Delete campaign'
+                        >
+                            Delete campaign
+                        </ConfirmSubmitButton>
+                    </form>
+                </>
+            ) : (
+                <EmptyState
+                    title='No campaigns are available.'
+                    description='Create a campaign to manage dates, scoring, and challenges inline.'
+                />
+            )}
         </div>
     )
 }
