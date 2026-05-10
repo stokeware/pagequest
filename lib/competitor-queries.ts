@@ -176,7 +176,7 @@ export const getCompetitorCampaignContext = cache(
 
         const [standings, recentEntries] = await Promise.all([
             getCampaignStandings(participant.campaign.id),
-            getRecentReadingEntries(participant.id, 5),
+            getRecentReadingEntries(participant.id),
         ])
 
         return {
@@ -437,7 +437,7 @@ async function getCampaignStandings(campaignId: string) {
     })
 }
 
-async function getRecentReadingEntries(participantId: string, take: number) {
+async function getRecentReadingEntries(participantId: string) {
     return prisma.readingEntry.findMany({
         orderBy: readingEntriesOrderBy,
         select: {
@@ -458,7 +458,6 @@ async function getRecentReadingEntries(participantId: string, take: number) {
             type: true,
             value: true,
         },
-        take,
         where: {
             deletedAt: null,
             campaignParticipantId: participantId,

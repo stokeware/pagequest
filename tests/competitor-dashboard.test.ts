@@ -29,18 +29,33 @@ describe('competitor dashboard view model', () => {
                     totalPages: 320,
                     totalPoints: { toString: () => '418.25' },
                 },
+                scoringRules: {
+                    pointsPerAudiobookMinute: '0.75',
+                    pointsPerBook: '25',
+                    pointsPerChallengeCompletion: '40',
+                    pointsPerPage: '1',
+                },
                 recentEntries: [
                     {
                         activityDate: new Date('2026-05-06T12:00:00Z'),
                         bookAuthor: 'Kate DiCamillo',
                         bookTitle: 'Because of Winn-Dixie',
                         challengeCompletion: null,
-                        id: 'entry-1',
-                        type: 'AUDIOBOOK_MINUTES',
-                        value: 45,
+                        id: 'entry-0',
+                        type: 'BOOK_COMPLETION',
+                        value: 1,
                     },
                     {
                         activityDate: new Date('2026-05-05T12:00:00Z'),
+                        bookAuthor: 'Kate DiCamillo',
+                        bookTitle: 'Because of Winn-Dixie',
+                        challengeCompletion: null,
+                        id: 'entry-1',
+                        type: 'PAGES_READ',
+                        value: 180,
+                    },
+                    {
+                        activityDate: new Date('2026-05-04T12:00:00Z'),
                         bookAuthor: null,
                         bookTitle: null,
                         challengeCompletion: {
@@ -93,21 +108,18 @@ describe('competitor dashboard view model', () => {
         expect(viewModel.snapshotCards[0]).toMatchObject({
             title: 'Current rank',
             value: '#2',
-            description: '14 points behind first place out of 2 readers.',
+            description: '14 points behind first place.',
         })
         expect(viewModel.snapshotCards[1]).toMatchObject({
-            title: 'Time remaining',
-            value: '13 days',
+            title: 'Total points',
+            value: '418.25 points',
         })
-        expect(viewModel.summaryMetrics).toContainEqual({
-            detail: 'Page totals logged toward this campaign.',
-            label: 'Pages read',
-            value: '320',
-        })
+        expect(viewModel.summaryMetrics).toEqual([])
         expect(viewModel.recentActivity[0]).toMatchObject({
-            title: 'Logged 45 audiobook minutes',
-            description:
-                'Because of Winn-Dixie by Kate DiCamillo. Logged May 6, 2026.',
+            title: 'Because of Winn-Dixie',
+            completedAtLabel: 'May 6, 2026',
+            progressLabel: '180 pages',
+            pointsLabel: '205 points',
         })
         expect(viewModel.shellMetrics[1]).toMatchObject({
             label: 'Current standing',
