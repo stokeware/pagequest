@@ -19,6 +19,7 @@ export type ChallengeFormValues = {
 export type ChallengeWriteValues = ChallengeFormValues
 
 export type ChallengeUsageSnapshot = {
+    campaignChallenges: number
     challengeCompletions: number
 }
 
@@ -52,7 +53,7 @@ export function prepareChallengeUpdateValues(
 }
 
 export function assertChallengeCanDelete(snapshot: ChallengeUsageSnapshot) {
-    if (snapshot.challengeCompletions > 0) {
+    if (snapshot.campaignChallenges > 0 || snapshot.challengeCompletions > 0) {
         throw new ChallengeAdminError(
             'challenge-in-use',
             'Challenges with historical completions cannot be deleted.'

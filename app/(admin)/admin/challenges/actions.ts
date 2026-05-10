@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { requireAdminActionUser } from '@/lib/auth/session'
+import { selectDefaultAdminCampaignId } from '@/lib/admin-campaign-workbench'
 import {
     assertChallengeCanDelete,
     ChallengeAdminError,
@@ -79,6 +80,28 @@ function getStringField(formData: FormData, fieldName: string) {
     return typeof value === 'string' ? value.trim() : ''
 }
 
+async function resolveDefaultChallengeCampaignId() {
+    const campaigns = await prisma.campaign.findMany({
+        select: {
+            endAt: true,
+            id: true,
+            startAt: true,
+            status: true,
+        },
+    })
+
+    const campaignId = selectDefaultAdminCampaignId(campaigns)
+
+    if (!campaignId) {
+        throw new ChallengeAdminError(
+            'missing-campaign',
+            'A campaign must exist before creating challenges.'
+        )
+    }
+
+    return campaignId
+}
+
 async function loadChallenge(challengeId: string) {
     return prisma.challenge.findUnique({
         select: {
@@ -126,11 +149,13 @@ export async function createChallengeAction(formData: FormData) {
     try {
         const formValues = parseChallengeFormValues(formData)
         const values = prepareChallengeCreateValues(formValues)
+        const campaignId = await resolveDefaultChallengeCampaignId()
 
         const createdChallenge = await prisma.$transaction(
             async (transaction) => {
                 const challenge = await transaction.challenge.create({
                     data: {
+                        campaignId,
                         ...values,
                         createdByUserId: actor.id,
                     },
@@ -143,6 +168,7 @@ export async function createChallengeAction(formData: FormData) {
                     data: {
                         action: 'challenge.created',
                         actorUserId: actor.id,
+                        campaignId,
                         challengeId: challenge.id,
                         entityId: challenge.id,
                         entityType: 'Challenge',
@@ -310,11 +336,6 @@ export async function reviewChallengeCompletionAction(formData: FormData) {
                     },
                 },
                 id: true,
-                campaignChallenge: {
-                    select: {
-                        pointValueOverride: true,
-                    },
-                },
                 campaignParticipant: {
                     select: {
                         id: true,
@@ -349,8 +370,6 @@ export async function reviewChallengeCompletionAction(formData: FormData) {
 
         const defaultAwardedPoints = resolveChallengeCompletionDefaultPoints({
             challengePointValue: completion.challenge.pointValue,
-            campaignChallengePointValueOverride:
-                completion.campaignChallenge?.pointValueOverride ?? null,
             campaignPointsPerChallengeCompletion:
                 completion.campaignParticipant.campaign
                     .pointsPerChallengeCompletion,

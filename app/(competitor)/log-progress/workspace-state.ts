@@ -46,8 +46,8 @@ export function parseCampaignWorkspaceState(
                       pages: getStringValue(row.pages),
                       rowType:
                           getStringValue(row.rowType) === 'PERSONAL_GOAL'
-                              ? 'PERSONAL_GOAL'
-                              : 'STANDARD',
+                              ? ('PERSONAL_GOAL' as const)
+                              : ('STANDARD' as const),
                   },
               ]
           })

@@ -1,5 +1,9 @@
 import { type Prisma } from '@prisma/client'
-import type { ChallengeReviewState, ReadingEntryType } from '@prisma/client'
+import type {
+    ChallengeKind,
+    ChallengeReviewState,
+    ReadingEntryType,
+} from '@prisma/client'
 
 import {
     assertChallengeCompletionAllowed,
@@ -37,7 +41,7 @@ type ParticipantSnapshot = {
                 pointValue: { toString(): string }
             } | null
             title: string
-            kind: 'ADMIN' | 'RECOMMENDATION_INSTANCE' | 'PERSONAL_GOAL_INSTANCE'
+            kind: ChallengeKind
         }>
         endAt: Date
         id: string

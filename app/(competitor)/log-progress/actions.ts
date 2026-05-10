@@ -25,10 +25,16 @@ type SubmitLogProgressInput = {
     values: LogProgressFormValues
 }
 
-type SubmitLogProgressResult = {
-    message: string
-    outcome: 'success'
-}
+type SubmitLogProgressResult =
+    | {
+          message: string
+          outcome: 'success'
+      }
+    | {
+          detail: string
+          message: string
+          outcome: 'error'
+      }
 
 export type SaveCampaignWorkspaceInput = {
     campaignParticipantId: string | null

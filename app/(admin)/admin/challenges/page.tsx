@@ -82,6 +82,8 @@ const errorDetailMessages: Record<string, string> = {
         'That submission has already been reviewed, so it is no longer available in the pending queue.',
     'invalid-awarded-points':
         'Awarded points must be a valid number that is zero or greater, or left blank to use the default challenge scoring.',
+    'missing-campaign':
+        'Create a campaign before adding reusable challenge entries to the catalog.',
     'invalid-point-value':
         'Point rule must be a valid number that is zero or greater, or left blank to use campaign defaults.',
     'invalid-review-decision':
@@ -295,8 +297,6 @@ export default async function AdminChallengesPage({
             }).format(review.createdAt),
             defaultAwardedPoints: resolveChallengeCompletionDefaultPoints({
                 challengePointValue: review.challenge.pointValue,
-                campaignChallengePointValueOverride:
-                    review.campaignChallenge?.pointValueOverride ?? null,
                 campaignPointsPerChallengeCompletion:
                     review.campaignParticipant.campaign
                         .pointsPerChallengeCompletion,

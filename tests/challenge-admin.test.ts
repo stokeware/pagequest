@@ -61,6 +61,7 @@ describe('challenge admin helpers', () => {
     it('blocks deletion when a challenge already has usage', () => {
         expect(() =>
             assertChallengeCanDelete({
+                campaignChallenges: 0,
                 challengeCompletions: 1,
             })
         ).toThrowError(
@@ -71,6 +72,18 @@ describe('challenge admin helpers', () => {
 
         expect(() =>
             assertChallengeCanDelete({
+                campaignChallenges: 1,
+                challengeCompletions: 0,
+            })
+        ).toThrowError(
+            expect.objectContaining<Partial<ChallengeAdminError>>({
+                code: 'challenge-in-use',
+            })
+        )
+
+        expect(() =>
+            assertChallengeCanDelete({
+                campaignChallenges: 0,
                 challengeCompletions: 0,
             })
         ).not.toThrow()

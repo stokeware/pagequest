@@ -30,10 +30,15 @@ export type AdminCampaignWorkbenchSummary = {
     visibility: CampaignVisibility
 }
 
+type AdminCampaignSelectionCandidate = Pick<
+    AdminCampaignWorkbenchSummary,
+    'endAt' | 'id' | 'startAt' | 'status'
+>
+
 export type AdminCampaignBucket = 'current' | 'future' | 'past'
 
 export function getAdminCampaignBucket(
-    campaign: AdminCampaignWorkbenchSummary,
+    campaign: AdminCampaignSelectionCandidate,
     now = new Date()
 ): AdminCampaignBucket {
     if (campaign.status === 'ACTIVE') {
@@ -52,7 +57,7 @@ export function getAdminCampaignBucket(
 }
 
 export function selectDefaultAdminCampaignId(
-    campaigns: AdminCampaignWorkbenchSummary[],
+    campaigns: AdminCampaignSelectionCandidate[],
     now = new Date()
 ) {
     const currentCampaign = campaigns.find(

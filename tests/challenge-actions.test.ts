@@ -15,6 +15,9 @@ const challengeActionMocks = vi.hoisted(() => {
         auditLog: {
             create: vi.fn(),
         },
+        challenge: {
+            create: vi.fn(),
+        },
         challengeCompletion: {
             update: vi.fn(),
         },
@@ -23,6 +26,9 @@ const challengeActionMocks = vi.hoisted(() => {
         $transaction: vi.fn(),
         challengeCompletion: {
             findUnique: vi.fn(),
+        },
+        campaign: {
+            findMany: vi.fn(),
         },
     }
 
@@ -51,9 +57,12 @@ vi.mock('@/lib/prisma', () => ({
     prisma: challengeActionMocks.prisma,
 }))
 
-import { reviewChallengeCompletionAction } from '@/app/(admin)/admin/challenges/actions'
+import {
+    createChallengeAction,
+    reviewChallengeCompletionAction,
+} from '@/app/(admin)/admin/challenges/actions'
 
-describe('admin challenge review audit logging', () => {
+describe('admin challenge actions', () => {
     beforeEach(() => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2026-05-08T18:30:00.000Z'))
@@ -69,6 +78,17 @@ describe('admin challenge review audit logging', () => {
                 ) => Promise<void>
             ) => callback(challengeActionMocks.transaction)
         )
+        challengeActionMocks.prisma.campaign.findMany.mockResolvedValue([
+            {
+                endAt: new Date('2026-06-01T12:00:00.000Z'),
+                id: 'campaign-1',
+                startAt: new Date('2026-05-01T12:00:00.000Z'),
+                status: 'ACTIVE',
+            },
+        ])
+        challengeActionMocks.transaction.challenge.create.mockResolvedValue({
+            id: 'challenge-1',
+        })
         challengeActionMocks.transaction.challengeCompletion.update.mockResolvedValue(
             undefined
         )
@@ -79,6 +99,46 @@ describe('admin challenge review audit logging', () => {
 
     afterEach(() => {
         vi.useRealTimers()
+    })
+
+    it('creates a challenge in the default campaign and records audit metadata', async () => {
+        const formData = new FormData()
+        formData.set('title', 'Biography bonus')
+        formData.set('pointValue', '15')
+        formData.set('pageMinuteMultiplier', '1.5')
+
+        await expect(createChallengeAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('NEXT_REDIRECT'),
+        })
+
+        expect(
+            challengeActionMocks.transaction.challenge.create
+        ).toHaveBeenCalledWith({
+            data: {
+                campaignId: 'campaign-1',
+                createdByUserId: 'admin-1',
+                pageMinuteMultiplier: new Prisma.Decimal('1.5'),
+                pointValue: new Prisma.Decimal('15'),
+                title: 'Biography bonus',
+            },
+            select: {
+                id: true,
+            },
+        })
+
+        expect(
+            challengeActionMocks.transaction.auditLog.create
+        ).toHaveBeenCalledWith({
+            data: {
+                action: 'challenge.created',
+                actorUserId: 'admin-1',
+                campaignId: 'campaign-1',
+                challengeId: 'challenge-1',
+                entityId: 'challenge-1',
+                entityType: 'Challenge',
+                metadata: {},
+            },
+        })
     })
 
     it('records an audit log when an admin approves a challenge completion', async () => {

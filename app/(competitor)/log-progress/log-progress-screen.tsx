@@ -1,4 +1,5 @@
 'use client'
+import type { ChallengeKind } from '@prisma/client'
 import { useRouter } from 'next/navigation'
 import { useId, useState, useTransition } from 'react'
 
@@ -14,7 +15,7 @@ import {
 export type LogProgressCampaignChallenge = {
     achieved: boolean
     id: string
-    kind: 'ADMIN' | 'PERSONAL_GOAL_INSTANCE' | 'RECOMMENDATION_INSTANCE'
+    kind: ChallengeKind
     ownedByCurrentParticipant: boolean
     pageMinuteMultiplier: number
     pointValue: number

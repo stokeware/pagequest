@@ -1,4 +1,4 @@
-import type { CampaignStatus } from '@prisma/client'
+import type { CampaignStatus, ChallengeKind } from '@prisma/client'
 
 import {
     personalGoalTemplateTitle,
@@ -228,7 +228,7 @@ function hydrateWorkspaceState({
     }>
     challenges: Array<{
         id: string
-        kind: 'ADMIN' | 'PERSONAL_GOAL_INSTANCE' | 'RECOMMENDATION_INSTANCE'
+        kind: ChallengeKind
     }>
     metadata: unknown
 }): CampaignWorkspaceState {
