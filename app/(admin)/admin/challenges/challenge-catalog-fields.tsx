@@ -10,25 +10,35 @@ import {
 } from '@/components/ui'
 
 export type ChallengeFormDefaults = {
+    pageMinuteMultiplier: string
     pointValue: string
     title: string
 }
 
 export function getChallengeFormDefaults(
     challenge?: {
-        pointValue: { toString(): string } | null
+        pageMinuteMultiplier?: { toString(): string }
+        pointValue: { toString(): string }
         title: string
     } | null
 ): ChallengeFormDefaults {
     if (!challenge) {
         return {
+            pageMinuteMultiplier: '',
             pointValue: '',
             title: '',
         }
     }
 
     return {
-        pointValue: challenge.pointValue?.toString() ?? '',
+        pageMinuteMultiplier:
+            (challenge.pageMinuteMultiplier?.toString() ?? '0') === '0'
+                ? ''
+                : (challenge.pageMinuteMultiplier?.toString() ?? '0'),
+        pointValue:
+            challenge.pointValue.toString() === '0'
+                ? ''
+                : challenge.pointValue.toString(),
         title: challenge.title,
     }
 }
@@ -36,21 +46,29 @@ export function getChallengeFormDefaults(
 export function ChallengePolicyPanel({
     defaults,
 }: {
-    defaults: Pick<ChallengeFormDefaults, 'pointValue'>
+    defaults: Pick<ChallengeFormDefaults, 'pageMinuteMultiplier' | 'pointValue'>
 }) {
     return (
         <Card className='surface-card'>
             <CardHeader>
-                <CardTitle>Point rule</CardTitle>
+                <CardTitle>Scoring</CardTitle>
             </CardHeader>
 
             <div className='px-6 pb-6'>
-                <div className='rounded-[calc(var(--radius-lg)-2px)] border border-(--line-strong) bg-card/72 p-3'>
-                    <strong>
-                        {defaults.pointValue
-                            ? `${defaults.pointValue} points`
-                            : 'Campaign default'}
-                    </strong>
+                <div className='grid gap-3 rounded-[calc(var(--radius-lg)-2px)] border border-(--line-strong) bg-card/72 p-3 sm:grid-cols-2'>
+                    <div>
+                        <p className='text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground'>
+                            Points
+                        </p>
+                        <strong>{defaults.pointValue || '0'}</strong>
+                    </div>
+
+                    <div>
+                        <p className='text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground'>
+                            Multiplier
+                        </p>
+                        <strong>{defaults.pageMinuteMultiplier || '0'}</strong>
+                    </div>
                 </div>
             </div>
         </Card>
@@ -102,7 +120,7 @@ export function ChallengeForm({
                 <FormField
                     label='Point value'
                     htmlFor={`${challengeId ?? 'new'}-pointValue`}
-                    hint='Leave blank to use the campaign-wide challenge scoring rule.'
+                    hint='Use 0 when this challenge should score through the multiplier instead.'
                 >
                     <Input
                         id={`${challengeId ?? 'new'}-pointValue`}
@@ -112,6 +130,22 @@ export function ChallengeForm({
                         step='0.01'
                         defaultValue={defaultValues.pointValue}
                         placeholder='15'
+                    />
+                </FormField>
+
+                <FormField
+                    label='Pages or minutes multiplier'
+                    htmlFor={`${challengeId ?? 'new'}-pageMinuteMultiplier`}
+                    hint='Use 0 when this challenge should award a fixed point value instead.'
+                >
+                    <Input
+                        id={`${challengeId ?? 'new'}-pageMinuteMultiplier`}
+                        name='pageMinuteMultiplier'
+                        type='number'
+                        min='0'
+                        step='0.01'
+                        defaultValue={defaultValues.pageMinuteMultiplier}
+                        placeholder='1.5'
                     />
                 </FormField>
 

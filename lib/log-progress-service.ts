@@ -1,5 +1,9 @@
 import { type Prisma } from '@prisma/client'
-import type { ChallengeReviewState, ReadingEntryType } from '@prisma/client'
+import type {
+    ChallengeKind,
+    ChallengeReviewState,
+    ReadingEntryType,
+} from '@prisma/client'
 
 import {
     assertChallengeCompletionAllowed,
@@ -7,6 +11,7 @@ import {
     prepareAutoApprovedChallengeCompletionValues,
     resolveChallengeCompletionDefaultPoints,
 } from '@/lib/challenge-review'
+import { resolveChallengePointValue } from '@/lib/challenge-config'
 import {
     normalizeReadingEntryMetadata,
     type LogProgressFormValues,
@@ -27,21 +32,22 @@ type ParticipantSnapshot = {
     campaign: {
         entryDeleteWindowMinutes: number | null
         entryEditWindowMinutes: number | null
+        challenges: Array<{
+            id: string
+            pageMinuteMultiplier: { toString(): string }
+            pointValue: { toString(): string }
+            templateChallenge: {
+                pageMinuteMultiplier: { toString(): string }
+                pointValue: { toString(): string }
+            } | null
+            title: string
+            kind: ChallengeKind
+        }>
         endAt: Date
         id: string
         pointsPerAudiobookMinute: { toString(): string }
         pointsPerBook: { toString(): string }
-        pointsPerChallengeCompletion: { toString(): string }
         pointsPerPage: { toString(): string }
-        campaignChallenges: Array<{
-            challenge: {
-                pointValue: { toString(): string } | null
-                title: string
-            }
-            challengeId: string
-            id: string
-            pointValueOverride: { toString(): string } | null
-        }>
         startAt: Date
         timezone: string
     }
@@ -98,7 +104,6 @@ type LogProgressTransaction = {
                     | null
                 challengeId: string
                 evidenceText: string | null
-                campaignChallengeId: string
                 campaignParticipantId: string
                 readingEntryId: string
                 reviewNotes?: string | null
@@ -143,22 +148,30 @@ type LogProgressTransaction = {
                         id: true
                         pointsPerAudiobookMinute: true
                         pointsPerBook: true
-                        pointsPerChallengeCompletion: true
                         pointsPerPage: true
-                        campaignChallenges: {
-                            where: {
-                                isActive: true
-                            }
+                        challenges: {
                             select: {
-                                challenge: {
+                                id: true
+                                kind: true
+                                pageMinuteMultiplier: true
+                                pointValue: true
+                                templateChallenge: {
                                     select: {
+                                        pageMinuteMultiplier: true
                                         pointValue: true
-                                        title: true
                                     }
                                 }
-                                challengeId: true
-                                id: true
-                                pointValueOverride: true
+                                title: true
+                            }
+                            where: {
+                                isActive: true
+                                kind: {
+                                    in: [
+                                        'ADMIN',
+                                        'PERSONAL_GOAL_INSTANCE',
+                                        'RECOMMENDATION_INSTANCE',
+                                    ]
+                                }
                             }
                         }
                         startAt: true
@@ -228,26 +241,34 @@ type LogProgressTransaction = {
                                 entryEditWindowMinutes: true
                                 endAt: true
                                 id: true
-                                pointsPerAudiobookMinute: true
-                                pointsPerBook: true
-                                pointsPerChallengeCompletion: true
-                                pointsPerPage: true
-                                campaignChallenges: {
-                                    where: {
-                                        isActive: true
-                                    }
+                                challenges: {
                                     select: {
-                                        challenge: {
+                                        id: true
+                                        kind: true
+                                        pageMinuteMultiplier: true
+                                        pointValue: true
+                                        templateChallenge: {
                                             select: {
+                                                pageMinuteMultiplier: true
                                                 pointValue: true
-                                                title: true
                                             }
                                         }
-                                        challengeId: true
-                                        id: true
-                                        pointValueOverride: true
+                                        title: true
+                                    }
+                                    where: {
+                                        isActive: true
+                                        kind: {
+                                            in: [
+                                                'ADMIN',
+                                                'PERSONAL_GOAL_INSTANCE',
+                                                'RECOMMENDATION_INSTANCE',
+                                            ]
+                                        }
                                     }
                                 }
+                                pointsPerAudiobookMinute: true
+                                pointsPerBook: true
+                                pointsPerPage: true
                                 startAt: true
                                 timezone: true
                             }
@@ -350,28 +371,36 @@ export async function recordLogProgressEntry(
                 select: {
                     entryDeleteWindowMinutes: true,
                     entryEditWindowMinutes: true,
+                    challenges: {
+                        select: {
+                            id: true,
+                            kind: true,
+                            pageMinuteMultiplier: true,
+                            pointValue: true,
+                            templateChallenge: {
+                                select: {
+                                    pageMinuteMultiplier: true,
+                                    pointValue: true,
+                                },
+                            },
+                            title: true,
+                        },
+                        where: {
+                            isActive: true,
+                            kind: {
+                                in: [
+                                    'ADMIN',
+                                    'PERSONAL_GOAL_INSTANCE',
+                                    'RECOMMENDATION_INSTANCE',
+                                ],
+                            },
+                        },
+                    },
                     endAt: true,
                     id: true,
                     pointsPerAudiobookMinute: true,
                     pointsPerBook: true,
-                    pointsPerChallengeCompletion: true,
                     pointsPerPage: true,
-                    campaignChallenges: {
-                        select: {
-                            challenge: {
-                                select: {
-                                    pointValue: true,
-                                    title: true,
-                                },
-                            },
-                            challengeId: true,
-                            id: true,
-                            pointValueOverride: true,
-                        },
-                        where: {
-                            isActive: true,
-                        },
-                    },
                     startAt: true,
                     timezone: true,
                 },
@@ -404,7 +433,7 @@ export async function recordLogProgressEntry(
     }
 
     const validationResult = validateLogProgressFormValues(input.formValues, {
-        availableChallengeIds: participant.campaign.campaignChallenges.map(
+        availableChallengeIds: participant.campaign.challenges.map(
             (challenge) => challenge.id
         ),
         campaignPolicy: toCampaignPolicy(participant.campaign),
@@ -473,12 +502,11 @@ export async function recordLogProgressEntry(
     let challengeCompletionId: string | null = null
 
     if (input.formValues.type === 'CHALLENGE_COMPLETION') {
-        const selectedCampaignChallenge =
-            participant.campaign.campaignChallenges.find(
-                (challenge) => challenge.id === input.formValues.challengeId
-            )
+        const selectedChallenge = participant.campaign.challenges.find(
+            (challenge) => challenge.id === input.formValues.challengeId
+        )
 
-        if (!selectedCampaignChallenge) {
+        if (!selectedChallenge) {
             throw new LogProgressMutationError(
                 'campaign-challenge-not-found',
                 'Choose an active campaign challenge for this completion.'
@@ -491,7 +519,7 @@ export async function recordLogProgressEntry(
                     reviewState: true,
                 },
                 where: {
-                    challengeId: selectedCampaignChallenge.challengeId,
+                    challengeId: selectedChallenge.id,
                     campaignParticipantId: participant.id,
                     readingEntry: {
                         deletedAt: null,
@@ -509,13 +537,7 @@ export async function recordLogProgressEntry(
             {
                 awardedPoints: resolveChallengeCompletionDefaultPoints({
                     challengePointValue:
-                        selectedCampaignChallenge.challenge.pointValue?.toString() ??
-                        null,
-                    campaignChallengePointValueOverride:
-                        selectedCampaignChallenge.pointValueOverride?.toString() ??
-                        null,
-                    campaignPointsPerChallengeCompletion:
-                        participant.campaign.pointsPerChallengeCompletion.toString(),
+                        resolveChallengePointValue(selectedChallenge),
                 }),
                 now: input.now,
             }
@@ -525,9 +547,8 @@ export async function recordLogProgressEntry(
             await transaction.challengeCompletion.create({
                 data: {
                     ...autoApprovedValues,
-                    challengeId: selectedCampaignChallenge.challengeId,
+                    challengeId: selectedChallenge.id,
                     evidenceText: notes,
-                    campaignChallengeId: selectedCampaignChallenge.id,
                     campaignParticipantId: participant.id,
                     readingEntryId: readingEntry.id,
                 },
@@ -543,12 +564,12 @@ export async function recordLogProgressEntry(
                 action: 'challenge-completion.submitted',
                 actorUserId: input.actorUserId,
                 challengeCompletionId,
-                challengeId: selectedCampaignChallenge.challengeId,
+                challengeId: selectedChallenge.id,
                 entityId: challengeCompletion.id,
                 entityType: 'ChallengeCompletion',
                 metadata: {
                     awardedPoints: autoApprovedValues.awardedPoints.toString(),
-                    challengeTitle: selectedCampaignChallenge.challenge.title,
+                    challengeTitle: selectedChallenge.title,
                     reviewState: autoApprovedValues.reviewState,
                     value: 1,
                 },
@@ -596,22 +617,30 @@ export async function updateReadingEntryAsAdmin(
                             id: true,
                             pointsPerAudiobookMinute: true,
                             pointsPerBook: true,
-                            pointsPerChallengeCompletion: true,
                             pointsPerPage: true,
-                            campaignChallenges: {
+                            challenges: {
                                 select: {
-                                    challenge: {
+                                    id: true,
+                                    kind: true,
+                                    pageMinuteMultiplier: true,
+                                    pointValue: true,
+                                    templateChallenge: {
                                         select: {
+                                            pageMinuteMultiplier: true,
                                             pointValue: true,
-                                            title: true,
                                         },
                                     },
-                                    challengeId: true,
-                                    id: true,
-                                    pointValueOverride: true,
+                                    title: true,
                                 },
                                 where: {
                                     isActive: true,
+                                    kind: {
+                                        in: [
+                                            'ADMIN',
+                                            'PERSONAL_GOAL_INSTANCE',
+                                            'RECOMMENDATION_INSTANCE',
+                                        ],
+                                    },
                                 },
                             },
                             startAt: true,
@@ -654,7 +683,7 @@ export async function updateReadingEntryAsAdmin(
 
     const participant = readingEntry.campaignParticipant
     const validationResult = validateLogProgressFormValues(input.formValues, {
-        availableChallengeIds: participant.campaign.campaignChallenges.map(
+        availableChallengeIds: participant.campaign.challenges.map(
             (challenge) => challenge.id
         ),
         campaignPolicy: toCampaignPolicy(participant.campaign),
@@ -806,8 +835,7 @@ function toCampaignScoringRules(
     return {
         pointsPerAudiobookMinute: campaign.pointsPerAudiobookMinute.toString(),
         pointsPerBook: campaign.pointsPerBook.toString(),
-        pointsPerChallengeCompletion:
-            campaign.pointsPerChallengeCompletion.toString(),
+        pointsPerChallengeCompletion: '0',
         pointsPerPage: campaign.pointsPerPage.toString(),
     }
 }

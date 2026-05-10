@@ -1,69 +1,100 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { LogProgressScreen } from '@/app/(competitor)/log-progress/log-progress-screen'
+const routerRefreshMock = vi.fn()
+
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({
+        refresh: routerRefreshMock,
+    }),
+}))
+
+import {
+    calculateProgressRowPoints,
+    getAvailableProgressChallenges,
+    LogProgressScreen,
+    type ProgressRow,
+} from '@/app/(competitor)/log-progress/log-progress-screen'
 
 describe('log progress competitor UI', () => {
-    it('renders all supported entry types and campaign challenge prompts', () => {
+    beforeEach(() => {
+        routerRefreshMock.mockReset()
+    })
+
+    it('renders the redesigned challenges tab with personal fields and achieved rows', () => {
         const html = renderToStaticMarkup(
             <LogProgressScreen
-                challengeOptions={[
+                campaignDateRange='May 12 - August 15'
+                campaignChallenges={[
                     {
-                        id: 'campaign-challenge-1',
-                        pointsLabel: '25 points',
+                        achieved: true,
+                        id: 'challenge-1',
+                        kind: 'RECOMMENDATION_INSTANCE',
+                        ownedByCurrentParticipant: false,
+                        pageMinuteMultiplier: 0,
+                        pointValue: 25,
+                        sourceBookTitle: 'Friend recommendation book',
                         title: 'Friend recommendation',
                     },
+                    {
+                        achieved: false,
+                        id: 'challenge-2',
+                        kind: 'PERSONAL_GOAL_INSTANCE',
+                        ownedByCurrentParticipant: true,
+                        pageMinuteMultiplier: 1.5,
+                        pointValue: 40,
+                        sourceBookTitle: 'Epic page turner',
+                        title: 'Personal Goal',
+                    },
                 ]}
-                hasLiveQuest={true}
-                participantSummary='Your current campaign is live, so this form is ready for book, page, audio, and challenge entries.'
                 campaignParticipantId='participant-1'
-                campaignPolicy={{
-                    entryDeleteWindowMinutes: 60,
-                    entryEditWindowMinutes: 180,
-                    campaignEndAt: '2026-05-31T23:59:59.000Z',
-                    campaignStartAt: '2026-05-01T00:00:00.000Z',
-                    timezone: 'America/Chicago',
-                }}
                 campaignName='Spring Story Sprint'
-                scoringSummary={{
-                    audiobookMinutes: '0.75 points per minute',
-                    bookCompletion: '10 points per book',
-                    challengeCompletion: '25 points per completion',
-                    pagesRead: '1 point per page',
+                initialActiveTab='challenges'
+                progressScoring={{
+                    pointsPerMinute: 0.75,
+                    pointsPerPage: 1,
+                }}
+                workspaceState={{
+                    personalGoalTitle: 'Epic page turner',
+                    progressRows: [],
+                    recommendationTitle: '',
                 }}
             />
         )
 
-        expect(html).toContain('Quick entry form')
-        expect(html).toContain('Book completion')
-        expect(html).toContain('Pages read')
-        expect(html).toContain('Audiobook minutes')
-        expect(html).toContain('Challenge completion')
         expect(html).toContain('Spring Story Sprint')
+        expect(html).toContain('May 12 - August 15')
+        expect(html).toContain('Challenges')
+        expect(html).toContain('Progress')
+        expect(html).toContain('Recommendation Book')
+        expect(html).toContain('Personal Goal Book')
+        expect(html).toContain('Save changes')
         expect(html).toContain('Friend recommendation')
-        expect(html).toContain('25 points per completion')
-        expect(html).toContain('Entry policy')
-        expect(html).toContain('2026-05-01 through 2026-05-31')
-        expect(html).toContain('Finished title')
-        expect(html).toContain('Title and author stay optional')
-        expect(html).toContain('Edits stay open for 180 minutes')
-        expect(html).toContain('Save entry')
+        expect(html).toContain('Personal Goal')
+        expect(html).toContain('25')
+        expect(html).toContain('1.5')
+        expect(html).toContain('Achieved')
+        expect(html).toContain('✓')
+        expect(html).not.toContain('Campaign changes saved.')
+        expect(html).toContain('disabled=""')
     })
 
-    it('renders the empty challenge note when no active challenges exist', () => {
+    it('renders the empty challenge note when no campaign challenges exist', () => {
         const html = renderToStaticMarkup(
             <LogProgressScreen
-                challengeOptions={[]}
-                hasLiveQuest={false}
-                participantSummary='No active campaign participation is linked to this account yet.'
+                campaignDateRange={null}
+                campaignChallenges={[]}
                 campaignParticipantId={null}
-                campaignPolicy={null}
                 campaignName='Campaign assignment pending'
-                scoringSummary={{
-                    audiobookMinutes: '0.75 points per minute',
-                    bookCompletion: '1 point per book',
-                    challengeCompletion: '1 point per completion',
-                    pagesRead: '1 point per page',
+                initialActiveTab='challenges'
+                progressScoring={{
+                    pointsPerMinute: 0.75,
+                    pointsPerPage: 1,
+                }}
+                workspaceState={{
+                    personalGoalTitle: '',
+                    progressRows: [],
+                    recommendationTitle: '',
                 }}
             />
         )
@@ -72,7 +103,159 @@ describe('log progress competitor UI', () => {
         expect(html).toContain(
             'No active challenges are attached to this campaign yet.'
         )
-        expect(html).toContain('Campaign dates unavailable')
-        expect(html).toContain('Save entry')
+        expect(html).toContain('Save changes')
+    })
+
+    it('renders the editable progress table when the progress tab is active', () => {
+        const html = renderToStaticMarkup(
+            <LogProgressScreen
+                campaignDateRange='May 12 - August 15'
+                campaignChallenges={[
+                    {
+                        achieved: false,
+                        id: 'challenge-1',
+                        kind: 'RECOMMENDATION_INSTANCE',
+                        ownedByCurrentParticipant: false,
+                        pageMinuteMultiplier: 0,
+                        pointValue: 25,
+                        sourceBookTitle: 'Friend recommendation book',
+                        title: 'Friend recommendation',
+                    },
+                    {
+                        achieved: false,
+                        id: 'challenge-2',
+                        kind: 'PERSONAL_GOAL_INSTANCE',
+                        ownedByCurrentParticipant: true,
+                        pageMinuteMultiplier: 2,
+                        pointValue: 0,
+                        sourceBookTitle: 'Epic page turner',
+                        title: 'Personal Goal',
+                    },
+                ]}
+                campaignParticipantId='participant-1'
+                campaignName='Spring Story Sprint'
+                progressScoring={{
+                    pointsPerMinute: 0.75,
+                    pointsPerPage: 1,
+                }}
+                workspaceState={{
+                    personalGoalTitle: 'Epic page turner',
+                    progressRows: [],
+                    recommendationTitle: '',
+                }}
+            />
+        )
+
+        expect(html).toContain('Book name')
+        expect(html).toContain('Pages')
+        expect(html).toContain('Minutes')
+        expect(html).toContain('Completed')
+        expect(html).toContain('Challenge')
+        expect(html).toContain('Points')
+        expect(html).toContain('0')
+        expect(html).toContain('New Book')
+        expect(html).toContain('Save Changes')
+        expect(html).toContain('Delete')
+        expect(html).toContain(
+            'aria-label="Challenge progress-row-personal-goal"'
+        )
+        expect(html).toContain('disabled=""')
+        expect(html).toContain(
+            '<option value="challenge-2" selected="">Personal Goal</option>'
+        )
+    })
+
+    it('filters challenge choices by row assignments and the own recommendation rule', () => {
+        const progressRows: ProgressRow[] = [
+            {
+                bookName: 'Shared pick',
+                challengeId: 'challenge-3',
+                completed: false,
+                id: 'progress-row-1',
+                minutes: '20',
+                pages: '10',
+                rowType: 'STANDARD',
+            },
+            {
+                bookName: 'My favorite recommendation',
+                challengeId: '',
+                completed: false,
+                id: 'progress-row-2',
+                minutes: '',
+                pages: '',
+                rowType: 'STANDARD',
+            },
+        ]
+
+        const availableChallenges = getAvailableProgressChallenges({
+            campaignChallenges: [
+                {
+                    achieved: false,
+                    id: 'challenge-1',
+                    kind: 'RECOMMENDATION_INSTANCE',
+                    ownedByCurrentParticipant: true,
+                    pageMinuteMultiplier: 0,
+                    pointValue: 25,
+                    sourceBookTitle: 'My favorite recommendation',
+                    title: 'Friend recommendation',
+                },
+                {
+                    achieved: false,
+                    id: 'challenge-2',
+                    kind: 'RECOMMENDATION_INSTANCE',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
+                    pointValue: 40,
+                    sourceBookTitle: 'My favorite recommendation',
+                    title: "Clara's Recommendation: My favorite recommendation",
+                },
+                {
+                    achieved: false,
+                    id: 'challenge-3',
+                    kind: 'ADMIN',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
+                    pointValue: 15,
+                    sourceBookTitle: null,
+                    title: 'Library visit',
+                },
+            ],
+            progressRows,
+            rowId: 'progress-row-2',
+        })
+
+        expect(availableChallenges.map((challenge) => challenge.title)).toEqual(
+            ["Clara's Recommendation: My favorite recommendation"]
+        )
+    })
+
+    it('calculates progress row points from pages, minutes, and completed challenge points', () => {
+        const totalPoints = calculateProgressRowPoints({
+            campaignChallenges: [
+                {
+                    achieved: false,
+                    id: 'challenge-1',
+                    kind: 'ADMIN',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
+                    pointValue: 25,
+                    sourceBookTitle: null,
+                    title: 'Friend recommendation',
+                },
+            ],
+            pointsPerMinute: 0.75,
+            pointsPerPage: 1,
+            row: {
+                bookName: 'A long read',
+                challengeId: 'challenge-1',
+                completed: true,
+                id: 'progress-row-1',
+                minutes: '20',
+                pages: '10',
+                rowType: 'STANDARD',
+            },
+        })
+
+        expect(totalPoints).toBe(50)
     })
 })

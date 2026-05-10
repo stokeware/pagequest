@@ -18,12 +18,24 @@ const inputClassName = [
     'dark:aria-invalid:ring-destructive/40',
 ].join(' ')
 
+const numberInputClassName = [
+    '[appearance:textfield]',
+    '[&::-webkit-inner-spin-button]:appearance-none',
+    '[&::-webkit-outer-spin-button]:appearance-none',
+    '[&::-webkit-inner-spin-button]:m-0',
+    '[&::-webkit-outer-spin-button]:m-0',
+].join(' ')
+
 function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
     return (
         <InputPrimitive
             type={type}
             data-slot='input'
-            className={cn(inputClassName, className)}
+            className={cn(
+                inputClassName,
+                type === 'number' && numberInputClassName,
+                className
+            )}
             {...props}
         />
     )

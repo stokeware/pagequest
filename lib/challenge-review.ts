@@ -60,20 +60,37 @@ export function parseChallengeReviewFormValues(
 }
 
 export function resolveChallengeCompletionDefaultPoints({
-    challengePointValue,
     campaignChallengePointValueOverride,
     campaignPointsPerChallengeCompletion,
+    challengePointValue,
 }: {
-    challengePointValue: Prisma.Decimal | number | string | null
-    campaignChallengePointValueOverride: Prisma.Decimal | number | string | null
-    campaignPointsPerChallengeCompletion: Prisma.Decimal | number | string
+    campaignChallengePointValueOverride?:
+        | Prisma.Decimal
+        | number
+        | string
+        | null
+    campaignPointsPerChallengeCompletion?:
+        | Prisma.Decimal
+        | number
+        | string
+        | null
+    challengePointValue: Prisma.Decimal | number | string
 }) {
-    if (campaignChallengePointValueOverride != null) {
+    if (
+        campaignChallengePointValueOverride !== null &&
+        campaignChallengePointValueOverride !== undefined
+    ) {
         return toDecimal(campaignChallengePointValueOverride)
     }
 
-    if (challengePointValue != null) {
-        return toDecimal(challengePointValue)
+    const resolvedChallengePointValue = toDecimal(challengePointValue)
+
+    if (
+        !resolvedChallengePointValue.isZero() ||
+        campaignPointsPerChallengeCompletion === null ||
+        campaignPointsPerChallengeCompletion === undefined
+    ) {
+        return resolvedChallengePointValue
     }
 
     return toDecimal(campaignPointsPerChallengeCompletion)

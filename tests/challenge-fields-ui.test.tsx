@@ -27,22 +27,28 @@ describe('challenge field admin UI', () => {
         const html = renderToStaticMarkup(
             <ChallengePolicyPanel
                 defaults={{
+                    pageMinuteMultiplier: '1.5',
                     pointValue: '15',
                 }}
             />
         )
 
-        expect(html).toContain('Point rule')
-        expect(html).toContain('15 points')
+        expect(html).toContain('Scoring')
+        expect(html).toContain('Points')
+        expect(html).toContain('15')
+        expect(html).toContain('Multiplier')
+        expect(html).toContain('1.5')
     })
 
     it('maps stored challenge values into form defaults', () => {
         const defaults = getChallengeFormDefaults({
+            pageMinuteMultiplier: { toString: () => '1.5' },
             pointValue: { toString: () => '15' },
             title: 'Biography bonus',
         })
 
         expect(defaults).toEqual({
+            pageMinuteMultiplier: '1.5',
             pointValue: '15',
             title: 'Biography bonus',
         })

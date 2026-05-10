@@ -71,30 +71,27 @@ describe('challenge review helpers', () => {
         )
     })
 
-    it('prefers campaign overrides, then challenge points, then campaign defaults', () => {
+    it('resolves challenge completion defaults from challenge, campaign, and override points', () => {
         expect(
             resolveChallengeCompletionDefaultPoints({
                 challengePointValue: new Prisma.Decimal('40'),
-                campaignChallengePointValueOverride: new Prisma.Decimal('60'),
-                campaignPointsPerChallengeCompletion: new Prisma.Decimal('20'),
-            }).toString()
-        ).toBe('60')
-
-        expect(
-            resolveChallengeCompletionDefaultPoints({
-                challengePointValue: new Prisma.Decimal('40'),
-                campaignChallengePointValueOverride: null,
-                campaignPointsPerChallengeCompletion: new Prisma.Decimal('20'),
             }).toString()
         ).toBe('40')
 
         expect(
             resolveChallengeCompletionDefaultPoints({
-                challengePointValue: null,
-                campaignChallengePointValueOverride: null,
-                campaignPointsPerChallengeCompletion: new Prisma.Decimal('20'),
+                challengePointValue: new Prisma.Decimal('0'),
+                campaignPointsPerChallengeCompletion: new Prisma.Decimal('25'),
             }).toString()
-        ).toBe('20')
+        ).toBe('25')
+
+        expect(
+            resolveChallengeCompletionDefaultPoints({
+                campaignChallengePointValueOverride: new Prisma.Decimal('30'),
+                challengePointValue: new Prisma.Decimal('0'),
+                campaignPointsPerChallengeCompletion: new Prisma.Decimal('25'),
+            }).toString()
+        ).toBe('30')
     })
 
     it('prepares manual approval and rejection values', () => {

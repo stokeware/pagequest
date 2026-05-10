@@ -2,22 +2,20 @@ import {
     Prisma,
     type CampaignStatus,
     type CampaignVisibility,
+    type ChallengeKind,
 } from '@prisma/client'
 
 export type AdminCampaignChallengeSummary = {
-    challenge: {
-        id: string
-        pointValue: Prisma.Decimal | null
-        title: string
-    }
     id: string
-    sortOrder: number
+    kind: ChallengeKind
+    pageMinuteMultiplier: Prisma.Decimal
+    pointValue: Prisma.Decimal
+    title: string
 }
 
 export type AdminCampaignWorkbenchSummary = {
     archivedAt: Date | null
-    campaignChallenges: AdminCampaignChallengeSummary[]
-    challengeCategoryBonuses: Prisma.JsonValue | null
+    challenges: AdminCampaignChallengeSummary[]
     endAt: Date
     id: string
     name: string
@@ -32,10 +30,15 @@ export type AdminCampaignWorkbenchSummary = {
     visibility: CampaignVisibility
 }
 
+type AdminCampaignSelectionCandidate = Pick<
+    AdminCampaignWorkbenchSummary,
+    'endAt' | 'id' | 'startAt' | 'status'
+>
+
 export type AdminCampaignBucket = 'current' | 'future' | 'past'
 
 export function getAdminCampaignBucket(
-    campaign: AdminCampaignWorkbenchSummary,
+    campaign: AdminCampaignSelectionCandidate,
     now = new Date()
 ): AdminCampaignBucket {
     if (campaign.status === 'ACTIVE') {
@@ -54,7 +57,7 @@ export function getAdminCampaignBucket(
 }
 
 export function selectDefaultAdminCampaignId(
-    campaigns: AdminCampaignWorkbenchSummary[],
+    campaigns: AdminCampaignSelectionCandidate[],
     now = new Date()
 ) {
     const currentCampaign = campaigns.find(

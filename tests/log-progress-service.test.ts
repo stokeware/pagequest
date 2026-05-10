@@ -6,11 +6,9 @@ import {
 } from '@/lib/log-progress-service'
 
 function buildParticipantSnapshot({
-    challengePointValue = null,
-    pointValueOverride = '15',
+    challengePointValue = '15',
 }: {
-    challengePointValue?: { toString(): string } | null
-    pointValueOverride?: string | null
+    challengePointValue?: string
 } = {}) {
     return {
         id: 'participant-1',
@@ -21,23 +19,19 @@ function buildParticipantSnapshot({
             entryEditWindowMinutes: 180,
             endAt: new Date('2026-05-31T23:59:59.000Z'),
             id: 'campaign-1',
-            pointsPerAudiobookMinute: { toString: () => '0.75' },
-            pointsPerBook: { toString: () => '10' },
-            pointsPerChallengeCompletion: { toString: () => '25' },
-            pointsPerPage: { toString: () => '1' },
-            campaignChallenges: [
+            challenges: [
                 {
-                    challenge: {
-                        pointValue: challengePointValue,
-                        title: 'Friend recommendation',
-                    },
-                    challengeId: 'challenge-1',
-                    id: 'campaign-challenge-1',
-                    pointValueOverride: pointValueOverride
-                        ? { toString: () => pointValueOverride }
-                        : null,
+                    id: 'challenge-1',
+                    kind: 'ADMIN',
+                    pageMinuteMultiplier: { toString: () => '0' },
+                    pointValue: { toString: () => challengePointValue },
+                    templateChallenge: null,
+                    title: 'Friend recommendation',
                 },
             ],
+            pointsPerAudiobookMinute: { toString: () => '0.75' },
+            pointsPerBook: { toString: () => '10' },
+            pointsPerPage: { toString: () => '1' },
             startAt: new Date('2026-05-01T00:00:00.000Z'),
             timezone: 'America/Chicago',
         },
@@ -196,7 +190,7 @@ describe('recordLogProgressEntry', () => {
                 activityDate: '2026-05-08',
                 bookAuthor: '',
                 bookTitle: '',
-                challengeId: 'campaign-challenge-1',
+                challengeId: 'challenge-1',
                 notes: 'Completed the recommendation prompt',
                 type: 'CHALLENGE_COMPLETION',
                 value: '1',
@@ -208,7 +202,6 @@ describe('recordLogProgressEntry', () => {
         expect(transaction.challengeCompletion.create).toHaveBeenCalledWith({
             data: expect.objectContaining({
                 challengeId: 'challenge-1',
-                campaignChallengeId: 'campaign-challenge-1',
                 campaignParticipantId: 'participant-1',
                 reviewState: 'AUTO_APPROVED',
             }),

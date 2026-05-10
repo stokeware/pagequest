@@ -1,12 +1,25 @@
-import type { CampaignStatus } from '@prisma/client'
+import type { CampaignStatus, ChallengeKind } from '@prisma/client'
 
-import { getRoleAwareSession } from '@/lib/auth/session'
+import {
+    personalGoalTemplateTitle,
+    resolveChallengePageMinuteMultiplier,
+    resolveChallengePointValue,
+    sortChallengesForCompetitorView,
+} from '@/lib/challenge-config'
+import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
 import { prisma } from '@/lib/prisma'
 
 import {
     LogProgressScreen,
     type LogProgressViewModel,
 } from './log-progress-screen'
+import {
+    campaignWorkspaceAuditAction,
+    emptyCampaignWorkspaceState,
+    parseCampaignWorkspaceState,
+    type CampaignWorkspaceState,
+} from './workspace-state'
+import { getRoleAwareSession } from '@/lib/auth/session'
 
 const loggableCampaignStatuses: CampaignStatus[] = [
     'ACTIVE',
@@ -15,19 +28,15 @@ const loggableCampaignStatuses: CampaignStatus[] = [
 ]
 
 const defaultViewModel: LogProgressViewModel = {
-    challengeOptions: [],
-    hasLiveQuest: false,
-    participantSummary:
-        'No active campaign participation is linked to this account yet. This screen is ready for reading entries once a campaign is available.',
+    campaignDateRange: null,
     campaignParticipantId: null,
-    campaignPolicy: null,
+    campaignChallenges: [],
     campaignName: 'Campaign assignment pending',
-    scoringSummary: {
-        audiobookMinutes: '0.75 points per minute',
-        bookCompletion: '1 point per book',
-        challengeCompletion: '1 point per completion',
-        pagesRead: '1 point per page',
+    progressScoring: {
+        pointsPerMinute: 0.75,
+        pointsPerPage: 1,
     },
+    workspaceState: emptyCampaignWorkspaceState,
 }
 
 async function getLogProgressViewModel(
@@ -37,41 +46,80 @@ async function getLogProgressViewModel(
         return defaultViewModel
     }
 
+    await synchronizeDerivedCampaignStatuses()
+
     const participants = await prisma.campaignParticipant.findMany({
         orderBy: {
             createdAt: 'desc',
         },
         select: {
             id: true,
+            auditLogs: {
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                select: {
+                    metadata: true,
+                },
+                take: 1,
+                where: {
+                    action: campaignWorkspaceAuditAction,
+                },
+            },
+            challengeCompletions: {
+                select: {
+                    challengeId: true,
+                },
+                where: {
+                    readingEntry: {
+                        deletedAt: null,
+                    },
+                    reviewState: {
+                        in: ['APPROVED', 'AUTO_APPROVED'],
+                    },
+                },
+            },
+            challengeSources: {
+                select: {
+                    bookTitle: true,
+                    kind: true,
+                },
+            },
             campaign: {
                 select: {
-                    entryDeleteWindowMinutes: true,
-                    entryEditWindowMinutes: true,
-                    endAt: true,
-                    name: true,
-                    pointsPerAudiobookMinute: true,
-                    pointsPerBook: true,
-                    pointsPerChallengeCompletion: true,
-                    pointsPerPage: true,
-                    startAt: true,
-                    campaignChallenges: {
-                        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+                    challenges: {
                         select: {
-                            challenge: {
-                                select: {
-                                    pointValue: true,
-                                    title: true,
-                                },
-                            },
-                            challengeId: true,
                             id: true,
                             isActive: true,
-                            pointValueOverride: true,
+                            kind: true,
+                            ownerParticipantId: true,
+                            pageMinuteMultiplier: true,
+                            pointValue: true,
+                            sourceBookTitle: true,
+                            templateChallenge: {
+                                select: {
+                                    pageMinuteMultiplier: true,
+                                    pointValue: true,
+                                },
+                            },
+                            title: true,
                         },
                         where: {
                             isActive: true,
+                            kind: {
+                                in: [
+                                    'ADMIN',
+                                    'PERSONAL_GOAL_INSTANCE',
+                                    'RECOMMENDATION_INSTANCE',
+                                ],
+                            },
                         },
                     },
+                    endAt: true,
+                    name: true,
+                    pointsPerAudiobookMinute: true,
+                    pointsPerPage: true,
+                    startAt: true,
                     status: true,
                     timezone: true,
                 },
@@ -91,46 +139,74 @@ async function getLogProgressViewModel(
 
     const participant =
         participants.find((entry) => entry.campaign.status === 'ACTIVE') ??
-        participants[0] ??
+        participants
+            .filter((entry) => entry.campaign.status === 'SCHEDULED')
+            .sort(
+                (left, right) =>
+                    left.campaign.startAt.getTime() -
+                    right.campaign.startAt.getTime()
+            )[0] ??
+        participants
+            .filter((entry) => entry.campaign.status === 'COMPLETED')
+            .sort(
+                (left, right) =>
+                    right.campaign.endAt.getTime() -
+                    left.campaign.endAt.getTime()
+            )[0] ??
         null
 
     if (!participant) {
         return defaultViewModel
     }
 
+    const achievedChallengeIds = new Set(
+        participant.challengeCompletions.map(
+            (completion) => completion.challengeId
+        )
+    )
+    const workspaceState = hydrateWorkspaceState({
+        challengeSources: participant.challengeSources,
+        challenges: participant.campaign.challenges,
+        metadata: participant.auditLogs[0]?.metadata,
+    })
+
     return {
-        challengeOptions: participant.campaign.campaignChallenges.map(
-            ({ challenge, id, pointValueOverride }) => ({
-                id,
-                pointsLabel: `${(
-                    pointValueOverride ??
-                    challenge.pointValue ??
-                    participant.campaign.pointsPerChallengeCompletion
-                ).toString()} points`,
-                title: challenge.title,
-            })
+        campaignDateRange: formatCampaignDateRange(
+            participant.campaign.startAt,
+            participant.campaign.endAt,
+            participant.campaign.timezone
         ),
-        hasLiveQuest: participant.campaign.status === 'ACTIVE',
-        participantSummary:
-            participant.campaign.status === 'ACTIVE'
-                ? 'Your current campaign is live, so this form is ready for book, page, audio, and challenge entries.'
-                : 'Your most recent campaign context is loaded here while active campaign logging is still pending for this account.',
+        campaignChallenges: sortChallengesForCompetitorView(
+            participant.campaign.challenges
+                .filter((challenge) => challenge.isActive)
+                .map((challenge) => ({
+                    achieved: achievedChallengeIds.has(challenge.id),
+                    id: challenge.id,
+                    kind: challenge.kind,
+                    ownedByCurrentParticipant:
+                        challenge.ownerParticipantId === participant.id,
+                    pageMinuteMultiplier: Number(
+                        resolveChallengePageMinuteMultiplier(challenge)
+                    ),
+                    pointValue: Number(resolveChallengePointValue(challenge)),
+                    sourceBookTitle: challenge.sourceBookTitle,
+                    title:
+                        challenge.kind === 'PERSONAL_GOAL_INSTANCE'
+                            ? personalGoalTemplateTitle
+                            : challenge.title,
+                }))
+        ),
         campaignParticipantId: participant.id,
-        campaignPolicy: {
-            entryDeleteWindowMinutes:
-                participant.campaign.entryDeleteWindowMinutes,
-            entryEditWindowMinutes: participant.campaign.entryEditWindowMinutes,
-            campaignEndAt: participant.campaign.endAt.toISOString(),
-            campaignStartAt: participant.campaign.startAt.toISOString(),
-            timezone: participant.campaign.timezone,
-        },
         campaignName: participant.campaign.name,
-        scoringSummary: {
-            audiobookMinutes: `${participant.campaign.pointsPerAudiobookMinute.toString()} points per minute`,
-            bookCompletion: `${participant.campaign.pointsPerBook.toString()} points per book`,
-            challengeCompletion: `${participant.campaign.pointsPerChallengeCompletion.toString()} points per completion`,
-            pagesRead: `${participant.campaign.pointsPerPage.toString()} points per page`,
+        progressScoring: {
+            pointsPerMinute: Number(
+                participant.campaign.pointsPerAudiobookMinute.toString()
+            ),
+            pointsPerPage: Number(
+                participant.campaign.pointsPerPage.toString()
+            ),
         },
+        workspaceState,
     }
 }
 
@@ -139,4 +215,69 @@ export default async function LogProgressPage() {
     const viewModel = await getLogProgressViewModel(viewer.userId)
 
     return <LogProgressScreen {...viewModel} />
+}
+
+function hydrateWorkspaceState({
+    challengeSources,
+    challenges,
+    metadata,
+}: {
+    challengeSources: Array<{
+        bookTitle: string
+        kind: 'PERSONAL_GOAL' | 'RECOMMENDATION'
+    }>
+    challenges: Array<{
+        id: string
+        kind: ChallengeKind
+    }>
+    metadata: unknown
+}): CampaignWorkspaceState {
+    const parsedWorkspaceState = parseCampaignWorkspaceState(metadata)
+    const personalGoalTitle =
+        challengeSources.find((source) => source.kind === 'PERSONAL_GOAL')
+            ?.bookTitle ?? parsedWorkspaceState.personalGoalTitle
+    const recommendationTitle =
+        challengeSources.find((source) => source.kind === 'RECOMMENDATION')
+            ?.bookTitle ?? parsedWorkspaceState.recommendationTitle
+    const personalGoalChallengeId =
+        challenges.find(
+            (challenge) => challenge.kind === 'PERSONAL_GOAL_INSTANCE'
+        )?.id ?? ''
+    const personalGoalRow = parsedWorkspaceState.progressRows.find(
+        (row) => row.rowType === 'PERSONAL_GOAL'
+    ) ?? {
+        bookName: personalGoalTitle,
+        challengeId: personalGoalChallengeId,
+        completed: false,
+        id: 'progress-row-personal-goal',
+        minutes: '',
+        pages: '',
+        rowType: 'PERSONAL_GOAL' as const,
+    }
+
+    return {
+        personalGoalTitle,
+        progressRows: [
+            {
+                ...personalGoalRow,
+                bookName: personalGoalTitle,
+                challengeId: personalGoalChallengeId,
+                rowType: 'PERSONAL_GOAL',
+            },
+            ...parsedWorkspaceState.progressRows.filter(
+                (row) => row.rowType !== 'PERSONAL_GOAL'
+            ),
+        ],
+        recommendationTitle,
+    }
+}
+
+function formatCampaignDateRange(startAt: Date, endAt: Date, timezone: string) {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        day: 'numeric',
+        month: 'long',
+        timeZone: timezone,
+    })
+
+    return `${formatter.format(startAt)} - ${formatter.format(endAt)}`
 }

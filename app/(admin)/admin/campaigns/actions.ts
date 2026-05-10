@@ -5,18 +5,20 @@ import { redirect } from 'next/navigation'
 
 import { requireAdminActionUser } from '@/lib/auth/session'
 import {
-    assertCampaignChallengeNotAssigned,
-    assertSingleActiveQuest,
     CampaignAdminError,
-    parseCampaignChallengeAssignmentFormValues,
     parseCampaignFormValues,
-    prepareCampaignChallengeAssignmentValues,
     prepareCampaignArchiveValues,
     prepareCampaignCreateValues,
     prepareCampaignDuplicateValues,
     prepareCampaignPublishValues,
     prepareCampaignUpdateValues,
+    assertSingleActiveQuest,
 } from '@/lib/campaign-admin'
+import {
+    ensureCampaignChallengeTemplates,
+    personalGoalTemplateTitle,
+    recommendationTemplateTitle,
+} from '@/lib/challenge-config'
 import {
     ChallengeAdminError,
     parseChallengeFormValues,
@@ -225,6 +227,8 @@ export async function createCampaignAction(formData: FormData) {
                     campaignId: campaign.id,
                 },
             })
+
+            await ensureCampaignChallengeTemplates(transaction, campaign.id)
 
             return campaign
         })
@@ -523,6 +527,11 @@ export async function duplicateCampaignAction(formData: FormData) {
                     },
                 })
 
+                await ensureCampaignChallengeTemplates(
+                    transaction,
+                    createdQuest.id
+                )
+
                 return createdQuest
             }
         )
@@ -530,121 +539,6 @@ export async function duplicateCampaignAction(formData: FormData) {
         finishAction({
             outcome: 'duplicated',
             selectedCampaignId: duplicatedQuest.id,
-        })
-    } catch (error) {
-        if (isRedirectSignal(error)) {
-            throw error
-        }
-
-        finishAction({
-            detail: resolveCampaignErrorCode(error),
-            outcome: 'error',
-            selectedCampaignId: campaign.id,
-        })
-    }
-}
-
-export async function assignCampaignChallengeAction(formData: FormData) {
-    const actor = await requireAdminActionUser()
-    const campaignId = getStringField(formData, 'campaignId')
-
-    if (!campaignId) {
-        finishAction({
-            detail: 'missing-campaign',
-            outcome: 'error',
-        })
-    }
-
-    const campaign = await prisma.campaign.findUnique({
-        select: {
-            archivedAt: true,
-            id: true,
-            campaignChallenges: {
-                select: {
-                    challengeId: true,
-                },
-            },
-        },
-        where: {
-            id: campaignId,
-        },
-    })
-
-    if (!campaign) {
-        finishAction({
-            detail: 'campaign-not-found',
-            outcome: 'error',
-        })
-    }
-
-    if (campaign.archivedAt) {
-        finishAction({
-            detail: 'campaign-not-editable',
-            outcome: 'error',
-            selectedCampaignId: campaign.id,
-        })
-    }
-
-    try {
-        const formValues = parseCampaignChallengeAssignmentFormValues(formData)
-        const values = prepareCampaignChallengeAssignmentValues(formValues)
-        const challenge = await prisma.challenge.findUnique({
-            select: {
-                id: true,
-                title: true,
-            },
-            where: {
-                id: values.challengeId,
-            },
-        })
-
-        if (!challenge) {
-            throw new CampaignAdminError(
-                'challenge-not-found',
-                'That challenge record is no longer available.'
-            )
-        }
-
-        assertCampaignChallengeNotAssigned({
-            challengeId: values.challengeId,
-            existingChallengeIds: campaign.campaignChallenges.map(
-                (assignment) => assignment.challengeId
-            ),
-        })
-
-        await prisma.$transaction(async (transaction) => {
-            const assignment = await transaction.campaignChallenge.create({
-                data: {
-                    ...values,
-                    campaignId: campaign.id,
-                },
-                select: {
-                    id: true,
-                },
-            })
-
-            await transaction.auditLog.create({
-                data: {
-                    action: 'campaign.challenge-assigned',
-                    actorUserId: actor.id,
-                    challengeId: challenge.id,
-                    entityId: assignment.id,
-                    entityType: 'CampaignChallenge',
-                    metadata: {
-                        challengeTitle: challenge.title,
-                        pointValueOverride:
-                            values.pointValueOverride?.toString() ?? null,
-                        sortOrder: values.sortOrder,
-                    },
-                    campaignId: campaign.id,
-                },
-            })
-        })
-
-        revalidatePath('/admin/challenges')
-        finishAction({
-            outcome: 'challenge-assigned',
-            selectedCampaignId: campaign.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {
@@ -675,34 +569,18 @@ export async function createCampaignChallengeAction(formData: FormData) {
     try {
         const formValues = parseChallengeFormValues(formData)
         const values = prepareChallengeCreateValues(formValues)
-        const nextSortOrder = await prisma.campaignChallenge.count({
-            where: {
-                campaignId: campaign.id,
-            },
-        })
 
         await prisma.$transaction(async (transaction) => {
             const challenge = await transaction.challenge.create({
                 data: {
+                    campaignId: campaign.id,
                     ...values,
                     createdByUserId: actor.id,
+                    kind: 'ADMIN',
                 },
                 select: {
                     id: true,
                     title: true,
-                },
-            })
-
-            const assignment = await transaction.campaignChallenge.create({
-                data: {
-                    campaignId: campaign.id,
-                    challengeId: challenge.id,
-                    isActive: true,
-                    pointValueOverride: null,
-                    sortOrder: nextSortOrder,
-                },
-                select: {
-                    id: true,
                 },
             })
 
@@ -714,22 +592,6 @@ export async function createCampaignChallengeAction(formData: FormData) {
                     entityId: challenge.id,
                     entityType: 'Challenge',
                     metadata: {},
-                    campaignId: campaign.id,
-                },
-            })
-
-            await transaction.auditLog.create({
-                data: {
-                    action: 'campaign.challenge-assigned',
-                    actorUserId: actor.id,
-                    challengeId: challenge.id,
-                    entityId: assignment.id,
-                    entityType: 'CampaignChallenge',
-                    metadata: {
-                        challengeTitle: challenge.title,
-                        pointValueOverride: null,
-                        sortOrder: nextSortOrder,
-                    },
                     campaignId: campaign.id,
                 },
             })
@@ -779,12 +641,9 @@ export async function updateCampaignChallengeAction(formData: FormData) {
             id: true,
         },
         where: {
-            campaignChallenges: {
-                some: {
-                    campaignId: campaign.id,
-                },
-            },
+            campaignId: campaign.id,
             id: challengeId,
+            kind: 'ADMIN',
         },
     })
 
@@ -839,10 +698,10 @@ export async function updateCampaignChallengeAction(formData: FormData) {
     }
 }
 
-export async function deleteCampaignChallengeAction(formData: FormData) {
+export async function updateCompetitorChallengeAction(formData: FormData) {
     const actor = await requireAdminActionUser()
     const campaignId = getStringField(formData, 'campaignId')
-    const campaignChallengeId = getStringField(formData, 'campaignChallengeId')
+    const kind = getStringField(formData, 'kind')
 
     if (!campaignId) {
         finishAction({
@@ -851,7 +710,10 @@ export async function deleteCampaignChallengeAction(formData: FormData) {
         })
     }
 
-    if (!campaignChallengeId) {
+    if (
+        kind !== 'PERSONAL_GOAL_TEMPLATE' &&
+        kind !== 'RECOMMENDATION_TEMPLATE'
+    ) {
         finishAction({
             detail: 'missing-challenge',
             outcome: 'error',
@@ -860,29 +722,105 @@ export async function deleteCampaignChallengeAction(formData: FormData) {
     }
 
     const campaign = await loadEditableCampaign(campaignId)
-    const assignment = await prisma.campaignChallenge.findFirst({
-        select: {
-            challenge: {
+
+    try {
+        await ensureCampaignChallengeTemplates(prisma, campaign.id)
+
+        const formValues = parseChallengeFormValues(formData)
+        const title =
+            kind === 'PERSONAL_GOAL_TEMPLATE'
+                ? personalGoalTemplateTitle
+                : recommendationTemplateTitle
+
+        await prisma.$transaction(async (transaction) => {
+            const challenge = await transaction.challenge.update({
+                data: {
+                    pageMinuteMultiplier: formValues.pageMinuteMultiplier,
+                    pointValue: formValues.pointValue,
+                    title,
+                },
                 select: {
-                    _count: {
-                        select: {
-                            challengeCompletions: true,
-                            campaignChallenges: true,
-                        },
-                    },
                     id: true,
-                    title: true,
+                },
+                where: {
+                    campaignId_title: {
+                        campaignId: campaign.id,
+                        title,
+                    },
+                },
+            })
+
+            await transaction.auditLog.create({
+                data: {
+                    action: 'challenge.updated',
+                    actorUserId: actor.id,
+                    challengeId: challenge.id,
+                    entityId: challenge.id,
+                    entityType: 'Challenge',
+                    metadata: {
+                        kind,
+                    },
+                    campaignId: campaign.id,
+                },
+            })
+        })
+
+        finishAction({
+            outcome: 'challenge-updated',
+            selectedCampaignId: campaign.id,
+        })
+    } catch (error) {
+        if (isRedirectSignal(error)) {
+            throw error
+        }
+
+        finishAction({
+            detail: resolveCampaignErrorCode(error),
+            outcome: 'error',
+            selectedCampaignId: campaign.id,
+        })
+    }
+}
+
+export async function deleteCampaignChallengeAction(formData: FormData) {
+    const actor = await requireAdminActionUser()
+    const campaignId = getStringField(formData, 'campaignId')
+    const challengeId = getStringField(formData, 'challengeId')
+
+    if (!campaignId) {
+        finishAction({
+            detail: 'missing-campaign',
+            outcome: 'error',
+        })
+    }
+
+    if (!challengeId) {
+        finishAction({
+            detail: 'missing-challenge',
+            outcome: 'error',
+            selectedCampaignId: campaignId,
+        })
+    }
+
+    const campaign = await loadEditableCampaign(campaignId)
+    const challenge = await prisma.challenge.findFirst({
+        select: {
+            _count: {
+                select: {
+                    challengeCompletions: true,
                 },
             },
             id: true,
+            title: true,
         },
         where: {
             campaignId: campaign.id,
-            id: campaignChallengeId,
+            id: challengeId,
+            kind: 'ADMIN',
         },
     })
 
-    if (!assignment) {
+    if (!challenge) {
         finishAction({
             detail: 'challenge-not-found',
             outcome: 'error',
@@ -890,7 +828,7 @@ export async function deleteCampaignChallengeAction(formData: FormData) {
         })
     }
 
-    if (assignment.challenge._count.challengeCompletions > 0) {
+    if (challenge._count.challengeCompletions > 0) {
         finishAction({
             detail: 'challenge-in-use',
             outcome: 'error',
@@ -898,37 +836,23 @@ export async function deleteCampaignChallengeAction(formData: FormData) {
         })
     }
 
-    const deleteEntireChallenge =
-        assignment.challenge._count.campaignChallenges <= 1
-
     try {
         await prisma.$transaction(async (transaction) => {
-            if (deleteEntireChallenge) {
-                await transaction.challenge.delete({
-                    where: {
-                        id: assignment.challenge.id,
-                    },
-                })
-            } else {
-                await transaction.campaignChallenge.delete({
-                    where: {
-                        id: assignment.id,
-                    },
-                })
-            }
+            await transaction.challenge.delete({
+                where: {
+                    id: challenge.id,
+                },
+            })
 
             await transaction.auditLog.create({
                 data: {
-                    action: deleteEntireChallenge
-                        ? 'challenge.deleted'
-                        : 'campaign.challenge-removed',
+                    action: 'challenge.deleted',
                     actorUserId: actor.id,
-                    challengeId: assignment.challenge.id,
-                    entityId: assignment.id,
-                    entityType: 'CampaignChallenge',
+                    challengeId: challenge.id,
+                    entityId: challenge.id,
+                    entityType: 'Challenge',
                     metadata: {
-                        challengeTitle: assignment.challenge.title,
-                        deletedChallenge: deleteEntireChallenge,
+                        challengeTitle: challenge.title,
                     },
                     campaignId: campaign.id,
                 },

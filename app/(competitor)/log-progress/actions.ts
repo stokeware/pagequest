@@ -3,12 +3,22 @@
 import { revalidatePath } from 'next/cache'
 
 import { requireAuthenticatedActionUser } from '@/lib/auth/session'
+import {
+    getParticipantChallengeLabel,
+    syncParticipantChallengeSources,
+} from '@/lib/challenge-config'
 import type { LogProgressFormValues } from '@/lib/log-progress'
 import {
     recordLogProgressEntry,
     resolveLogProgressMutationErrorCode,
 } from '@/lib/log-progress-service'
 import { prisma } from '@/lib/prisma'
+
+import {
+    campaignWorkspaceAuditAction,
+    parseCampaignWorkspaceState,
+    type CampaignWorkspaceState,
+} from './workspace-state'
 
 type SubmitLogProgressInput = {
     campaignParticipantId: string | null
@@ -19,6 +29,28 @@ type SubmitLogProgressResult =
     | {
           message: string
           outcome: 'success'
+      }
+    | {
+          detail: string
+          message: string
+          outcome: 'error'
+      }
+
+export type SaveCampaignWorkspaceInput = {
+    campaignParticipantId: string | null
+    workspaceState: CampaignWorkspaceState
+}
+
+type SaveCampaignWorkspaceResult =
+    | {
+          message: string
+          outcome: 'success'
+          workspaceState: CampaignWorkspaceState
+      }
+    | {
+          detail: string
+          message: string
+          outcome: 'error'
       }
     | {
           detail: string
@@ -66,6 +98,106 @@ export async function submitLogProgressAction(
             message: resolveLogProgressErrorMessage(error),
             outcome: 'error',
         }
+    }
+}
+
+export async function saveCampaignWorkspaceAction(
+    input: SaveCampaignWorkspaceInput
+): Promise<SaveCampaignWorkspaceResult> {
+    const actor = await requireAuthenticatedActionUser('COMPETITOR')
+
+    if (!input.campaignParticipantId) {
+        return {
+            detail: 'missing-campaign-participant',
+            message:
+                'A campaign profile is required before you can save campaign workspace changes.',
+            outcome: 'error',
+        }
+    }
+
+    const participant = await prisma.campaignParticipant.findUnique({
+        select: {
+            campaignId: true,
+            id: true,
+            removedAt: true,
+            userId: true,
+            user: {
+                select: {
+                    email: true,
+                    name: true,
+                },
+            },
+        },
+        where: {
+            id: input.campaignParticipantId,
+        },
+    })
+
+    if (!participant) {
+        return {
+            detail: 'participant-not-found',
+            message: 'That campaign workspace is no longer available.',
+            outcome: 'error',
+        }
+    }
+
+    if (participant.removedAt) {
+        return {
+            detail: 'participant-removed',
+            message: 'This campaign participation is no longer active.',
+            outcome: 'error',
+        }
+    }
+
+    if (participant.userId !== actor.id) {
+        return {
+            detail: 'participant-access-denied',
+            message: 'You can only save your own campaign workspace.',
+            outcome: 'error',
+        }
+    }
+
+    const parsedWorkspaceState = parseCampaignWorkspaceState(
+        input.workspaceState
+    )
+    const workspaceState = await prisma.$transaction(async (transaction) => {
+        await syncParticipantChallengeSources(transaction, {
+            campaignId: participant.campaignId,
+            campaignParticipantId: participant.id,
+            participantLabel: getParticipantChallengeLabel(participant.user),
+            personalGoalTitle: parsedWorkspaceState.personalGoalTitle,
+            recommendationTitle: parsedWorkspaceState.recommendationTitle,
+        })
+
+        const nextWorkspaceState = {
+            ...parsedWorkspaceState,
+            progressRows: parsedWorkspaceState.progressRows.filter(
+                (row) =>
+                    row.rowType === 'PERSONAL_GOAL' || row.bookName.length > 0
+            ),
+        }
+
+        await transaction.auditLog.create({
+            data: {
+                action: campaignWorkspaceAuditAction,
+                actorUserId: actor.id,
+                campaignId: participant.campaignId,
+                campaignParticipantId: participant.id,
+                entityId: participant.id,
+                entityType: 'CampaignParticipant',
+                metadata: nextWorkspaceState,
+            },
+        })
+
+        return nextWorkspaceState
+    })
+
+    revalidatePath('/log-progress')
+
+    return {
+        message: 'Campaign changes saved.',
+        outcome: 'success',
+        workspaceState,
     }
 }
 

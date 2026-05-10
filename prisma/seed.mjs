@@ -260,8 +260,8 @@ async function resetDatabase() {
     await prisma.notificationDelivery.deleteMany()
     await prisma.challengeCompletion.deleteMany()
     await prisma.readingEntry.deleteMany()
-    await prisma.campaignChallenge.deleteMany()
     await prisma.invitation.deleteMany()
+    await prisma.participantChallengeSource.deleteMany()
     await prisma.campaignParticipant.deleteMany()
     await prisma.challenge.deleteMany()
     await prisma.roleAssignment.deleteMany()
@@ -337,28 +337,41 @@ async function seed() {
 
     const challengesByKey = {}
 
+    await prisma.challenge.createMany({
+        data: [
+            {
+                campaignId: campaign.id,
+                createdByUserId: admin.id,
+                kind: 'RECOMMENDATION_TEMPLATE',
+                pageMinuteMultiplier: new Prisma.Decimal(0),
+                pointValue: new Prisma.Decimal(0),
+                title: 'Recommendation',
+            },
+            {
+                campaignId: campaign.id,
+                createdByUserId: admin.id,
+                kind: 'PERSONAL_GOAL_TEMPLATE',
+                pageMinuteMultiplier: new Prisma.Decimal(0),
+                pointValue: new Prisma.Decimal(0),
+                title: 'Personal Goal',
+            },
+        ],
+    })
+
     for (const definition of challengeDefinitions) {
         const challenge = await prisma.challenge.create({
             data: {
+                campaignId: campaign.id,
+                createdByUserId: admin.id,
+                kind: 'ADMIN',
+                pageMinuteMultiplier: new Prisma.Decimal(0),
                 title: definition.title,
                 pointValue: definition.pointValue,
-                createdByUserId: admin.id,
-                campaignChallenges: {
-                    create: {
-                        campaignId: campaign.id,
-                        sortOrder: definition.sortOrder,
-                        pointValueOverride: definition.pointValue,
-                    },
-                },
-            },
-            include: {
-                campaignChallenges: true,
             },
         })
 
         challengesByKey[definition.key] = {
             challenge,
-            campaignChallenge: challenge.campaignChallenges[0],
         }
     }
 
@@ -433,7 +446,6 @@ async function seed() {
                         readingEntryId: readingEntry.id,
                         campaignParticipantId: participant.id,
                         challengeId: challengeRef.challenge.id,
-                        campaignChallengeId: challengeRef.campaignChallenge.id,
                         reviewState: entryConfig.challengeReviewState,
                         evidenceText: entryConfig.evidenceText,
                         reviewNotes: entryConfig.reviewNotes,
