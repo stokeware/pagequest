@@ -1,13 +1,35 @@
-import type { CampaignStatus } from '@prisma/client'
+import {
+    Prisma,
+    type CampaignStatus,
+    type CampaignVisibility,
+} from '@prisma/client'
+
+export type AdminCampaignChallengeSummary = {
+    challenge: {
+        id: string
+        pointValue: Prisma.Decimal | null
+        title: string
+    }
+    id: string
+    sortOrder: number
+}
 
 export type AdminCampaignWorkbenchSummary = {
     archivedAt: Date | null
+    campaignChallenges: AdminCampaignChallengeSummary[]
+    challengeCategoryBonuses: Prisma.JsonValue | null
     endAt: Date
     id: string
     name: string
+    pointsPerAudiobookMinute: Prisma.Decimal
+    pointsPerBook: Prisma.Decimal
+    pointsPerChallengeCompletion: Prisma.Decimal
+    pointsPerPage: Prisma.Decimal
     publishedAt: Date | null
     startAt: Date
     status: CampaignStatus
+    timezone: string
+    visibility: CampaignVisibility
 }
 
 export type AdminCampaignBucket = 'current' | 'future' | 'past'

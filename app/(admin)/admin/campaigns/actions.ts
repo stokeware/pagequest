@@ -80,6 +80,7 @@ async function loadQuest(campaignId: string) {
     return prisma.campaign.findUnique({
         select: {
             archivedAt: true,
+            challengeCategoryBonuses: true,
             description: true,
             endAt: true,
             entryDeleteWindowMinutes: true,

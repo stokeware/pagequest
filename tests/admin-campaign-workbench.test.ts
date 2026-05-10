@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -13,12 +14,20 @@ function buildCampaign(
 ): AdminCampaignWorkbenchSummary {
     return {
         archivedAt: null,
+        campaignChallenges: [],
+        challengeCategoryBonuses: null,
         endAt: new Date('2026-06-01T12:00:00.000Z'),
         id: 'campaign-1',
         name: 'Campaign 1',
+        pointsPerAudiobookMinute: new Prisma.Decimal('0.5'),
+        pointsPerBook: new Prisma.Decimal('10'),
+        pointsPerChallengeCompletion: new Prisma.Decimal('25'),
+        pointsPerPage: new Prisma.Decimal('1'),
         publishedAt: new Date('2026-04-01T12:00:00.000Z'),
         startAt: new Date('2026-05-01T12:00:00.000Z'),
         status: 'ACTIVE',
+        timezone: 'America/Chicago',
+        visibility: 'INVITE_ONLY',
         ...overrides,
     }
 }
