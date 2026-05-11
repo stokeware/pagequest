@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invitationActionMocks = vi.hoisted(() => {
+    const consoleError = vi.fn()
+    const consoleWarn = vi.fn()
     const revalidatePath = vi.fn()
     const redirect = vi.fn((url: string) => {
         const error = new Error(`NEXT_REDIRECT:${url}`) as Error & {
@@ -17,6 +19,7 @@ const invitationActionMocks = vi.hoisted(() => {
     const canResendInvitation = vi.fn()
     const canRevokeInvitation = vi.fn()
     const consumeRateLimit = vi.fn()
+    const isValidInvitationEmail = vi.fn()
     const normalizeInvitationEmail = vi.fn()
     const prepareInvitationCreateValues = vi.fn()
     const prepareInvitationResendValues = vi.fn()
@@ -48,10 +51,13 @@ const invitationActionMocks = vi.hoisted(() => {
         buildInvitationAcceptUrl,
         canResendInvitation,
         canRevokeInvitation,
+        consoleError,
+        consoleWarn,
         consumeRateLimit,
         deriveRoleAwareSession,
         getAdminRouteRedirectPath,
         getServerSession,
+        isValidInvitationEmail,
         normalizeInvitationEmail,
         prepareInvitationCreateValues,
         prepareInvitationResendValues,
@@ -88,6 +94,7 @@ vi.mock('@/lib/invitation-admin', () => ({
     buildInvitationAcceptUrl: invitationActionMocks.buildInvitationAcceptUrl,
     canResendInvitation: invitationActionMocks.canResendInvitation,
     canRevokeInvitation: invitationActionMocks.canRevokeInvitation,
+    isValidInvitationEmail: invitationActionMocks.isValidInvitationEmail,
     normalizeInvitationEmail: invitationActionMocks.normalizeInvitationEmail,
     prepareInvitationCreateValues:
         invitationActionMocks.prepareInvitationCreateValues,
@@ -114,6 +121,12 @@ describe('admin invitation actions audit logging', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2026-05-08T18:00:00.000Z'))
         vi.clearAllMocks()
+        vi.spyOn(console, 'error').mockImplementation(
+            invitationActionMocks.consoleError
+        )
+        vi.spyOn(console, 'warn').mockImplementation(
+            invitationActionMocks.consoleWarn
+        )
 
         invitationActionMocks.getServerSession.mockResolvedValue({
             user: {
@@ -130,6 +143,7 @@ describe('admin invitation actions audit logging', () => {
         invitationActionMocks.normalizeInvitationEmail.mockImplementation(
             (value: string) => value.trim().toLowerCase()
         )
+        invitationActionMocks.isValidInvitationEmail.mockReturnValue(true)
         invitationActionMocks.prepareInvitationCreateValues.mockReturnValue({
             expiresAt: new Date('2026-05-22T18:00:00.000Z'),
             lastSentAt: new Date('2026-05-08T18:00:00.000Z'),
@@ -175,19 +189,11 @@ describe('admin invitation actions audit logging', () => {
     })
 
     afterEach(() => {
+        vi.restoreAllMocks()
         vi.useRealTimers()
     })
 
     it('records an audit log when an admin creates an invitation', async () => {
-        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
-            {
-                createdAt: new Date('2026-04-01T12:00:00.000Z'),
-                id: 'campaign-1',
-                name: 'Spring Story Sprint 2026',
-                startAt: new Date('2026-04-20T12:00:00.000Z'),
-                status: 'ACTIVE',
-            },
-        ])
         invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
             null
         )
@@ -211,23 +217,14 @@ describe('admin invitation actions audit logging', () => {
                 metadata: {
                     email: 'reader@example.com',
                     expiresAt: '2026-05-22T18:00:00.000Z',
-                    campaignName: 'Spring Story Sprint 2026',
+                    campaignName: null,
                 },
-                campaignId: 'campaign-1',
+                campaignId: null,
             },
         })
     })
 
     it('blocks invitation creation when the admin hits the send rate limit', async () => {
-        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
-            {
-                createdAt: new Date('2026-04-01T12:00:00.000Z'),
-                id: 'campaign-1',
-                name: 'Spring Story Sprint 2026',
-                startAt: new Date('2026-04-20T12:00:00.000Z'),
-                status: 'ACTIVE',
-            },
-        ])
         invitationActionMocks.consumeRateLimit.mockReturnValue({
             allowed: false,
             remaining: 0,
@@ -246,16 +243,23 @@ describe('admin invitation actions audit logging', () => {
         ).not.toHaveBeenCalled()
     })
 
+    it('blocks invitation creation when the recipient email is malformed', async () => {
+        invitationActionMocks.isValidInvitationEmail.mockReturnValue(false)
+
+        const formData = new FormData()
+        formData.set('email', 'reader@example')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=invalid-email'),
+        })
+
+        expect(
+            invitationActionMocks.transaction.invitation.create
+        ).not.toHaveBeenCalled()
+        expect(invitationActionMocks.sendInvitationEmail).not.toHaveBeenCalled()
+    })
+
     it('records delivery failure when invitation email sending fails', async () => {
-        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
-            {
-                createdAt: new Date('2026-04-01T12:00:00.000Z'),
-                id: 'campaign-1',
-                name: 'Spring Story Sprint 2026',
-                startAt: new Date('2026-04-20T12:00:00.000Z'),
-                status: 'ACTIVE',
-            },
-        ])
         invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
             null
         )
@@ -279,17 +283,94 @@ describe('admin invitation actions audit logging', () => {
             data: {
                 action: 'invitation.delivery_failed',
                 actorUserId: 'admin-1',
-                campaignId: 'campaign-1',
+                campaignId: null,
                 entityId: 'invite-1',
                 entityType: 'Invitation',
                 invitationId: 'invite-1',
                 metadata: {
-                    campaignName: 'Spring Story Sprint 2026',
+                    campaignName: null,
                     email: 'reader@example.com',
+                    errorMessage: 'smtp down',
                     stage: 'created',
                 },
             },
         })
+
+        expect(invitationActionMocks.consoleError).toHaveBeenCalledWith(
+            'Invitation email delivery failed.',
+            expect.objectContaining({
+                campaignId: null,
+                email: 'reader@example.com',
+                invitationId: 'invite-1',
+                stage: 'created',
+            })
+        )
+    })
+
+    it('redirects create invitation failures back to members instead of crashing the route', async () => {
+        invitationActionMocks.prisma.invitation.findFirst.mockRejectedValue(
+            new Error('database unavailable')
+        )
+
+        const formData = new FormData()
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=unexpected-error'),
+        })
+
+        expect(invitationActionMocks.consoleError).toHaveBeenCalledWith(
+            'Admin invitation action failed.',
+            expect.objectContaining({
+                detail: 'unexpected-error',
+                error: expect.objectContaining({
+                    message: 'database unavailable',
+                }),
+            })
+        )
+    })
+
+    it('maps campaignId null-constraint failures to the schema-outdated detail', async () => {
+        invitationActionMocks.prisma.invitation.findFirst.mockRejectedValue(
+            new Error('Null constraint violation on the fields: (`campaignId`)')
+        )
+
+        const formData = new FormData()
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=schema-outdated'),
+        })
+
+        expect(invitationActionMocks.consoleError).toHaveBeenCalledWith(
+            'Admin invitation action failed.',
+            expect.objectContaining({
+                detail: 'schema-outdated',
+            })
+        )
+    })
+
+    it('keeps create invitation success when cache revalidation fails', async () => {
+        invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
+            null
+        )
+        invitationActionMocks.revalidatePath.mockImplementationOnce(() => {
+            throw new Error('cache unavailable')
+        })
+
+        const formData = new FormData()
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('outcome=created'),
+        })
+
+        expect(invitationActionMocks.consoleWarn).toHaveBeenCalledWith(
+            'Admin invitation revalidation failed.',
+            expect.objectContaining({
+                path: '/admin/members',
+            })
+        )
     })
 
     it('records an audit log when an admin resends an invitation', async () => {
@@ -330,7 +411,45 @@ describe('admin invitation actions audit logging', () => {
                     previousStatus: 'EXPIRED',
                     campaignName: 'Spring Story Sprint 2026',
                 },
-                campaignId: 'campaign-1',
+                campaignId: null,
+            },
+        })
+    })
+
+    it('resends a site-only invitation without campaign metadata', async () => {
+        invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue({
+            acceptedAt: null,
+            email: 'reader@example.com',
+            expiresAt: new Date('2026-05-10T12:00:00.000Z'),
+            id: 'invite-site',
+            campaign: null,
+            revokedAt: null,
+            status: 'PENDING',
+        })
+
+        const formData = new FormData()
+        formData.set('invitationId', 'invite-site')
+
+        await expect(resendInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('NEXT_REDIRECT'),
+        })
+
+        expect(
+            invitationActionMocks.transaction.auditLog.create
+        ).toHaveBeenCalledWith({
+            data: {
+                action: 'invitation.resent',
+                actorUserId: 'admin-1',
+                entityId: 'invite-site',
+                entityType: 'Invitation',
+                invitationId: 'invite-site',
+                metadata: {
+                    email: 'reader@example.com',
+                    expiresAt: '2026-05-23T18:00:00.000Z',
+                    previousStatus: 'PENDING',
+                    campaignName: null,
+                },
+                campaignId: null,
             },
         })
     })
@@ -366,6 +485,37 @@ describe('admin invitation actions audit logging', () => {
         expect(
             invitationActionMocks.transaction.invitation.update
         ).not.toHaveBeenCalled()
+    })
+
+    it('blocks invitation resend when the stored email is malformed', async () => {
+        invitationActionMocks.isValidInvitationEmail.mockReturnValue(false)
+
+        invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue({
+            acceptedAt: null,
+            email: 'reader@example',
+            expiresAt: new Date('2026-05-10T12:00:00.000Z'),
+            id: 'invite-1',
+            campaign: {
+                id: 'campaign-1',
+                name: 'Spring Story Sprint 2026',
+                status: 'ACTIVE',
+                visibility: 'INVITE_ONLY',
+            },
+            revokedAt: null,
+            status: 'PENDING',
+        })
+
+        const formData = new FormData()
+        formData.set('invitationId', 'invite-1')
+
+        await expect(resendInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=invalid-email'),
+        })
+
+        expect(
+            invitationActionMocks.transaction.invitation.update
+        ).not.toHaveBeenCalled()
+        expect(invitationActionMocks.sendInvitationEmail).not.toHaveBeenCalled()
     })
 
     it('records an audit log when an admin revokes an invitation', async () => {

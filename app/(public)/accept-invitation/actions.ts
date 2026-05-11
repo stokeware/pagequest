@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { authOptions } from '@/lib/auth'
+import { buildHostedAuthPath } from '@/lib/auth/hosted-sign-in'
 import {
     buildInvitationAcceptPath,
     hashInvitationToken,
@@ -24,7 +25,7 @@ type InvitationAcceptanceAuditRecord = {
     campaign: {
         id: string
         name: string
-    }
+    } | null
     email: string
     id: string
 }
@@ -90,13 +91,13 @@ async function recordInvitationAcceptanceAudit({
         data: {
             action,
             actorUserId,
-            campaignId: invitation.campaign.id,
+            campaignId: invitation.campaign?.id ?? null,
             entityId: invitation.id,
             entityType: 'Invitation',
             invitationId: invitation.id,
             metadata: {
                 attemptedEmail,
-                campaignName: invitation.campaign.name,
+                campaignName: invitation.campaign?.name ?? null,
                 detail,
                 invitationEmail: invitation.email,
             },
@@ -113,18 +114,6 @@ export async function acceptInvitationAction(formData: FormData) {
                 detail: 'invalid-token',
                 outcome: 'error',
             })
-        )
-    }
-
-    const session = await getServerSession(authOptions)
-    const userId = session?.user?.id ?? null
-    const userEmail = session?.user?.email?.trim().toLowerCase() ?? null
-
-    if (!userId || !userEmail) {
-        redirect(
-            `/sign-in?callbackUrl=${encodeURIComponent(
-                buildInvitationAcceptPath(token)
-            )}`
         )
     }
 
@@ -149,6 +138,20 @@ export async function acceptInvitationAction(formData: FormData) {
             tokenHash: hashInvitationToken(token),
         },
     })
+
+    const session = await getServerSession(authOptions)
+    const userId = session?.user?.id ?? null
+    const userEmail = session?.user?.email?.trim().toLowerCase() ?? null
+
+    if (!userId || !userEmail) {
+        redirect(
+            buildHostedAuthPath({
+                callbackUrl: buildInvitationAcceptPath(token),
+                flow: 'signup',
+                loginHint: invitation?.email ?? null,
+            })
+        )
+    }
 
     if (invitation) {
         const rateLimitKey = buildInvitationAcceptanceRateLimitKey({

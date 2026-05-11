@@ -15,7 +15,7 @@ type InvitationCampaignRecord = {
 type InvitationRecord = {
     email: string
     expiresAt: Date
-    campaign: InvitationCampaignRecord
+    campaign: InvitationCampaignRecord | null
     status: InvitationStatus
 }
 
@@ -48,6 +48,7 @@ export type InvitationAccessProfile = {
 const protectedCampaignStatuses: CampaignStatus[] = [
     'ACTIVE',
     'COMPLETED',
+    'DRAFT',
     'SCHEDULED',
 ]
 
@@ -70,7 +71,7 @@ function deriveInvitationAccessProfile({
             redirectPath: '/sign-in?callbackUrl=%2Faccept-invitation',
             state: 'signed-out',
             summary:
-                'Sign in first so Page Quest can check whether you have an invitation for the current private campaign.',
+                'Sign in first so Page Quest can check whether you already have member access or a pending invitation.',
         }
     }
 
@@ -105,7 +106,7 @@ function deriveInvitationAccessProfile({
             redirectPath: '/accept-invitation',
             state: 'missing',
             summary:
-                'No active invitation was found for this account, so the private campaign remains locked until an administrator invites you.',
+                'No active invitation was found for this account, so Page Quest member access stays locked until an administrator invites you.',
         }
     }
 
@@ -113,20 +114,24 @@ function deriveInvitationAccessProfile({
         return {
             allowCompetitorRoutes: false,
             invitationEmail: email,
-            campaignName: invitation.campaign.name,
+            campaignName: invitation.campaign?.name ?? null,
             redirectPath: '/accept-invitation',
             state: 'revoked',
-            summary: `The invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to send a new invitation if you should still join.`,
+            summary: invitation.campaign
+                ? `The invitation reserved for ${invitation.campaign.name} has been revoked. Ask an administrator to send a new one if you should still join Page Quest.`
+                : 'Your site invitation has been revoked. Ask an administrator to send a new one if you should still join Page Quest.',
         }
     }
 
     return {
         allowCompetitorRoutes: false,
         invitationEmail: email,
-        campaignName: invitation.campaign.name,
+        campaignName: invitation.campaign?.name ?? null,
         redirectPath: '/accept-invitation',
         state: 'pending',
-        summary: `Invitation recognized for ${invitation.campaign.name}. Finish the acceptance flow before Page Quest unlocks competitor routes for this account.`,
+        summary: invitation.campaign
+            ? `Invitation recognized for ${invitation.campaign.name}. Finish account setup before Page Quest unlocks member access and invite-only campaigns for this account.`
+            : 'Invitation recognized for Page Quest. Finish account setup before member access is unlocked for this account.',
     }
 }
 
@@ -201,12 +206,19 @@ export async function getInvitationAccessProfile({
                 status: {
                     not: 'ACCEPTED',
                 },
-                campaign: {
-                    status: {
-                        in: protectedCampaignStatuses,
+                OR: [
+                    {
+                        campaignId: null,
                     },
-                    visibility: 'INVITE_ONLY',
-                },
+                    {
+                        campaign: {
+                            status: {
+                                in: protectedCampaignStatuses,
+                            },
+                            visibility: 'INVITE_ONLY',
+                        },
+                    },
+                ],
             },
         }),
     ])

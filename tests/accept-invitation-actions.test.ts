@@ -138,6 +138,27 @@ describe('acceptInvitationAction security hardening', () => {
         ).not.toHaveBeenCalled()
     })
 
+    it('redirects signed-out invitees through hosted signup with the invited email prefilled', async () => {
+        acceptInvitationActionMocks.getServerSession.mockResolvedValue(null)
+
+        const formData = new FormData()
+        formData.set('token', 'x'.repeat(32))
+
+        await expect(acceptInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining(
+                '/sign-in?callbackUrl=%2Faccept-invitation%3Ftoken%3D'
+            ),
+        })
+
+        await expect(acceptInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('screen_hint=signup'),
+        })
+
+        await expect(acceptInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('login_hint=reader%40example.com'),
+        })
+    })
+
     it('audits and blocks rate-limited invitation acceptance attempts', async () => {
         acceptInvitationActionMocks.consumeRateLimit.mockReturnValue({
             allowed: false,
@@ -166,6 +187,49 @@ describe('acceptInvitationAction security hardening', () => {
                     attemptedEmail: 'reader@example.com',
                     campaignName: 'Spring Story Sprint 2026',
                     detail: 'rate-limit-exceeded',
+                    invitationEmail: 'reader@example.com',
+                },
+            },
+        })
+    })
+
+    it('audits site-only acceptance failures without campaign metadata', async () => {
+        acceptInvitationActionMocks.prisma.invitation.findUnique.mockResolvedValue(
+            {
+                acceptedByUserId: null,
+                campaign: null,
+                email: 'reader@example.com',
+                expiresAt: new Date('2026-05-15T12:00:00.000Z'),
+                id: 'invite-site',
+                revokedAt: null,
+                status: 'PENDING',
+            }
+        )
+        acceptInvitationActionMocks.prisma.$transaction.mockRejectedValue(
+            new Error('write failed')
+        )
+
+        const formData = new FormData()
+        formData.set('token', 'x'.repeat(32))
+
+        await expect(acceptInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=acceptance-failed'),
+        })
+
+        expect(
+            acceptInvitationActionMocks.prisma.auditLog.create
+        ).toHaveBeenCalledWith({
+            data: {
+                action: 'invitation.acceptance_failed',
+                actorUserId: 'user-1',
+                campaignId: null,
+                entityId: 'invite-site',
+                entityType: 'Invitation',
+                invitationId: 'invite-site',
+                metadata: {
+                    attemptedEmail: 'reader@example.com',
+                    campaignName: null,
+                    detail: 'acceptance-failed',
                     invitationEmail: 'reader@example.com',
                 },
             },

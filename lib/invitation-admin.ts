@@ -5,6 +5,7 @@ import type { InvitationStatus } from '@prisma/client'
 export const INVITATION_TTL_DAYS = 7
 export const INVITATION_TOKEN_BYTES = 24
 export const INVITATION_TOKEN_LENGTH = 32
+const invitationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const invitationTokenPattern = new RegExp(
     `^[A-Za-z0-9_-]{${INVITATION_TOKEN_LENGTH.toString()}}$`
@@ -23,7 +24,7 @@ type InvitationTokenCampaignRecord = {
 
 export type InvitationTokenRecord = InvitationLifecycleRecord & {
     email: string
-    campaign: InvitationTokenCampaignRecord
+    campaign: InvitationTokenCampaignRecord | null
 }
 
 export type InvitationTokenState =
@@ -43,6 +44,10 @@ export type InvitationTokenBundle = {
 
 export function normalizeInvitationEmail(email: string) {
     return email.trim().toLowerCase()
+}
+
+export function isValidInvitationEmail(email: string) {
+    return invitationEmailPattern.test(normalizeInvitationEmail(email))
 }
 
 export function buildInvitationExpiry(
@@ -146,26 +151,32 @@ export function deriveInvitationTokenSummary({
     if (state === 'accepted') {
         return {
             invitationEmail: invitation.email,
-            campaignName: invitation.campaign.name,
+            campaignName: invitation.campaign?.name ?? null,
             state,
-            summary: `This invitation for ${invitation.campaign.name} has already been used. Sign in with the accepted account to continue.`,
+            summary: invitation.campaign
+                ? `This invitation for ${invitation.campaign.name} has already been used. Sign in with the accepted account to continue.`
+                : 'This invitation has already been used. Sign in with the accepted account to continue.',
         }
     }
 
     if (state === 'revoked') {
         return {
             invitationEmail: invitation.email,
-            campaignName: invitation.campaign.name,
+            campaignName: invitation.campaign?.name ?? null,
             state,
-            summary: `This invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to resend it if you should still join.`,
+            summary: invitation.campaign
+                ? `This invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to resend it if you should still join.`
+                : 'This invitation has been revoked. Ask an administrator to resend it if you should still join.',
         }
     }
 
     return {
         invitationEmail: invitation.email,
-        campaignName: invitation.campaign.name,
+        campaignName: invitation.campaign?.name ?? null,
         state,
-        summary: `This secure invite link is valid for ${invitation.campaign.name}. Sign in with ${invitation.email} to continue.`,
+        summary: invitation.campaign
+            ? `This secure invite link is valid for ${invitation.campaign.name}. Sign in with ${invitation.email} to continue.`
+            : `This secure invite link is valid for Page Quest. Sign in with ${invitation.email} to continue.`,
     }
 }
 

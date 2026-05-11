@@ -4,7 +4,7 @@ import { sendEmail, type EmailDeliveryMessage } from '@/lib/email/service'
 export type InvitationEmailInput = {
     expiresAt: Date
     invitationUrl: string
-    campaignName: string
+    campaignName?: string | null
     recipientEmail: string
 }
 
@@ -76,28 +76,35 @@ export function buildInvitationEmailMessage({
     campaignName,
     recipientEmail,
 }: InvitationEmailInput): EmailDeliveryMessage {
-    const safeCampaignName = escapeHtml(campaignName)
     const safeRecipientEmail = escapeHtml(recipientEmail)
     const safeInvitationUrl = escapeHtml(invitationUrl)
+    const normalizedCampaignName = campaignName?.trim() || null
+    const invitationSummary = normalizedCampaignName
+        ? `Your invitation unlocks ${normalizedCampaignName} and sets up your Page Quest account for future invite-only campaigns.`
+        : 'Your invitation sets up your Page Quest account and unlocks Page Quest member access.'
 
     return buildEmailMessage({
         htmlParts: [
-            `<p>You've been invited to join <strong>${safeCampaignName}</strong> on Page Quest.</p>`,
+            '<p>Welcome to <strong>Page Quest</strong>.</p>',
+            `<p>${escapeHtml(invitationSummary)}<\/p>`,
             `<p><a href="${safeInvitationUrl}">Open your secure invitation link</a></p>`,
             `<p>This link is reserved for <strong>${safeRecipientEmail}</strong>.</p>`,
+            '<p>Use it to create a password or sign in with the invited email before accepting your invitation.</p>',
             '<p>If you were not expecting this invitation, you can ignore this email.</p>',
         ],
         plainTextLines: [
-            `You've been invited to join ${campaignName} on Page Quest.`,
+            'Welcome to Page Quest.',
             '',
-            `Use this secure link to sign in and accept your invitation: ${invitationUrl}`,
+            invitationSummary,
+            '',
+            `Use this secure link to create a password or sign in, then accept your invitation: ${invitationUrl}`,
             '',
             `This link is reserved for ${recipientEmail}.`,
             '',
             'If you were not expecting this invitation, you can ignore this email.',
         ],
         recipientEmail,
-        subject: `You're invited to join ${campaignName} on Page Quest`,
+        subject: `You're invited to Page Quest`,
     })
 }
 

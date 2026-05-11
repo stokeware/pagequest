@@ -28,6 +28,7 @@ describe('deriveInvitationAcceptanceProfile', () => {
 
         expect(profile.state).toBe('sign-in-required')
         expect(profile.canAccept).toBe(false)
+        expect(profile.summary).toContain('Create your Page Quest account')
     })
 
     it('blocks acceptance when the signed-in email does not match', () => {
@@ -93,5 +94,23 @@ describe('deriveInvitationAcceptanceProfile', () => {
 
         expect(profile.state).toBe('accepted')
         expect(profile.canAccept).toBe(false)
+    })
+
+    it('allows acceptance for a site-only invitation', () => {
+        const profile = deriveInvitationAcceptanceProfile({
+            invitation: {
+                ...baseInvitation,
+                campaign: null,
+            },
+            now,
+            viewer: {
+                userEmail: 'reader@example.com',
+                userId: 'user-1',
+            },
+        })
+
+        expect(profile.state).toBe('ready')
+        expect(profile.canAccept).toBe(true)
+        expect(profile.campaignName).toBeNull()
     })
 })

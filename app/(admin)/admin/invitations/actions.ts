@@ -1,6 +1,5 @@
 'use server'
 
-import { type CampaignStatus } from '@prisma/client'
 import { getServerSession } from 'next-auth/next'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -11,6 +10,7 @@ import {
     buildInvitationAcceptUrl,
     canResendInvitation,
     canRevokeInvitation,
+    isValidInvitationEmail,
     normalizeInvitationEmail,
     prepareInvitationCreateValues,
     prepareInvitationResendValues,
@@ -34,6 +34,57 @@ const invitationResendRateLimit = {
     windowMs: 15 * 60 * 1000,
 } as const
 
+function isRedirectSignal(error: unknown) {
+    if (typeof error !== 'object' || error === null) {
+        return false
+    }
+
+    const digest = 'digest' in error ? error.digest : null
+
+    return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')
+}
+
+function getErrorMessage(error: unknown) {
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    return typeof error === 'string' ? error : null
+}
+
+function resolveUnexpectedActionDetail(error: unknown) {
+    const errorMessage = getErrorMessage(error)?.toLowerCase() ?? ''
+
+    if (
+        errorMessage.includes('campaignid') &&
+        (errorMessage.includes('null') ||
+            errorMessage.includes('not null') ||
+            errorMessage.includes('constraint'))
+    ) {
+        return 'schema-outdated'
+    }
+
+    return 'unexpected-error'
+}
+
+function finishUnexpectedAction(error: unknown): never {
+    if (isRedirectSignal(error)) {
+        throw error
+    }
+
+    const detail = resolveUnexpectedActionDetail(error)
+
+    console.error('Admin invitation action failed.', {
+        detail,
+        error,
+    })
+
+    finishAction({
+        outcome: 'error',
+        detail,
+    })
+}
+
 function buildRedirectUrl({
     outcome,
     detail,
@@ -56,6 +107,17 @@ function buildRedirectUrl({
     return `${adminMembersPath}?${params.toString()}`
 }
 
+function revalidateActionPath(path: string) {
+    try {
+        revalidatePath(path)
+    } catch (error) {
+        console.warn('Admin invitation revalidation failed.', {
+            error,
+            path,
+        })
+    }
+}
+
 function finishAction({
     outcome,
     detail,
@@ -65,9 +127,9 @@ function finishAction({
     detail?: string
     invitationLink?: string
 }): never {
-    revalidatePath(adminMembersPath)
-    revalidatePath('/admin/invitations')
-    revalidatePath('/accept-invitation')
+    revalidateActionPath(adminMembersPath)
+    revalidateActionPath('/admin/invitations')
+    revalidateActionPath('/accept-invitation')
     redirect(
         buildRedirectUrl({
             outcome,
@@ -79,12 +141,12 @@ function finishAction({
 
 function buildCreateInvitationRateLimitKey({
     actorUserId,
-    campaignId,
+    email,
 }: {
     actorUserId: string
-    campaignId: string
+    email: string
 }) {
-    return `invitation-create:${actorUserId}:${campaignId}`
+    return `invitation-create:${actorUserId}:${email}`
 }
 
 function buildResendInvitationRateLimitKey({
@@ -102,13 +164,15 @@ async function recordInvitationDeliveryFailureAudit({
     campaignId,
     campaignName,
     email,
+    errorMessage,
     invitationId,
     stage,
 }: {
     actorUserId: string
-    campaignId: string
-    campaignName: string
+    campaignId: string | null
+    campaignName: string | null
     email: string
+    errorMessage: string | null
     invitationId: string
     stage: 'created' | 'resent'
 }) {
@@ -123,9 +187,36 @@ async function recordInvitationDeliveryFailureAudit({
             metadata: {
                 campaignName,
                 email,
+                errorMessage,
                 stage,
             },
         },
+    })
+}
+
+function resolveDeliveryFailureMessage(error: unknown) {
+    return getErrorMessage(error)
+}
+
+function logInvitationDeliveryFailure({
+    campaignId,
+    email,
+    error,
+    invitationId,
+    stage,
+}: {
+    campaignId: string | null
+    email: string
+    error: unknown
+    invitationId: string
+    stage: 'created' | 'resent'
+}) {
+    console.error('Invitation email delivery failed.', {
+        campaignId,
+        email,
+        error,
+        invitationId,
+        stage,
     })
 }
 
@@ -137,7 +228,7 @@ async function sendInvitationNotification({
 }: {
     expiresAt: Date
     invitationLink: string
-    campaignName: string
+    campaignName: string | null
     recipientEmail: string
 }) {
     return sendInvitationEmail({
@@ -179,487 +270,492 @@ async function requireAdminActionUser() {
     }
 }
 
-async function loadTargetCampaign() {
-    const campaigns = await prisma.campaign.findMany({
-        select: {
-            createdAt: true,
-            id: true,
-            name: true,
-            startAt: true,
-            status: true,
-        },
-        where: {
-            status: {
-                in: ['ACTIVE', 'SCHEDULED'] satisfies CampaignStatus[],
-            },
-            visibility: 'INVITE_ONLY',
-        },
-    })
-
-    const statusRank: Record<CampaignStatus, number> = {
-        ACTIVE: 0,
-        SCHEDULED: 1,
-        COMPLETED: 2,
-        DRAFT: 3,
-        ARCHIVED: 4,
-    }
-
-    return (
-        campaigns.sort((left, right) => {
-            const leftRank = statusRank[left.status]
-            const rightRank = statusRank[right.status]
-
-            if (leftRank !== rightRank) {
-                return leftRank - rightRank
-            }
-
-            if (left.startAt.getTime() !== right.startAt.getTime()) {
-                return left.startAt.getTime() - right.startAt.getTime()
-            }
-
-            return left.createdAt.getTime() - right.createdAt.getTime()
-        })[0] ?? null
-    )
-}
-
 export async function createInvitationAction(formData: FormData) {
-    const actor = await requireAdminActionUser()
-    const emailInput = getStringField(formData, 'email')
-
-    if (!emailInput) {
-        finishAction({
-            outcome: 'error',
-            detail: 'missing-email',
-        })
-    }
-
-    const email = normalizeInvitationEmail(emailInput)
-    const campaign = await loadTargetCampaign()
-
-    if (!campaign) {
-        finishAction({
-            outcome: 'error',
-            detail: 'campaign-unavailable',
-        })
-    }
-
-    const createRateLimit = consumeRateLimit({
-        key: buildCreateInvitationRateLimitKey({
-            actorUserId: actor.id,
-            campaignId: campaign.id,
-        }),
-        ...invitationCreateRateLimit,
-    })
-
-    if (!createRateLimit.allowed) {
-        finishAction({
-            outcome: 'error',
-            detail: 'rate-limit-exceeded',
-        })
-    }
-
-    const existingInvitation = await prisma.invitation.findFirst({
-        select: {
-            acceptedAt: true,
-            id: true,
-            status: true,
-        },
-        where: {
-            email,
-            status: {
-                in: ['ACCEPTED', 'PENDING'],
-            },
-        },
-    })
-
-    if (existingInvitation) {
-        finishAction({
-            outcome: 'error',
-            detail:
-                existingInvitation.status === 'ACCEPTED' ||
-                existingInvitation.acceptedAt
-                    ? 'accepted-invitation'
-                    : 'duplicate-invitation',
-        })
-    }
-
-    const now = new Date()
-    const values = prepareInvitationCreateValues({ now })
-    const invitationLink = buildInvitationAcceptUrl({
-        appUrl,
-        token: values.token,
-    })
-
-    const createdInvitation = await prisma.$transaction(async (transaction) => {
-        const invitation = await transaction.invitation.create({
-            data: {
-                email,
-                expiresAt: values.expiresAt,
-                invitedByUserId: actor.id,
-                lastSentAt: values.lastSentAt,
-                campaignId: campaign.id,
-                status: values.status,
-                tokenHash: values.tokenHash,
-            },
-            select: {
-                id: true,
-            },
-        })
-
-        await transaction.auditLog.create({
-            data: {
-                action: 'invitation.created',
-                actorUserId: actor.id,
-                entityId: invitation.id,
-                entityType: 'Invitation',
-                invitationId: invitation.id,
-                metadata: {
-                    email,
-                    expiresAt: values.expiresAt.toISOString(),
-                    campaignName: campaign.name,
-                },
-                campaignId: campaign.id,
-            },
-        })
-
-        return invitation
-    })
-
     try {
-        await sendInvitationNotification({
-            expiresAt: values.expiresAt,
-            invitationLink,
-            campaignName: campaign.name,
-            recipientEmail: email,
-        })
-    } catch {
-        await recordInvitationDeliveryFailureAudit({
-            actorUserId: actor.id,
-            campaignId: campaign.id,
-            campaignName: campaign.name,
-            email,
-            invitationId: createdInvitation.id,
-            stage: 'created',
-        })
+        const actor = await requireAdminActionUser()
+        const emailInput = getStringField(formData, 'email')
 
-        finishAction({
-            outcome: 'error',
-            detail: 'email-send-failed',
-            invitationLink,
-        })
-    }
-
-    finishAction({
-        outcome: 'created',
-        invitationLink,
-    })
-}
-
-export async function resendInvitationAction(formData: FormData) {
-    const actor = await requireAdminActionUser()
-    const invitationId = getStringField(formData, 'invitationId')
-
-    if (!invitationId) {
-        finishAction({
-            outcome: 'error',
-            detail: 'missing-invitation',
-        })
-    }
-
-    const invitation = await prisma.invitation.findUnique({
-        select: {
-            acceptedAt: true,
-            email: true,
-            expiresAt: true,
-            id: true,
-            campaign: {
-                select: {
-                    id: true,
-                    name: true,
-                    status: true,
-                    visibility: true,
-                },
-            },
-            revokedAt: true,
-            status: true,
-        },
-        where: {
-            id: invitationId,
-        },
-    })
-
-    if (!invitation) {
-        finishAction({
-            outcome: 'error',
-            detail: 'missing-invitation',
-        })
-    }
-
-    if (
-        invitation.campaign.status === 'ARCHIVED' ||
-        invitation.campaign.visibility !== 'INVITE_ONLY'
-    ) {
-        finishAction({
-            outcome: 'error',
-            detail: 'campaign-unavailable',
-        })
-    }
-
-    if (!canResendInvitation(invitation, new Date())) {
-        finishAction({
-            outcome: 'error',
-            detail: 'action-not-allowed',
-        })
-    }
-
-    const resendRateLimit = consumeRateLimit({
-        key: buildResendInvitationRateLimitKey({
-            actorUserId: actor.id,
-            invitationId: invitation.id,
-        }),
-        ...invitationResendRateLimit,
-    })
-
-    if (!resendRateLimit.allowed) {
-        finishAction({
-            outcome: 'error',
-            detail: 'rate-limit-exceeded',
-        })
-    }
-
-    const now = new Date()
-    const values = prepareInvitationResendValues({ now })
-    const invitationLink = buildInvitationAcceptUrl({
-        appUrl,
-        token: values.token,
-    })
-
-    await prisma.$transaction(async (transaction) => {
-        await transaction.invitation.update({
-            data: {
-                expiresAt: values.expiresAt,
-                invitedByUserId: actor.id,
-                lastSentAt: values.lastSentAt,
-                revokedAt: null,
-                status: values.status,
-                tokenHash: values.tokenHash,
-            },
-            where: {
-                id: invitation.id,
-            },
-        })
-
-        await transaction.auditLog.create({
-            data: {
-                action: 'invitation.resent',
-                actorUserId: actor.id,
-                entityId: invitation.id,
-                entityType: 'Invitation',
-                invitationId: invitation.id,
-                metadata: {
-                    email: invitation.email,
-                    expiresAt: values.expiresAt.toISOString(),
-                    previousStatus: invitation.status,
-                    campaignName: invitation.campaign.name,
-                },
-                campaignId: invitation.campaign.id,
-            },
-        })
-    })
-
-    try {
-        await sendInvitationNotification({
-            expiresAt: values.expiresAt,
-            invitationLink,
-            campaignName: invitation.campaign.name,
-            recipientEmail: invitation.email,
-        })
-    } catch {
-        await recordInvitationDeliveryFailureAudit({
-            actorUserId: actor.id,
-            campaignId: invitation.campaign.id,
-            campaignName: invitation.campaign.name,
-            email: invitation.email,
-            invitationId: invitation.id,
-            stage: 'resent',
-        })
-
-        finishAction({
-            outcome: 'error',
-            detail: 'email-send-failed',
-            invitationLink,
-        })
-    }
-
-    finishAction({
-        outcome: 'resent',
-        invitationLink,
-    })
-}
-
-export async function revokeInvitationAction(formData: FormData) {
-    const actor = await requireAdminActionUser()
-    const invitationId = getStringField(formData, 'invitationId')
-
-    if (!invitationId) {
-        finishAction({
-            outcome: 'error',
-            detail: 'missing-invitation',
-        })
-    }
-
-    const invitation = await prisma.invitation.findUnique({
-        select: {
-            acceptedAt: true,
-            email: true,
-            expiresAt: true,
-            id: true,
-            campaign: {
-                select: {
-                    id: true,
-                    name: true,
-                },
-            },
-            revokedAt: true,
-            status: true,
-        },
-        where: {
-            id: invitationId,
-        },
-    })
-
-    if (!invitation) {
-        finishAction({
-            outcome: 'error',
-            detail: 'missing-invitation',
-        })
-    }
-
-    if (!canRevokeInvitation(invitation, new Date())) {
-        finishAction({
-            outcome: 'error',
-            detail: 'action-not-allowed',
-        })
-    }
-
-    await prisma.$transaction(async (transaction) => {
-        await transaction.auditLog.create({
-            data: {
-                action: 'invitation.revoked',
-                actorUserId: actor.id,
-                entityId: invitation.id,
-                entityType: 'Invitation',
-                invitationId: invitation.id,
-                metadata: {
-                    email: invitation.email,
-                    campaignName: invitation.campaign.name,
-                },
-                campaignId: invitation.campaign.id,
-            },
-        })
-
-        await transaction.invitation.delete({
-            where: {
-                id: invitation.id,
-            },
-        })
-    })
-
-    finishAction({
-        outcome: 'revoked',
-    })
-}
-
-export async function removeMemberAction(formData: FormData) {
-    const actor = await requireAdminActionUser()
-    const email = normalizeInvitationEmail(getStringField(formData, 'email'))
-    const memberUserId = getStringField(formData, 'memberUserId') || null
-
-    if (!email) {
-        finishAction({
-            outcome: 'error',
-            detail: 'missing-member',
-        })
-    }
-
-    const acceptedInvitations = await prisma.invitation.findMany({
-        select: {
-            campaignId: true,
-            id: true,
-        },
-        where: {
-            OR: [
-                {
-                    acceptedByUserId: memberUserId ?? undefined,
-                },
-                {
-                    email,
-                },
-            ],
-            status: 'ACCEPTED',
-        },
-    })
-
-    if (acceptedInvitations.length === 0) {
-        finishAction({
-            outcome: 'error',
-            detail: 'missing-member',
-        })
-    }
-
-    const invitationIds = acceptedInvitations.map((invitation) => invitation.id)
-    const campaignIds = Array.from(
-        new Set(acceptedInvitations.map((invitation) => invitation.campaignId))
-    )
-    const now = new Date()
-
-    await prisma.$transaction(async (transaction) => {
-        await transaction.auditLog.create({
-            data: {
-                action: 'member.removed',
-                actorUserId: actor.id,
-                entityId: memberUserId ?? email,
-                entityType: 'Member',
-                metadata: {
-                    email,
-                    removedAt: now.toISOString(),
-                    removedInvitationCount: invitationIds.length,
-                },
-            },
-        })
-
-        if (memberUserId) {
-            await transaction.campaignParticipant.updateMany({
-                data: {
-                    removedAt: now,
-                },
-                where: {
-                    campaignId: {
-                        in: campaignIds,
-                    },
-                    removedAt: null,
-                    userId: memberUserId,
-                },
-            })
-
-            await transaction.roleAssignment.deleteMany({
-                where: {
-                    role: 'COMPETITOR',
-                    userId: memberUserId,
-                },
+        if (!emailInput) {
+            finishAction({
+                outcome: 'error',
+                detail: 'missing-email',
             })
         }
 
-        await transaction.invitation.deleteMany({
+        const email = normalizeInvitationEmail(emailInput)
+
+        if (!isValidInvitationEmail(email)) {
+            finishAction({
+                outcome: 'error',
+                detail: 'invalid-email',
+            })
+        }
+
+        const createRateLimit = consumeRateLimit({
+            key: buildCreateInvitationRateLimitKey({
+                actorUserId: actor.id,
+                email,
+            }),
+            ...invitationCreateRateLimit,
+        })
+
+        if (!createRateLimit.allowed) {
+            finishAction({
+                outcome: 'error',
+                detail: 'rate-limit-exceeded',
+            })
+        }
+
+        const existingInvitation = await prisma.invitation.findFirst({
+            select: {
+                acceptedAt: true,
+                id: true,
+                status: true,
+            },
             where: {
-                id: {
-                    in: invitationIds,
+                email,
+                status: {
+                    in: ['ACCEPTED', 'PENDING'],
                 },
             },
         })
-    })
 
-    finishAction({
-        outcome: 'removed',
-    })
+        if (existingInvitation) {
+            finishAction({
+                outcome: 'error',
+                detail:
+                    existingInvitation.status === 'ACCEPTED' ||
+                    existingInvitation.acceptedAt
+                        ? 'accepted-invitation'
+                        : 'duplicate-invitation',
+            })
+        }
+
+        const now = new Date()
+        const values = prepareInvitationCreateValues({ now })
+        const invitationLink = buildInvitationAcceptUrl({
+            appUrl,
+            token: values.token,
+        })
+
+        const createdInvitation = await prisma.$transaction(
+            async (transaction) => {
+                const invitation = await transaction.invitation.create({
+                    data: {
+                        email,
+                        expiresAt: values.expiresAt,
+                        invitedByUserId: actor.id,
+                        lastSentAt: values.lastSentAt,
+                        status: values.status,
+                        tokenHash: values.tokenHash,
+                    },
+                    select: {
+                        id: true,
+                    },
+                })
+
+                await transaction.auditLog.create({
+                    data: {
+                        action: 'invitation.created',
+                        actorUserId: actor.id,
+                        entityId: invitation.id,
+                        entityType: 'Invitation',
+                        invitationId: invitation.id,
+                        metadata: {
+                            email,
+                            expiresAt: values.expiresAt.toISOString(),
+                            campaignName: null,
+                        },
+                        campaignId: null,
+                    },
+                })
+
+                return invitation
+            }
+        )
+
+        try {
+            await sendInvitationNotification({
+                expiresAt: values.expiresAt,
+                invitationLink,
+                campaignName: null,
+                recipientEmail: email,
+            })
+        } catch (error) {
+            const errorMessage = resolveDeliveryFailureMessage(error)
+
+            logInvitationDeliveryFailure({
+                campaignId: null,
+                email,
+                error,
+                invitationId: createdInvitation.id,
+                stage: 'created',
+            })
+
+            await recordInvitationDeliveryFailureAudit({
+                actorUserId: actor.id,
+                campaignId: null,
+                campaignName: null,
+                email,
+                errorMessage,
+                invitationId: createdInvitation.id,
+                stage: 'created',
+            })
+
+            finishAction({
+                outcome: 'error',
+                detail: 'email-send-failed',
+                invitationLink,
+            })
+        }
+
+        finishAction({
+            outcome: 'created',
+            invitationLink,
+        })
+    } catch (error) {
+        finishUnexpectedAction(error)
+    }
+}
+
+export async function resendInvitationAction(formData: FormData) {
+    try {
+        const actor = await requireAdminActionUser()
+        const invitationId = getStringField(formData, 'invitationId')
+
+        if (!invitationId) {
+            finishAction({
+                outcome: 'error',
+                detail: 'missing-invitation',
+            })
+        }
+
+        const invitation = await prisma.invitation.findUnique({
+            select: {
+                acceptedAt: true,
+                email: true,
+                expiresAt: true,
+                id: true,
+                campaign: {
+                    select: {
+                        id: true,
+                        name: true,
+                        status: true,
+                        visibility: true,
+                    },
+                },
+                revokedAt: true,
+                status: true,
+            },
+            where: {
+                id: invitationId,
+            },
+        })
+
+        if (!invitation) {
+            finishAction({
+                outcome: 'error',
+                detail: 'missing-invitation',
+            })
+        }
+
+        if (!canResendInvitation(invitation, new Date())) {
+            finishAction({
+                outcome: 'error',
+                detail: 'action-not-allowed',
+            })
+        }
+
+        if (!isValidInvitationEmail(invitation.email)) {
+            finishAction({
+                outcome: 'error',
+                detail: 'invalid-email',
+            })
+        }
+
+        const resendRateLimit = consumeRateLimit({
+            key: buildResendInvitationRateLimitKey({
+                actorUserId: actor.id,
+                invitationId: invitation.id,
+            }),
+            ...invitationResendRateLimit,
+        })
+
+        if (!resendRateLimit.allowed) {
+            finishAction({
+                outcome: 'error',
+                detail: 'rate-limit-exceeded',
+            })
+        }
+
+        const now = new Date()
+        const values = prepareInvitationResendValues({ now })
+        const invitationLink = buildInvitationAcceptUrl({
+            appUrl,
+            token: values.token,
+        })
+
+        await prisma.$transaction(async (transaction) => {
+            await transaction.invitation.update({
+                data: {
+                    campaignId: null,
+                    expiresAt: values.expiresAt,
+                    invitedByUserId: actor.id,
+                    lastSentAt: values.lastSentAt,
+                    revokedAt: null,
+                    status: values.status,
+                    tokenHash: values.tokenHash,
+                },
+                where: {
+                    id: invitation.id,
+                },
+            })
+
+            await transaction.auditLog.create({
+                data: {
+                    action: 'invitation.resent',
+                    actorUserId: actor.id,
+                    entityId: invitation.id,
+                    entityType: 'Invitation',
+                    invitationId: invitation.id,
+                    metadata: {
+                        email: invitation.email,
+                        expiresAt: values.expiresAt.toISOString(),
+                        previousStatus: invitation.status,
+                        campaignName: invitation.campaign?.name ?? null,
+                    },
+                    campaignId: null,
+                },
+            })
+        })
+
+        try {
+            await sendInvitationNotification({
+                expiresAt: values.expiresAt,
+                invitationLink,
+                campaignName: null,
+                recipientEmail: invitation.email,
+            })
+        } catch (error) {
+            const errorMessage = resolveDeliveryFailureMessage(error)
+
+            logInvitationDeliveryFailure({
+                campaignId: null,
+                email: invitation.email,
+                error,
+                invitationId: invitation.id,
+                stage: 'resent',
+            })
+
+            await recordInvitationDeliveryFailureAudit({
+                actorUserId: actor.id,
+                campaignId: null,
+                campaignName: invitation.campaign?.name ?? null,
+                email: invitation.email,
+                errorMessage,
+                invitationId: invitation.id,
+                stage: 'resent',
+            })
+
+            finishAction({
+                outcome: 'error',
+                detail: 'email-send-failed',
+                invitationLink,
+            })
+        }
+
+        finishAction({
+            outcome: 'resent',
+            invitationLink,
+        })
+    } catch (error) {
+        finishUnexpectedAction(error)
+    }
+}
+
+export async function revokeInvitationAction(formData: FormData) {
+    try {
+        const actor = await requireAdminActionUser()
+        const invitationId = getStringField(formData, 'invitationId')
+
+        if (!invitationId) {
+            finishAction({
+                outcome: 'error',
+                detail: 'missing-invitation',
+            })
+        }
+
+        const invitation = await prisma.invitation.findUnique({
+            select: {
+                acceptedAt: true,
+                email: true,
+                expiresAt: true,
+                id: true,
+                campaign: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                revokedAt: true,
+                status: true,
+            },
+            where: {
+                id: invitationId,
+            },
+        })
+
+        if (!invitation) {
+            finishAction({
+                outcome: 'error',
+                detail: 'missing-invitation',
+            })
+        }
+
+        if (!canRevokeInvitation(invitation, new Date())) {
+            finishAction({
+                outcome: 'error',
+                detail: 'action-not-allowed',
+            })
+        }
+
+        await prisma.$transaction(async (transaction) => {
+            await transaction.auditLog.create({
+                data: {
+                    action: 'invitation.revoked',
+                    actorUserId: actor.id,
+                    entityId: invitation.id,
+                    entityType: 'Invitation',
+                    invitationId: invitation.id,
+                    metadata: {
+                        email: invitation.email,
+                        campaignName: invitation.campaign?.name ?? null,
+                    },
+                    campaignId: invitation.campaign?.id ?? null,
+                },
+            })
+
+            await transaction.invitation.delete({
+                where: {
+                    id: invitation.id,
+                },
+            })
+        })
+
+        finishAction({
+            outcome: 'revoked',
+        })
+    } catch (error) {
+        finishUnexpectedAction(error)
+    }
+}
+
+export async function removeMemberAction(formData: FormData) {
+    try {
+        const actor = await requireAdminActionUser()
+        const email = normalizeInvitationEmail(
+            getStringField(formData, 'email')
+        )
+        const memberUserId = getStringField(formData, 'memberUserId') || null
+
+        if (!email) {
+            finishAction({
+                outcome: 'error',
+                detail: 'missing-member',
+            })
+        }
+
+        const acceptedInvitations = await prisma.invitation.findMany({
+            select: {
+                campaignId: true,
+                id: true,
+            },
+            where: {
+                OR: [
+                    {
+                        acceptedByUserId: memberUserId ?? undefined,
+                    },
+                    {
+                        email,
+                    },
+                ],
+                status: 'ACCEPTED',
+            },
+        })
+
+        if (acceptedInvitations.length === 0) {
+            finishAction({
+                outcome: 'error',
+                detail: 'missing-member',
+            })
+        }
+
+        const invitationIds = acceptedInvitations.map(
+            (invitation) => invitation.id
+        )
+        const campaignIds = Array.from(
+            new Set(
+                acceptedInvitations
+                    .map((invitation) => invitation.campaignId)
+                    .filter((campaignId): campaignId is string =>
+                        Boolean(campaignId)
+                    )
+            )
+        )
+        const now = new Date()
+
+        await prisma.$transaction(async (transaction) => {
+            await transaction.auditLog.create({
+                data: {
+                    action: 'member.removed',
+                    actorUserId: actor.id,
+                    entityId: memberUserId ?? email,
+                    entityType: 'Member',
+                    metadata: {
+                        email,
+                        removedAt: now.toISOString(),
+                        removedInvitationCount: invitationIds.length,
+                    },
+                },
+            })
+
+            if (memberUserId) {
+                if (campaignIds.length > 0) {
+                    await transaction.campaignParticipant.updateMany({
+                        data: {
+                            removedAt: now,
+                        },
+                        where: {
+                            campaignId: {
+                                in: campaignIds,
+                            },
+                            removedAt: null,
+                            userId: memberUserId,
+                        },
+                    })
+                }
+
+                await transaction.roleAssignment.deleteMany({
+                    where: {
+                        role: 'COMPETITOR',
+                        userId: memberUserId,
+                    },
+                })
+            }
+
+            await transaction.invitation.deleteMany({
+                where: {
+                    id: {
+                        in: invitationIds,
+                    },
+                },
+            })
+        })
+
+        finishAction({
+            outcome: 'removed',
+        })
+    } catch (error) {
+        finishUnexpectedAction(error)
+    }
 }

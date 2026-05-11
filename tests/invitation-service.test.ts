@@ -117,4 +117,53 @@ describe('recordInvitationAcceptance', () => {
             participantId: 'participant-existing',
         })
     })
+
+    it('accepts a site-only invitation without creating a campaign participant', async () => {
+        const transaction = buildTransaction({})
+
+        const result = await recordInvitationAcceptance(transaction, {
+            ...baseInput,
+            invitation: {
+                email: 'reader@example.com',
+                id: 'invite-site',
+                campaign: null,
+            },
+        })
+
+        expect(
+            transaction.campaignParticipant.findUnique
+        ).not.toHaveBeenCalled()
+        expect(transaction.campaignParticipant.create).not.toHaveBeenCalled()
+        expect(transaction.campaignParticipant.update).not.toHaveBeenCalled()
+        expect(transaction.invitation.update).toHaveBeenCalledWith({
+            data: {
+                acceptedAt: baseInput.now,
+                acceptedByUserId: 'user-1',
+                acceptedParticipantId: null,
+                status: 'ACCEPTED',
+            },
+            where: {
+                id: 'invite-site',
+            },
+        })
+        expect(transaction.auditLog.create).toHaveBeenCalledWith({
+            data: {
+                action: 'invitation.accepted',
+                actorUserId: 'user-1',
+                entityId: 'invite-site',
+                entityType: 'Invitation',
+                invitationId: 'invite-site',
+                metadata: {
+                    acceptedAt: baseInput.now.toISOString(),
+                    email: 'reader@example.com',
+                    campaignName: null,
+                },
+                campaignId: null,
+                campaignParticipantId: null,
+            },
+        })
+        expect(result).toEqual({
+            participantId: null,
+        })
+    })
 })

@@ -60,16 +60,22 @@ const errorDetailMessages: Record<string, string> = {
         'That email already belongs to a confirmed competitor, so a new invitation is not needed.',
     'action-not-allowed': 'That record is no longer available for this action.',
     'campaign-unavailable':
-        'Create or publish an invite-only active or scheduled campaign before sending invitations.',
+        'Create an invite-only campaign before sending invitations. Draft, scheduled, active, and completed campaigns can all anchor new Page Quest member invites.',
     'duplicate-invitation':
         'That recipient already has a pending invitation. Resend or revoke the existing one instead.',
     'email-send-failed':
         'The invitation record was saved, but delivery failed. Check the local SMTP settings or Mailpit service, then resend it.',
+    'invalid-email':
+        'Enter a valid email address before sending an invitation. Existing invalid invitations should be revoked and recreated.',
     'missing-email': 'Enter an email address before sending an invitation.',
     'missing-invitation': 'Choose a valid invitation row before trying again.',
     'missing-member': 'Choose a valid competitor row before trying again.',
     'rate-limit-exceeded':
         'Invitation sending is temporarily limited for this admin session. Wait a few minutes before sending more invitations.',
+    'schema-outdated':
+        'The hosted database schema is behind the current app. Run ./scripts/db-migrate-deploy with DIRECT_URL pointed at Neon, then try sending the invitation again.',
+    'unexpected-error':
+        'An unexpected error interrupted the member action. Check the server logs if this keeps happening.',
 }
 
 function getFirstSearchParamValue(
