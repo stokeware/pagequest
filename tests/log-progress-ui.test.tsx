@@ -229,7 +229,7 @@ describe('log progress competitor UI', () => {
         )
     })
 
-    it('calculates progress row points from pages, minutes, and completed challenge points', () => {
+    it('adds fixed challenge points to base reading points for completed rows', () => {
         const totalPoints = calculateProgressRowPoints({
             campaignChallenges: [
                 {
@@ -257,5 +257,65 @@ describe('log progress competitor UI', () => {
         })
 
         expect(totalPoints).toBe(50)
+    })
+
+    it('uses the challenge multiplier instead of adding base points again', () => {
+        const totalPoints = calculateProgressRowPoints({
+            campaignChallenges: [
+                {
+                    achieved: false,
+                    id: 'challenge-1',
+                    kind: 'ADMIN',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 3,
+                    pointValue: 0,
+                    sourceBookTitle: null,
+                    title: 'Epic read',
+                },
+            ],
+            pointsPerMinute: 0,
+            pointsPerPage: 1,
+            row: {
+                bookName: 'A long read',
+                challengeId: 'challenge-1',
+                completed: true,
+                id: 'progress-row-1',
+                minutes: '0',
+                pages: '500',
+                rowType: 'STANDARD',
+            },
+        })
+
+        expect(totalPoints).toBe(1500)
+    })
+
+    it('keeps base reading points when the row is not marked complete', () => {
+        const totalPoints = calculateProgressRowPoints({
+            campaignChallenges: [
+                {
+                    achieved: false,
+                    id: 'challenge-1',
+                    kind: 'ADMIN',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 3,
+                    pointValue: 200,
+                    sourceBookTitle: null,
+                    title: 'Epic read',
+                },
+            ],
+            pointsPerMinute: 0,
+            pointsPerPage: 1,
+            row: {
+                bookName: 'A long read',
+                challengeId: 'challenge-1',
+                completed: false,
+                id: 'progress-row-1',
+                minutes: '0',
+                pages: '400',
+                rowType: 'STANDARD',
+            },
+        })
+
+        expect(totalPoints).toBe(400)
     })
 })
