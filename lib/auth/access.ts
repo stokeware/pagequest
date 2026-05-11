@@ -4,6 +4,26 @@ export function dedupeRoles(roles: AppRole[]): AppRole[] {
     return Array.from(new Set(roles))
 }
 
+export function resolveGrantedRoles({
+    grantedRoles,
+    isAuthenticated,
+}: {
+    grantedRoles: AppRole[]
+    isAuthenticated: boolean
+}) {
+    const uniqueRoles = dedupeRoles(grantedRoles)
+
+    if (uniqueRoles.includes('ADMIN')) {
+        return ['ADMIN'] as AppRole[]
+    }
+
+    if (isAuthenticated) {
+        return ['COMPETITOR'] as AppRole[]
+    }
+
+    return []
+}
+
 function normalizeAppPath(path: string | null | undefined) {
     if (!path) {
         return null
@@ -35,21 +55,27 @@ export function getDefaultProtectedPath(grantedRoles: AppRole[]) {
         return '/dashboard'
     }
 
-    return '/accept-invitation'
+    return '/'
 }
 
 export function getSignedInLandingPath({
     callbackUrl,
     grantedRoles,
+    isAuthenticated = false,
 }: {
     callbackUrl?: string | null
     grantedRoles: AppRole[]
+    isAuthenticated?: boolean
 }) {
     const normalizedCallbackUrl = normalizeAppPath(callbackUrl)
+    const resolvedRoles = resolveGrantedRoles({
+        grantedRoles,
+        isAuthenticated,
+    })
 
     if (normalizedCallbackUrl && !isDefaultPublicPath(normalizedCallbackUrl)) {
         return normalizedCallbackUrl
     }
 
-    return getDefaultProtectedPath(grantedRoles)
+    return getDefaultProtectedPath(resolvedRoles)
 }

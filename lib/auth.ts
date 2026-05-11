@@ -8,7 +8,7 @@ import {
     getAuthMode,
     getLocalAuthPassphrase,
 } from '@/lib/auth/config'
-import { getAcceptedMemberRecord } from '@/lib/member-access'
+import { resolveGrantedRoles } from '@/lib/auth/access'
 import { prisma } from '@/lib/prisma'
 
 type HostedIdentityProfile = Profile & {
@@ -55,22 +55,17 @@ function extractAdminRoles(
 async function toPersistedUser(
     user: PersistedUserRecord
 ): Promise<PersistedUser> {
-    const roles = extractAdminRoles(user.roleAssignments)
-    const acceptedMember = await getAcceptedMemberRecord({
-        userEmail: user.email,
-        userId: user.id,
+    const roles = resolveGrantedRoles({
+        grantedRoles: extractAdminRoles(user.roleAssignments),
+        isAuthenticated: true,
     })
-
-    if (acceptedMember) {
-        roles.push('COMPETITOR')
-    }
 
     return {
         email: user.email,
         id: user.id,
         image: user.image,
         name: user.name,
-        roles: Array.from(new Set(roles)),
+        roles,
     }
 }
 

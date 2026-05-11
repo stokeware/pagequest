@@ -1,7 +1,11 @@
 import type { AppRole } from '@prisma/client'
 import type { JWT } from 'next-auth/jwt'
 
-import { dedupeRoles, getDefaultProtectedPath } from '@/lib/auth/access'
+import {
+    dedupeRoles,
+    getDefaultProtectedPath,
+    resolveGrantedRoles,
+} from '@/lib/auth/access'
 
 function hasSessionIdentity(token: JWT | null) {
     return Boolean(token?.sub || token?.email || token?.userId)
@@ -16,15 +20,19 @@ function getProtectedMiddlewareRedirectPath({
     expectedRole: AppRole
     token: JWT | null
 }) {
-    const roles = Array.isArray(token?.roles)
-        ? dedupeRoles(token.roles as AppRole[])
-        : []
+    const isAuthenticated = hasSessionIdentity(token)
+    const roles = resolveGrantedRoles({
+        grantedRoles: Array.isArray(token?.roles)
+            ? dedupeRoles(token.roles as AppRole[])
+            : [],
+        isAuthenticated,
+    })
 
     if (roles.includes(expectedRole)) {
         return null
     }
 
-    if (!hasSessionIdentity(token)) {
+    if (!isAuthenticated) {
         return `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
     }
 

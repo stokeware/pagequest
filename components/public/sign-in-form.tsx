@@ -83,6 +83,7 @@ export function SignInForm({
             grantedRoles: Array.isArray(session?.user?.roles)
                 ? session.user.roles
                 : [],
+            isAuthenticated: Boolean(session?.user),
         })
 
         router.push(redirectPath ?? callbackUrl)

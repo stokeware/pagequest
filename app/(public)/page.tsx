@@ -22,6 +22,7 @@ export default async function HomePage() {
         grantedRoles: Array.isArray(session?.user?.roles)
             ? session.user.roles
             : [],
+        isAuthenticated: Boolean(session?.user),
     })
 
     if (redirectPath) {

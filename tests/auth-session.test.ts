@@ -60,7 +60,7 @@ describe('deriveRoleAwareSession', () => {
         expect(viewer.summary).toContain('Administrator access is not present')
     })
 
-    it('treats a session with no granted access as wrong-role', () => {
+    it('treats a signed-in non-admin session as competitor access', () => {
         const viewer = deriveRoleAwareSession({
             expectedRole: 'COMPETITOR',
             session: buildSession({
@@ -68,7 +68,7 @@ describe('deriveRoleAwareSession', () => {
             }),
         })
 
-        expect(viewer.accessState).toBe('wrong-role')
-        expect(viewer.summary).toContain('without Page Quest access yet')
+        expect(viewer.accessState).toBe('allowed')
+        expect(viewer.summary).toContain('Competitor access')
     })
 })
