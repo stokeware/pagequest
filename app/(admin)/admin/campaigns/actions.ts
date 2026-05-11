@@ -78,6 +78,70 @@ function getStringField(formData: FormData, fieldName: string) {
     return typeof value === 'string' ? value.trim() : ''
 }
 
+function getStringFieldValues(formData: FormData, fieldName: string) {
+    return formData
+        .getAll(fieldName)
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+}
+
+function buildChallengeFormData({
+    pageMinuteMultiplier,
+    pointValue,
+    title,
+}: {
+    pageMinuteMultiplier: string
+    pointValue: string
+    title: string
+}) {
+    const challengeFormData = new FormData()
+    challengeFormData.set('title', title)
+
+    if (pointValue.length > 0) {
+        challengeFormData.set('pointValue', pointValue)
+    }
+
+    if (pageMinuteMultiplier.length > 0) {
+        challengeFormData.set('pageMinuteMultiplier', pageMinuteMultiplier)
+    }
+
+    return challengeFormData
+}
+
+function parseOptionalChallengeFormValues({
+    pageMinuteMultiplier,
+    pointValue,
+    title,
+}: {
+    pageMinuteMultiplier: string
+    pointValue: string
+    title: string
+}) {
+    if (
+        title.length === 0 &&
+        pointValue.length === 0 &&
+        pageMinuteMultiplier.length === 0
+    ) {
+        return null
+    }
+
+    return parseChallengeFormValues(
+        buildChallengeFormData({
+            pageMinuteMultiplier,
+            pointValue,
+            title,
+        })
+    )
+}
+
+function assertMatchingFieldLengths(lengths: number[]) {
+    if (new Set(lengths).size > 1) {
+        throw new ChallengeAdminError(
+            'unexpected-error',
+            'Challenge field values did not align.'
+        )
+    }
+}
+
 async function loadQuest(campaignId: string) {
     return prisma.campaign.findUnique({
         select: {
@@ -245,6 +309,63 @@ export async function createCampaignAction(formData: FormData) {
         finishAction({
             detail: resolveCampaignErrorCode(error),
             outcome: 'error',
+        })
+    }
+}
+
+export async function deleteCampaignAction(formData: FormData) {
+    const actor = await requireAdminActionUser()
+    const campaignId = getStringField(formData, 'campaignId')
+
+    if (!campaignId) {
+        finishAction({
+            detail: 'missing-campaign',
+            outcome: 'error',
+        })
+    }
+
+    const campaign = await loadQuest(campaignId)
+
+    if (!campaign) {
+        finishAction({
+            detail: 'campaign-not-found',
+            outcome: 'error',
+        })
+    }
+
+    try {
+        await prisma.$transaction(async (transaction) => {
+            await transaction.auditLog.create({
+                data: {
+                    action: 'campaign.deleted',
+                    actorUserId: actor.id,
+                    entityId: campaign.id,
+                    entityType: 'Campaign',
+                    metadata: {
+                        campaignName: campaign.name,
+                    },
+                },
+            })
+
+            await transaction.campaign.delete({
+                where: {
+                    id: campaign.id,
+                },
+            })
+        })
+
+        finishAction({
+            outcome: 'deleted',
+        })
+    } catch (error) {
+        if (isRedirectSignal(error)) {
+            throw error
+        }
+
+        finishAction({
+            detail: resolveCampaignErrorCode(error),
+            outcome: 'error',
+            selectedCampaignId: campaign.id,
         })
     }
 }
@@ -698,6 +819,167 @@ export async function updateCampaignChallengeAction(formData: FormData) {
     }
 }
 
+export async function saveCampaignChallengesAction(formData: FormData) {
+    const actor = await requireAdminActionUser()
+    const campaignId = getStringField(formData, 'campaignId')
+
+    if (!campaignId) {
+        finishAction({
+            detail: 'missing-campaign',
+            outcome: 'error',
+        })
+    }
+
+    const campaign = await loadEditableCampaign(campaignId)
+
+    try {
+        const challengeIds = getStringFieldValues(
+            formData,
+            'existingChallengeId'
+        )
+        const titles = getStringFieldValues(formData, 'existingTitle')
+        const pointValues = getStringFieldValues(formData, 'existingPointValue')
+        const pageMinuteMultipliers = getStringFieldValues(
+            formData,
+            'existingPageMinuteMultiplier'
+        )
+
+        assertMatchingFieldLengths([
+            challengeIds.length,
+            titles.length,
+            pointValues.length,
+            pageMinuteMultipliers.length,
+        ])
+
+        const existingChallenges = challengeIds.length
+            ? await prisma.challenge.findMany({
+                  select: {
+                      id: true,
+                  },
+                  where: {
+                      campaignId: campaign.id,
+                      id: {
+                          in: challengeIds,
+                      },
+                      kind: 'ADMIN',
+                  },
+              })
+            : []
+
+        if (existingChallenges.length !== challengeIds.length) {
+            finishAction({
+                detail: 'challenge-not-found',
+                outcome: 'error',
+                selectedCampaignId: campaign.id,
+            })
+        }
+
+        const existingChallengeIds = new Set(
+            existingChallenges.map((challenge) => challenge.id)
+        )
+        const updates = challengeIds.map((challengeId, index) => {
+            if (!existingChallengeIds.has(challengeId)) {
+                finishAction({
+                    detail: 'challenge-not-found',
+                    outcome: 'error',
+                    selectedCampaignId: campaign.id,
+                })
+            }
+
+            return {
+                challengeId,
+                values: prepareChallengeUpdateValues(
+                    parseChallengeFormValues(
+                        buildChallengeFormData({
+                            pageMinuteMultiplier:
+                                pageMinuteMultipliers[index] ?? '',
+                            pointValue: pointValues[index] ?? '',
+                            title: titles[index] ?? '',
+                        })
+                    )
+                ),
+            }
+        })
+
+        const newChallengeValues = parseOptionalChallengeFormValues({
+            pageMinuteMultiplier: getStringField(
+                formData,
+                'newPageMinuteMultiplier'
+            ),
+            pointValue: getStringField(formData, 'newPointValue'),
+            title: getStringField(formData, 'newTitle'),
+        })
+
+        await prisma.$transaction(async (transaction) => {
+            for (const update of updates) {
+                await transaction.challenge.update({
+                    data: update.values,
+                    where: {
+                        id: update.challengeId,
+                    },
+                })
+
+                await transaction.auditLog.create({
+                    data: {
+                        action: 'challenge.updated',
+                        actorUserId: actor.id,
+                        challengeId: update.challengeId,
+                        entityId: update.challengeId,
+                        entityType: 'Challenge',
+                        metadata: {},
+                        campaignId: campaign.id,
+                    },
+                })
+            }
+
+            if (newChallengeValues) {
+                const createdChallenge = await transaction.challenge.create({
+                    data: {
+                        campaignId: campaign.id,
+                        ...prepareChallengeCreateValues(newChallengeValues),
+                        createdByUserId: actor.id,
+                        kind: 'ADMIN',
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                    },
+                })
+
+                await transaction.auditLog.create({
+                    data: {
+                        action: 'challenge.created',
+                        actorUserId: actor.id,
+                        challengeId: createdChallenge.id,
+                        entityId: createdChallenge.id,
+                        entityType: 'Challenge',
+                        metadata: {},
+                        campaignId: campaign.id,
+                    },
+                })
+            }
+        })
+
+        revalidatePath('/admin/challenges')
+        finishAction({
+            outcome: newChallengeValues
+                ? 'challenge-created'
+                : 'challenge-updated',
+            selectedCampaignId: campaign.id,
+        })
+    } catch (error) {
+        if (isRedirectSignal(error)) {
+            throw error
+        }
+
+        finishAction({
+            detail: resolveCampaignErrorCode(error),
+            outcome: 'error',
+            selectedCampaignId: campaign.id,
+        })
+    }
+}
+
 export async function updateCompetitorChallengeAction(formData: FormData) {
     const actor = await requireAdminActionUser()
     const campaignId = getStringField(formData, 'campaignId')
@@ -782,6 +1064,126 @@ export async function updateCompetitorChallengeAction(formData: FormData) {
     }
 }
 
+export async function updateCompetitorChallengesAction(formData: FormData) {
+    const actor = await requireAdminActionUser()
+    const campaignId = getStringField(formData, 'campaignId')
+
+    if (!campaignId) {
+        finishAction({
+            detail: 'missing-campaign',
+            outcome: 'error',
+        })
+    }
+
+    const campaign = await loadEditableCampaign(campaignId)
+
+    try {
+        await ensureCampaignChallengeTemplates(prisma, campaign.id)
+
+        const recommendationValues = prepareChallengeUpdateValues(
+            parseChallengeFormValues(
+                buildChallengeFormData({
+                    pageMinuteMultiplier: getStringField(
+                        formData,
+                        'recommendationPageMinuteMultiplier'
+                    ),
+                    pointValue: getStringField(
+                        formData,
+                        'recommendationPointValue'
+                    ),
+                    title: recommendationTemplateTitle,
+                })
+            )
+        )
+        const personalGoalValues = prepareChallengeUpdateValues(
+            parseChallengeFormValues(
+                buildChallengeFormData({
+                    pageMinuteMultiplier: getStringField(
+                        formData,
+                        'personalGoalPageMinuteMultiplier'
+                    ),
+                    pointValue: getStringField(
+                        formData,
+                        'personalGoalPointValue'
+                    ),
+                    title: personalGoalTemplateTitle,
+                })
+            )
+        )
+
+        await prisma.$transaction(async (transaction) => {
+            const recommendationChallenge = await transaction.challenge.update({
+                data: recommendationValues,
+                select: {
+                    id: true,
+                },
+                where: {
+                    campaignId_title: {
+                        campaignId: campaign.id,
+                        title: recommendationTemplateTitle,
+                    },
+                },
+            })
+
+            await transaction.auditLog.create({
+                data: {
+                    action: 'challenge.updated',
+                    actorUserId: actor.id,
+                    challengeId: recommendationChallenge.id,
+                    entityId: recommendationChallenge.id,
+                    entityType: 'Challenge',
+                    metadata: {
+                        kind: 'RECOMMENDATION_TEMPLATE',
+                    },
+                    campaignId: campaign.id,
+                },
+            })
+
+            const personalGoalChallenge = await transaction.challenge.update({
+                data: personalGoalValues,
+                select: {
+                    id: true,
+                },
+                where: {
+                    campaignId_title: {
+                        campaignId: campaign.id,
+                        title: personalGoalTemplateTitle,
+                    },
+                },
+            })
+
+            await transaction.auditLog.create({
+                data: {
+                    action: 'challenge.updated',
+                    actorUserId: actor.id,
+                    challengeId: personalGoalChallenge.id,
+                    entityId: personalGoalChallenge.id,
+                    entityType: 'Challenge',
+                    metadata: {
+                        kind: 'PERSONAL_GOAL_TEMPLATE',
+                    },
+                    campaignId: campaign.id,
+                },
+            })
+        })
+
+        finishAction({
+            outcome: 'challenge-updated',
+            selectedCampaignId: campaign.id,
+        })
+    } catch (error) {
+        if (isRedirectSignal(error)) {
+            throw error
+        }
+
+        finishAction({
+            detail: resolveCampaignErrorCode(error),
+            outcome: 'error',
+            selectedCampaignId: campaign.id,
+        })
+    }
+}
+
 export async function deleteCampaignChallengeAction(formData: FormData) {
     const actor = await requireAdminActionUser()
     const campaignId = getStringField(formData, 'campaignId')
@@ -838,12 +1240,6 @@ export async function deleteCampaignChallengeAction(formData: FormData) {
 
     try {
         await prisma.$transaction(async (transaction) => {
-            await transaction.challenge.delete({
-                where: {
-                    id: challenge.id,
-                },
-            })
-
             await transaction.auditLog.create({
                 data: {
                     action: 'challenge.deleted',
@@ -857,9 +1253,14 @@ export async function deleteCampaignChallengeAction(formData: FormData) {
                     campaignId: campaign.id,
                 },
             })
+
+            await transaction.challenge.delete({
+                where: {
+                    id: challenge.id,
+                },
+            })
         })
 
-        revalidatePath('/admin/challenges')
         finishAction({
             outcome: 'challenge-deleted',
             selectedCampaignId: campaign.id,

@@ -1011,11 +1011,11 @@ export function calculateProgressRowPoints({
         return basePoints
     }
 
-    return (
-        basePoints +
-        selectedChallenge.pointValue +
-        basePoints * selectedChallenge.pageMinuteMultiplier
-    )
+    if (selectedChallenge.pageMinuteMultiplier > 0) {
+        return basePoints * selectedChallenge.pageMinuteMultiplier
+    }
+
+    return basePoints + selectedChallenge.pointValue
 }
 
 function toNonNegativeNumber(value: string) {

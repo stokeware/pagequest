@@ -19,6 +19,7 @@ import {
     parseCampaignWorkspaceState,
     type CampaignWorkspaceState,
 } from './workspace-state'
+import { getAchievedChallengeIds } from './challenge-achievement'
 import { getRoleAwareSession } from '@/lib/auth/session'
 
 const loggableCampaignStatuses: CampaignStatus[] = [
@@ -159,15 +160,16 @@ async function getLogProgressViewModel(
         return defaultViewModel
     }
 
-    const achievedChallengeIds = new Set(
-        participant.challengeCompletions.map(
-            (completion) => completion.challengeId
-        )
-    )
     const workspaceState = hydrateWorkspaceState({
         challengeSources: participant.challengeSources,
         challenges: participant.campaign.challenges,
         metadata: participant.auditLogs[0]?.metadata,
+    })
+    const achievedChallengeIds = getAchievedChallengeIds({
+        approvedChallengeIds: participant.challengeCompletions.map(
+            (completion) => completion.challengeId
+        ),
+        workspaceState,
     })
 
     return {
