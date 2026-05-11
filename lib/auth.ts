@@ -8,6 +8,7 @@ import {
     getAuthMode,
     getLocalAuthPassphrase,
 } from '@/lib/auth/config'
+import { getAcceptedMemberRecord } from '@/lib/member-access'
 import { prisma } from '@/lib/prisma'
 
 type HostedIdentityProfile = Profile & {
@@ -27,19 +28,7 @@ type PersistedUser = {
     roles: AppRole[]
 }
 
-function normalizeEmail(email: string | null | undefined) {
-    return email?.trim().toLowerCase() || null
-}
-
-function extractRoles(
-    roleAssignments: Array<{
-        role: AppRole
-    }>
-): AppRole[] {
-    return roleAssignments.map(({ role }) => role)
-}
-
-function toPersistedUser(user: {
+type PersistedUserRecord = {
     email: string
     id: string
     image: string | null
@@ -47,13 +36,41 @@ function toPersistedUser(user: {
     roleAssignments: Array<{
         role: AppRole
     }>
-}): PersistedUser {
+}
+
+function normalizeEmail(email: string | null | undefined) {
+    return email?.trim().toLowerCase() || null
+}
+
+function extractAdminRoles(
+    roleAssignments: Array<{
+        role: AppRole
+    }>
+): AppRole[] {
+    return roleAssignments
+        .filter(({ role }) => role === 'ADMIN')
+        .map(({ role }) => role)
+}
+
+async function toPersistedUser(
+    user: PersistedUserRecord
+): Promise<PersistedUser> {
+    const roles = extractAdminRoles(user.roleAssignments)
+    const acceptedMember = await getAcceptedMemberRecord({
+        userEmail: user.email,
+        userId: user.id,
+    })
+
+    if (acceptedMember) {
+        roles.push('COMPETITOR')
+    }
+
     return {
         email: user.email,
         id: user.id,
         image: user.image,
         name: user.name,
-        roles: extractRoles(user.roleAssignments),
+        roles: Array.from(new Set(roles)),
     }
 }
 
@@ -71,7 +88,7 @@ async function loadUserByEmail(email: string): Promise<PersistedUser | null> {
         },
     })
 
-    return user ? toPersistedUser(user) : null
+    return user ? await toPersistedUser(user) : null
 }
 
 async function touchUserLastSignedInAt(userId: string) {

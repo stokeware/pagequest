@@ -734,13 +734,6 @@ export async function removeMemberAction(formData: FormData) {
                         },
                     })
                 }
-
-                await transaction.roleAssignment.deleteMany({
-                    where: {
-                        role: 'COMPETITOR',
-                        userId: memberUserId,
-                    },
-                })
             }
 
             await transaction.invitation.deleteMany({

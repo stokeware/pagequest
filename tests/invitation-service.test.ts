@@ -24,9 +24,6 @@ function buildTransaction({
                 id: existingParticipant?.id ?? 'participant-existing',
             })),
         },
-        roleAssignment: {
-            upsert: vi.fn(async () => undefined),
-        },
     }
 }
 
@@ -49,7 +46,6 @@ describe('recordInvitationAcceptance', () => {
 
         const result = await recordInvitationAcceptance(transaction, baseInput)
 
-        expect(transaction.roleAssignment.upsert).toHaveBeenCalledOnce()
         expect(transaction.campaignParticipant.create).toHaveBeenCalledWith({
             data: {
                 joinedAt: baseInput.now,
