@@ -11,6 +11,7 @@ import {
     buildInvitationAcceptUrl,
     canResendInvitation,
     canRevokeInvitation,
+    isValidInvitationEmail,
     normalizeInvitationEmail,
     prepareInvitationCreateValues,
     prepareInvitationResendValues,
@@ -102,6 +103,7 @@ async function recordInvitationDeliveryFailureAudit({
     campaignId,
     campaignName,
     email,
+    errorMessage,
     invitationId,
     stage,
 }: {
@@ -109,6 +111,7 @@ async function recordInvitationDeliveryFailureAudit({
     campaignId: string
     campaignName: string
     email: string
+    errorMessage: string | null
     invitationId: string
     stage: 'created' | 'resent'
 }) {
@@ -123,9 +126,40 @@ async function recordInvitationDeliveryFailureAudit({
             metadata: {
                 campaignName,
                 email,
+                errorMessage,
                 stage,
             },
         },
+    })
+}
+
+function resolveDeliveryFailureMessage(error: unknown) {
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    return typeof error === 'string' ? error : null
+}
+
+function logInvitationDeliveryFailure({
+    campaignId,
+    email,
+    error,
+    invitationId,
+    stage,
+}: {
+    campaignId: string
+    email: string
+    error: unknown
+    invitationId: string
+    stage: 'created' | 'resent'
+}) {
+    console.error('Invitation email delivery failed.', {
+        campaignId,
+        email,
+        error,
+        invitationId,
+        stage,
     })
 }
 
@@ -234,6 +268,14 @@ export async function createInvitationAction(formData: FormData) {
     }
 
     const email = normalizeInvitationEmail(emailInput)
+
+    if (!isValidInvitationEmail(email)) {
+        finishAction({
+            outcome: 'error',
+            detail: 'invalid-email',
+        })
+    }
+
     const campaign = await loadTargetCampaign()
 
     if (!campaign) {
@@ -332,12 +374,23 @@ export async function createInvitationAction(formData: FormData) {
             campaignName: campaign.name,
             recipientEmail: email,
         })
-    } catch {
+    } catch (error) {
+        const errorMessage = resolveDeliveryFailureMessage(error)
+
+        logInvitationDeliveryFailure({
+            campaignId: campaign.id,
+            email,
+            error,
+            invitationId: createdInvitation.id,
+            stage: 'created',
+        })
+
         await recordInvitationDeliveryFailureAudit({
             actorUserId: actor.id,
             campaignId: campaign.id,
             campaignName: campaign.name,
             email,
+            errorMessage,
             invitationId: createdInvitation.id,
             stage: 'created',
         })
@@ -412,6 +465,13 @@ export async function resendInvitationAction(formData: FormData) {
         })
     }
 
+    if (!isValidInvitationEmail(invitation.email)) {
+        finishAction({
+            outcome: 'error',
+            detail: 'invalid-email',
+        })
+    }
+
     const resendRateLimit = consumeRateLimit({
         key: buildResendInvitationRateLimitKey({
             actorUserId: actor.id,
@@ -474,12 +534,23 @@ export async function resendInvitationAction(formData: FormData) {
             campaignName: invitation.campaign.name,
             recipientEmail: invitation.email,
         })
-    } catch {
+    } catch (error) {
+        const errorMessage = resolveDeliveryFailureMessage(error)
+
+        logInvitationDeliveryFailure({
+            campaignId: invitation.campaign.id,
+            email: invitation.email,
+            error,
+            invitationId: invitation.id,
+            stage: 'resent',
+        })
+
         await recordInvitationDeliveryFailureAudit({
             actorUserId: actor.id,
             campaignId: invitation.campaign.id,
             campaignName: invitation.campaign.name,
             email: invitation.email,
+            errorMessage,
             invitationId: invitation.id,
             stage: 'resent',
         })

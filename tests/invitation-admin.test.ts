@@ -12,6 +12,7 @@ import {
     getEffectiveInvitationStatus,
     getInvitationTokenState,
     hashInvitationToken,
+    isValidInvitationEmail,
     normalizeInvitationEmail,
     normalizeInvitationToken,
     prepareInvitationCreateValues,
@@ -23,6 +24,12 @@ describe('normalizeInvitationEmail', () => {
         expect(normalizeInvitationEmail(' Reader@Example.COM  ')).toBe(
             'reader@example.com'
         )
+    })
+
+    it('validates invitation email syntax before delivery', () => {
+        expect(isValidInvitationEmail(' Reader@Example.COM  ')).toBe(true)
+        expect(isValidInvitationEmail('reader@example')).toBe(false)
+        expect(isValidInvitationEmail('reader example.com')).toBe(false)
     })
 })
 

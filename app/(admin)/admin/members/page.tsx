@@ -65,6 +65,8 @@ const errorDetailMessages: Record<string, string> = {
         'That recipient already has a pending invitation. Resend or revoke the existing one instead.',
     'email-send-failed':
         'The invitation record was saved, but delivery failed. Check the local SMTP settings or Mailpit service, then resend it.',
+    'invalid-email':
+        'Enter a valid email address before sending an invitation. Existing invalid invitations should be revoked and recreated.',
     'missing-email': 'Enter an email address before sending an invitation.',
     'missing-invitation': 'Choose a valid invitation row before trying again.',
     'missing-member': 'Choose a valid competitor row before trying again.',

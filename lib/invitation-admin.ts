@@ -5,6 +5,7 @@ import type { InvitationStatus } from '@prisma/client'
 export const INVITATION_TTL_DAYS = 7
 export const INVITATION_TOKEN_BYTES = 24
 export const INVITATION_TOKEN_LENGTH = 32
+const invitationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const invitationTokenPattern = new RegExp(
     `^[A-Za-z0-9_-]{${INVITATION_TOKEN_LENGTH.toString()}}$`
@@ -43,6 +44,10 @@ export type InvitationTokenBundle = {
 
 export function normalizeInvitationEmail(email: string) {
     return email.trim().toLowerCase()
+}
+
+export function isValidInvitationEmail(email: string) {
+    return invitationEmailPattern.test(normalizeInvitationEmail(email))
 }
 
 export function buildInvitationExpiry(
