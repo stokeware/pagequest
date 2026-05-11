@@ -322,7 +322,30 @@ describe('admin invitation actions audit logging', () => {
         expect(invitationActionMocks.consoleError).toHaveBeenCalledWith(
             'Admin invitation action failed.',
             expect.objectContaining({
-                message: 'database unavailable',
+                detail: 'unexpected-error',
+                error: expect.objectContaining({
+                    message: 'database unavailable',
+                }),
+            })
+        )
+    })
+
+    it('maps campaignId null-constraint failures to the schema-outdated detail', async () => {
+        invitationActionMocks.prisma.invitation.findFirst.mockRejectedValue(
+            new Error('Null constraint violation on the fields: (`campaignId`)')
+        )
+
+        const formData = new FormData()
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=schema-outdated'),
+        })
+
+        expect(invitationActionMocks.consoleError).toHaveBeenCalledWith(
+            'Admin invitation action failed.',
+            expect.objectContaining({
+                detail: 'schema-outdated',
             })
         )
     })

@@ -44,16 +44,44 @@ function isRedirectSignal(error: unknown) {
     return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')
 }
 
+function getErrorMessage(error: unknown) {
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    return typeof error === 'string' ? error : null
+}
+
+function resolveUnexpectedActionDetail(error: unknown) {
+    const errorMessage = getErrorMessage(error)?.toLowerCase() ?? ''
+
+    if (
+        errorMessage.includes('campaignid') &&
+        (errorMessage.includes('null') ||
+            errorMessage.includes('not null') ||
+            errorMessage.includes('constraint'))
+    ) {
+        return 'schema-outdated'
+    }
+
+    return 'unexpected-error'
+}
+
 function finishUnexpectedAction(error: unknown): never {
     if (isRedirectSignal(error)) {
         throw error
     }
 
-    console.error('Admin invitation action failed.', error)
+    const detail = resolveUnexpectedActionDetail(error)
+
+    console.error('Admin invitation action failed.', {
+        detail,
+        error,
+    })
 
     finishAction({
         outcome: 'error',
-        detail: 'unexpected-error',
+        detail,
     })
 }
 
@@ -167,11 +195,7 @@ async function recordInvitationDeliveryFailureAudit({
 }
 
 function resolveDeliveryFailureMessage(error: unknown) {
-    if (error instanceof Error) {
-        return error.message
-    }
-
-    return typeof error === 'string' ? error : null
+    return getErrorMessage(error)
 }
 
 function logInvitationDeliveryFailure({

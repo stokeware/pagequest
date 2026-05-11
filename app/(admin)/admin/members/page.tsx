@@ -72,6 +72,8 @@ const errorDetailMessages: Record<string, string> = {
     'missing-member': 'Choose a valid competitor row before trying again.',
     'rate-limit-exceeded':
         'Invitation sending is temporarily limited for this admin session. Wait a few minutes before sending more invitations.',
+    'schema-outdated':
+        'The hosted database schema is behind the current app. Run ./scripts/db-migrate-deploy with DIRECT_URL pointed at Neon, then try sending the invitation again.',
     'unexpected-error':
         'An unexpected error interrupted the member action. Check the server logs if this keeps happening.',
 }
