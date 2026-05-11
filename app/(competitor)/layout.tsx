@@ -3,14 +3,9 @@ import {
     type ShellNavItem,
 } from '@/components/authenticated/app-shell'
 import {
-    getInvitationAccessProfile,
-    shouldRedirectCompetitorAccess,
-} from '@/lib/invitation-access'
-import {
     getRoleAwareSession,
     protectAuthenticatedRoute,
 } from '@/lib/auth/session'
-import { redirect } from 'next/navigation'
 
 const competitorNavItems: ShellNavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: 'book-marked' },
@@ -34,17 +29,6 @@ export default async function CompetitorLayout({
         viewer,
     })
 
-    const invitationAccess = await getInvitationAccessProfile({
-        userEmail: viewer.userEmail,
-        userId: viewer.userId,
-    })
-
-    const invitationRedirectPath =
-        shouldRedirectCompetitorAccess(invitationAccess)
-
-    if (invitationRedirectPath) {
-        redirect(invitationRedirectPath)
-    }
     return (
         <AppShell
             shellVariant='competitor'

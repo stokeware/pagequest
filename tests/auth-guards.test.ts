@@ -58,7 +58,7 @@ describe('getProtectedRouteRedirectPath', () => {
         ).toBe('/dashboard')
     })
 
-    it('routes signed-in viewers without any role to invitation acceptance', () => {
+    it('treats signed-in viewers without admin access as competitors', () => {
         const viewer = deriveRoleAwareSession({
             expectedRole: 'COMPETITOR',
             session: buildSession({
@@ -71,7 +71,7 @@ describe('getProtectedRouteRedirectPath', () => {
                 callbackUrl: '/dashboard',
                 viewer,
             })
-        ).toBe('/accept-invitation')
+        ).toBeNull()
     })
 
     it('allows authorized viewers to stay on the route', () => {

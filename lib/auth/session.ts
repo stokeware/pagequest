@@ -4,7 +4,11 @@ import { getServerSession } from 'next-auth/next'
 import { redirect } from 'next/navigation'
 
 import { authOptions } from '@/lib/auth'
-import { dedupeRoles, getDefaultProtectedPath } from '@/lib/auth/access'
+import {
+    dedupeRoles,
+    getDefaultProtectedPath,
+    resolveGrantedRoles,
+} from '@/lib/auth/access'
 
 export type ExperienceAccessState = 'allowed' | 'signed-out' | 'wrong-role'
 
@@ -84,7 +88,10 @@ export function deriveRoleAwareSession({
     const user = session?.user
     const userEmail = user?.email?.trim().toLowerCase() || null
     const userName = user?.name?.trim() || null
-    const roles = Array.isArray(user?.roles) ? dedupeRoles(user.roles) : []
+    const roles = resolveGrantedRoles({
+        grantedRoles: Array.isArray(user?.roles) ? dedupeRoles(user.roles) : [],
+        isAuthenticated: Boolean(user),
+    })
     const grantedRoleLabels = toRoleLabels(roles)
     const expectedRoleLabel = roleLabelMap[expectedRole]
     const userLabel = getUserLabel({
@@ -239,7 +246,10 @@ export function deriveServerActionAccess({
         }
     }
 
-    const roles = Array.isArray(user.roles) ? dedupeRoles(user.roles) : []
+    const roles = resolveGrantedRoles({
+        grantedRoles: Array.isArray(user.roles) ? dedupeRoles(user.roles) : [],
+        isAuthenticated: true,
+    })
 
     if (requiredRole && !roles.includes(requiredRole)) {
         return {
