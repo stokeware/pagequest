@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const authProviderMocks = vi.hoisted(() => {
     const prisma = {
+        invitation: {
+            findFirst: vi.fn(),
+        },
         user: {
             findUnique: vi.fn(),
             update: vi.fn(),
@@ -52,6 +55,7 @@ function getJwtCallback() {
 describe('auth hosted sign-in callback', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        authProviderMocks.prisma.invitation.findFirst.mockResolvedValue(null)
         authProviderMocks.prisma.user.upsert.mockResolvedValue({
             email: 'reader@example.com',
             id: 'user-1',
@@ -145,16 +149,17 @@ describe('auth hosted sign-in callback', () => {
     it('refreshes stale jwt user ids from the current persisted user record', async () => {
         const jwt = getJwtCallback()
 
+        authProviderMocks.prisma.invitation.findFirst.mockResolvedValue({
+            acceptedAt: new Date('2026-05-08T18:00:00.000Z'),
+            email: 'reader@example.com',
+            id: 'invite-1',
+        })
         authProviderMocks.prisma.user.findUnique.mockResolvedValue({
             email: 'reader@example.com',
             id: 'user-current',
             image: null,
             name: 'Reader One',
-            roleAssignments: [
-                {
-                    role: 'COMPETITOR',
-                },
-            ],
+            roleAssignments: [],
         })
 
         const token = await jwt({
@@ -175,6 +180,34 @@ describe('auth hosted sign-in callback', () => {
             },
             where: {
                 email: 'reader@example.com',
+            },
+        })
+        expect(
+            authProviderMocks.prisma.invitation.findFirst
+        ).toHaveBeenCalledWith({
+            orderBy: [
+                {
+                    acceptedAt: 'desc',
+                },
+                {
+                    createdAt: 'desc',
+                },
+            ],
+            select: {
+                acceptedAt: true,
+                email: true,
+                id: true,
+            },
+            where: {
+                OR: [
+                    {
+                        acceptedByUserId: 'user-current',
+                    },
+                    {
+                        email: 'reader@example.com',
+                    },
+                ],
+                status: 'ACCEPTED',
             },
         })
         expect(token.userId).toBe('user-current')

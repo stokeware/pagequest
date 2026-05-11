@@ -112,7 +112,7 @@ export function deriveRoleAwareSession({
     if (!roles.includes(expectedRole)) {
         const roleSummary = grantedRoleLabels.length
             ? `Signed in with ${joinRoleLabels(grantedRoleLabels)} access.`
-            : 'Signed in without a campaign role assignment.'
+            : 'Signed in without Page Quest access yet.'
 
         return {
             accessState: 'wrong-role',

@@ -74,6 +74,17 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
         ).toBe('/admin')
     })
 
+    it('routes authenticated users without any role to invitation acceptance', () => {
+        expect(
+            getCompetitorMiddlewareRedirectPath({
+                callbackUrl: '/log-progress',
+                token: buildToken({
+                    roles: [],
+                }),
+            })
+        ).toBe('/accept-invitation')
+    })
+
     it('allows competitor users through middleware', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({

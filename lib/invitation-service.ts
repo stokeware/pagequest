@@ -73,21 +73,6 @@ type InvitationAcceptanceTransaction = {
             id: string
         }>
     }
-    roleAssignment: {
-        upsert: (args: {
-            create: {
-                role: 'COMPETITOR'
-                userId: string
-            }
-            update: Record<string, never>
-            where: {
-                userId_role: {
-                    role: 'COMPETITOR'
-                    userId: string
-                }
-            }
-        }) => Promise<unknown>
-    }
 }
 
 export type InvitationAcceptanceWriteInput = {
@@ -108,20 +93,6 @@ export async function recordInvitationAcceptance(
     { invitation, now, userId }: InvitationAcceptanceWriteInput
 ) {
     const campaign = invitation.campaign
-
-    await transaction.roleAssignment.upsert({
-        create: {
-            role: 'COMPETITOR',
-            userId,
-        },
-        update: {},
-        where: {
-            userId_role: {
-                role: 'COMPETITOR',
-                userId,
-            },
-        },
-    })
 
     const participant = campaign
         ? await (async () => {

@@ -82,7 +82,7 @@ describe('auth landing paths', () => {
     it('returns the default protected path for each role set', () => {
         expect(getDefaultProtectedPath(['ADMIN'])).toBe('/admin')
         expect(getDefaultProtectedPath(['COMPETITOR'])).toBe('/dashboard')
-        expect(getDefaultProtectedPath([])).toBe('/')
+        expect(getDefaultProtectedPath([])).toBe('/accept-invitation')
     })
 
     it('prefers an explicit protected callback URL for signed-in users', () => {
@@ -110,12 +110,12 @@ describe('auth landing paths', () => {
         ).toBe('/admin')
     })
 
-    it('stays on public routes when the signed-in user has no protected role', () => {
+    it('routes signed-in users without a protected role to invitation acceptance', () => {
         expect(
             getSignedInLandingPath({
                 callbackUrl: '/',
                 grantedRoles: [],
             })
-        ).toBeNull()
+        ).toBe('/accept-invitation')
     })
 })

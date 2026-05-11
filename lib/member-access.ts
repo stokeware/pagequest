@@ -98,20 +98,6 @@ export async function ensureMemberCampaignParticipants({
         ])
     )
 
-    await prisma.roleAssignment.upsert({
-        create: {
-            role: 'COMPETITOR',
-            userId,
-        },
-        update: {},
-        where: {
-            userId_role: {
-                role: 'COMPETITOR',
-                userId,
-            },
-        },
-    })
-
     await prisma.$transaction(async (transaction) => {
         for (const campaign of campaigns) {
             const existingParticipant = participantsByCampaignId.get(

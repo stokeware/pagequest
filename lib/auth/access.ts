@@ -35,7 +35,7 @@ export function getDefaultProtectedPath(grantedRoles: AppRole[]) {
         return '/dashboard'
     }
 
-    return '/'
+    return '/accept-invitation'
 }
 
 export function getSignedInLandingPath({
@@ -51,7 +51,5 @@ export function getSignedInLandingPath({
         return normalizedCallbackUrl
     }
 
-    const defaultProtectedPath = getDefaultProtectedPath(grantedRoles)
-
-    return defaultProtectedPath === '/' ? null : defaultProtectedPath
+    return getDefaultProtectedPath(grantedRoles)
 }
