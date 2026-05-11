@@ -79,6 +79,17 @@ function buildRedirectUrl({
     return `${adminMembersPath}?${params.toString()}`
 }
 
+function revalidateActionPath(path: string) {
+    try {
+        revalidatePath(path)
+    } catch (error) {
+        console.warn('Admin invitation revalidation failed.', {
+            error,
+            path,
+        })
+    }
+}
+
 function finishAction({
     outcome,
     detail,
@@ -88,9 +99,9 @@ function finishAction({
     detail?: string
     invitationLink?: string
 }): never {
-    revalidatePath(adminMembersPath)
-    revalidatePath('/admin/invitations')
-    revalidatePath('/accept-invitation')
+    revalidateActionPath(adminMembersPath)
+    revalidateActionPath('/admin/invitations')
+    revalidateActionPath('/accept-invitation')
     redirect(
         buildRedirectUrl({
             outcome,

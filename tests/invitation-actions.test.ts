@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invitationActionMocks = vi.hoisted(() => {
     const consoleError = vi.fn()
+    const consoleWarn = vi.fn()
     const revalidatePath = vi.fn()
     const redirect = vi.fn((url: string) => {
         const error = new Error(`NEXT_REDIRECT:${url}`) as Error & {
@@ -51,6 +52,7 @@ const invitationActionMocks = vi.hoisted(() => {
         canResendInvitation,
         canRevokeInvitation,
         consoleError,
+        consoleWarn,
         consumeRateLimit,
         deriveRoleAwareSession,
         getAdminRouteRedirectPath,
@@ -121,6 +123,9 @@ describe('admin invitation actions audit logging', () => {
         vi.clearAllMocks()
         vi.spyOn(console, 'error').mockImplementation(
             invitationActionMocks.consoleError
+        )
+        vi.spyOn(console, 'warn').mockImplementation(
+            invitationActionMocks.consoleWarn
         )
 
         invitationActionMocks.getServerSession.mockResolvedValue({
@@ -318,6 +323,29 @@ describe('admin invitation actions audit logging', () => {
             'Admin invitation action failed.',
             expect.objectContaining({
                 message: 'database unavailable',
+            })
+        )
+    })
+
+    it('keeps create invitation success when cache revalidation fails', async () => {
+        invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
+            null
+        )
+        invitationActionMocks.revalidatePath.mockImplementationOnce(() => {
+            throw new Error('cache unavailable')
+        })
+
+        const formData = new FormData()
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('outcome=created'),
+        })
+
+        expect(invitationActionMocks.consoleWarn).toHaveBeenCalledWith(
+            'Admin invitation revalidation failed.',
+            expect.objectContaining({
+                path: '/admin/members',
             })
         )
     })
