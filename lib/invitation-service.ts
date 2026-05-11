@@ -107,6 +107,8 @@ export async function recordInvitationAcceptance(
     transaction: InvitationAcceptanceTransaction,
     { invitation, now, userId }: InvitationAcceptanceWriteInput
 ) {
+    const campaign = invitation.campaign
+
     await transaction.roleAssignment.upsert({
         create: {
             role: 'COMPETITOR',
@@ -121,7 +123,7 @@ export async function recordInvitationAcceptance(
         },
     })
 
-    const participant = invitation.campaign
+    const participant = campaign
         ? await (async () => {
               const existingParticipant =
                   await transaction.campaignParticipant.findUnique({
@@ -131,7 +133,7 @@ export async function recordInvitationAcceptance(
                       },
                       where: {
                           campaignId_userId: {
-                              campaignId: invitation.campaign.id,
+                              campaignId: campaign.id,
                               userId,
                           },
                       },
@@ -153,7 +155,7 @@ export async function recordInvitationAcceptance(
                   : await transaction.campaignParticipant.create({
                         data: {
                             joinedAt: now,
-                            campaignId: invitation.campaign.id,
+                            campaignId: campaign.id,
                             userId,
                         },
                         select: {

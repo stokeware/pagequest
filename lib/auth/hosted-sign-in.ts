@@ -1,5 +1,11 @@
 export type HostedAuthFlow = 'login' | 'signup'
 
+type HostedAuthRequest = {
+    callbackUrl: string
+    flow: HostedAuthFlow
+    loginHint: string | null
+}
+
 type SearchParamsLike = {
     get(name: string): string | null
 }
@@ -10,13 +16,17 @@ function normalizeQueryValue(value: string | null | undefined) {
     return normalizedValue ? normalizedValue : null
 }
 
-export function getHostedAuthFlow(screenHint: string | null | undefined) {
+export function getHostedAuthFlow(
+    screenHint: string | null | undefined
+): HostedAuthFlow {
     return normalizeQueryValue(screenHint)?.toLowerCase() === 'signup'
         ? 'signup'
         : 'login'
 }
 
-export function getHostedAuthRequest(searchParams: SearchParamsLike) {
+export function getHostedAuthRequest(
+    searchParams: SearchParamsLike
+): HostedAuthRequest {
     return {
         callbackUrl:
             normalizeQueryValue(searchParams.get('callbackUrl')) ?? '/',
