@@ -57,10 +57,13 @@ export function ConfirmSubmitButton({
                         const form = event.currentTarget.form
 
                         if (form) {
-                            let hiddenField =
+                            const existingField =
                                 form.elements.namedItem(submitName)
+                            let hiddenField: HTMLInputElement
 
-                            if (!(hiddenField instanceof HTMLInputElement)) {
+                            if (existingField instanceof HTMLInputElement) {
+                                hiddenField = existingField
+                            } else {
                                 hiddenField = document.createElement('input')
                                 hiddenField.setAttribute('type', 'hidden')
                                 hiddenField.setAttribute('name', submitName)
