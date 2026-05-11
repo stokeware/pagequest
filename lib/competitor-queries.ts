@@ -305,15 +305,41 @@ export const getParticipantReadingEntries = cache(
 export function selectPrimaryCompetitorParticipant<
     T extends {
         campaign: {
+            startAt: Date
             status: CompetitorCampaignStatus
         }
     },
->(participants: T[]) {
-    return (
-        participants.find((entry) => entry.campaign.status === 'ACTIVE') ??
-        participants[0] ??
-        null
+>(participants: T[], now = new Date()) {
+    const activeParticipant = participants.find(
+        (entry) => entry.campaign.status === 'ACTIVE'
     )
+
+    if (activeParticipant) {
+        return activeParticipant
+    }
+
+    const nowTimestamp = now.getTime()
+    const futureParticipant = [...participants]
+        .filter((entry) => entry.campaign.startAt.getTime() > nowTimestamp)
+        .sort(
+            (left, right) =>
+                left.campaign.startAt.getTime() -
+                right.campaign.startAt.getTime()
+        )[0]
+
+    if (futureParticipant) {
+        return futureParticipant
+    }
+
+    const latestPastParticipant = [...participants]
+        .filter((entry) => entry.campaign.startAt.getTime() <= nowTimestamp)
+        .sort(
+            (left, right) =>
+                right.campaign.startAt.getTime() -
+                left.campaign.startAt.getTime()
+        )[0]
+
+    return latestPastParticipant ?? null
 }
 
 async function getCompetitorCurrentCampaignParticipants(userId: string | null) {
@@ -351,7 +377,6 @@ async function getCompetitorCurrentCampaignParticipants(userId: string | null) {
                 totalPages: true,
                 totalPoints: true,
             },
-            take: 5,
             where: {
                 campaign: {
                     status: {
