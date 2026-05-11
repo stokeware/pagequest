@@ -72,6 +72,8 @@ const errorDetailMessages: Record<string, string> = {
     'missing-member': 'Choose a valid competitor row before trying again.',
     'rate-limit-exceeded':
         'Invitation sending is temporarily limited for this admin session. Wait a few minutes before sending more invitations.',
+    'unexpected-error':
+        'An unexpected error interrupted the member action. Check the server logs if this keeps happening.',
 }
 
 function getFirstSearchParamValue(

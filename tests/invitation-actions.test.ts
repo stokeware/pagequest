@@ -302,6 +302,26 @@ describe('admin invitation actions audit logging', () => {
         )
     })
 
+    it('redirects create invitation failures back to members instead of crashing the route', async () => {
+        invitationActionMocks.prisma.invitation.findFirst.mockRejectedValue(
+            new Error('database unavailable')
+        )
+
+        const formData = new FormData()
+        formData.set('email', 'reader@example.com')
+
+        await expect(createInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=unexpected-error'),
+        })
+
+        expect(invitationActionMocks.consoleError).toHaveBeenCalledWith(
+            'Admin invitation action failed.',
+            expect.objectContaining({
+                message: 'database unavailable',
+            })
+        )
+    })
+
     it('records an audit log when an admin resends an invitation', async () => {
         invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue({
             acceptedAt: null,
