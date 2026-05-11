@@ -1,6 +1,5 @@
 'use server'
 
-import { type CampaignStatus } from '@prisma/client'
 import { getServerSession } from 'next-auth/next'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -80,12 +79,12 @@ function finishAction({
 
 function buildCreateInvitationRateLimitKey({
     actorUserId,
-    campaignId,
+    email,
 }: {
     actorUserId: string
-    campaignId: string
+    email: string
 }) {
-    return `invitation-create:${actorUserId}:${campaignId}`
+    return `invitation-create:${actorUserId}:${email}`
 }
 
 function buildResendInvitationRateLimitKey({
@@ -108,8 +107,8 @@ async function recordInvitationDeliveryFailureAudit({
     stage,
 }: {
     actorUserId: string
-    campaignId: string
-    campaignName: string
+    campaignId: string | null
+    campaignName: string | null
     email: string
     errorMessage: string | null
     invitationId: string
@@ -148,7 +147,7 @@ function logInvitationDeliveryFailure({
     invitationId,
     stage,
 }: {
-    campaignId: string
+    campaignId: string | null
     email: string
     error: unknown
     invitationId: string
@@ -171,7 +170,7 @@ async function sendInvitationNotification({
 }: {
     expiresAt: Date
     invitationLink: string
-    campaignName: string
+    campaignName: string | null
     recipientEmail: string
 }) {
     return sendInvitationEmail({
@@ -213,49 +212,6 @@ async function requireAdminActionUser() {
     }
 }
 
-async function loadTargetCampaign() {
-    const campaigns = await prisma.campaign.findMany({
-        select: {
-            createdAt: true,
-            id: true,
-            name: true,
-            startAt: true,
-            status: true,
-        },
-        where: {
-            status: {
-                in: ['ACTIVE', 'SCHEDULED'] satisfies CampaignStatus[],
-            },
-            visibility: 'INVITE_ONLY',
-        },
-    })
-
-    const statusRank: Record<CampaignStatus, number> = {
-        ACTIVE: 0,
-        SCHEDULED: 1,
-        COMPLETED: 2,
-        DRAFT: 3,
-        ARCHIVED: 4,
-    }
-
-    return (
-        campaigns.sort((left, right) => {
-            const leftRank = statusRank[left.status]
-            const rightRank = statusRank[right.status]
-
-            if (leftRank !== rightRank) {
-                return leftRank - rightRank
-            }
-
-            if (left.startAt.getTime() !== right.startAt.getTime()) {
-                return left.startAt.getTime() - right.startAt.getTime()
-            }
-
-            return left.createdAt.getTime() - right.createdAt.getTime()
-        })[0] ?? null
-    )
-}
-
 export async function createInvitationAction(formData: FormData) {
     const actor = await requireAdminActionUser()
     const emailInput = getStringField(formData, 'email')
@@ -276,19 +232,10 @@ export async function createInvitationAction(formData: FormData) {
         })
     }
 
-    const campaign = await loadTargetCampaign()
-
-    if (!campaign) {
-        finishAction({
-            outcome: 'error',
-            detail: 'campaign-unavailable',
-        })
-    }
-
     const createRateLimit = consumeRateLimit({
         key: buildCreateInvitationRateLimitKey({
             actorUserId: actor.id,
-            campaignId: campaign.id,
+            email,
         }),
         ...invitationCreateRateLimit,
     })
@@ -339,7 +286,6 @@ export async function createInvitationAction(formData: FormData) {
                 expiresAt: values.expiresAt,
                 invitedByUserId: actor.id,
                 lastSentAt: values.lastSentAt,
-                campaignId: campaign.id,
                 status: values.status,
                 tokenHash: values.tokenHash,
             },
@@ -358,9 +304,9 @@ export async function createInvitationAction(formData: FormData) {
                 metadata: {
                     email,
                     expiresAt: values.expiresAt.toISOString(),
-                    campaignName: campaign.name,
+                    campaignName: null,
                 },
-                campaignId: campaign.id,
+                campaignId: null,
             },
         })
 
@@ -371,14 +317,14 @@ export async function createInvitationAction(formData: FormData) {
         await sendInvitationNotification({
             expiresAt: values.expiresAt,
             invitationLink,
-            campaignName: campaign.name,
+            campaignName: null,
             recipientEmail: email,
         })
     } catch (error) {
         const errorMessage = resolveDeliveryFailureMessage(error)
 
         logInvitationDeliveryFailure({
-            campaignId: campaign.id,
+            campaignId: null,
             email,
             error,
             invitationId: createdInvitation.id,
@@ -387,8 +333,8 @@ export async function createInvitationAction(formData: FormData) {
 
         await recordInvitationDeliveryFailureAudit({
             actorUserId: actor.id,
-            campaignId: campaign.id,
-            campaignName: campaign.name,
+            campaignId: null,
+            campaignName: null,
             email,
             errorMessage,
             invitationId: createdInvitation.id,
@@ -448,16 +394,6 @@ export async function resendInvitationAction(formData: FormData) {
         })
     }
 
-    if (
-        invitation.campaign.status === 'ARCHIVED' ||
-        invitation.campaign.visibility !== 'INVITE_ONLY'
-    ) {
-        finishAction({
-            outcome: 'error',
-            detail: 'campaign-unavailable',
-        })
-    }
-
     if (!canResendInvitation(invitation, new Date())) {
         finishAction({
             outcome: 'error',
@@ -497,6 +433,7 @@ export async function resendInvitationAction(formData: FormData) {
     await prisma.$transaction(async (transaction) => {
         await transaction.invitation.update({
             data: {
+                campaignId: null,
                 expiresAt: values.expiresAt,
                 invitedByUserId: actor.id,
                 lastSentAt: values.lastSentAt,
@@ -520,9 +457,9 @@ export async function resendInvitationAction(formData: FormData) {
                     email: invitation.email,
                     expiresAt: values.expiresAt.toISOString(),
                     previousStatus: invitation.status,
-                    campaignName: invitation.campaign.name,
+                    campaignName: invitation.campaign?.name ?? null,
                 },
-                campaignId: invitation.campaign.id,
+                campaignId: null,
             },
         })
     })
@@ -531,14 +468,14 @@ export async function resendInvitationAction(formData: FormData) {
         await sendInvitationNotification({
             expiresAt: values.expiresAt,
             invitationLink,
-            campaignName: invitation.campaign.name,
+            campaignName: null,
             recipientEmail: invitation.email,
         })
     } catch (error) {
         const errorMessage = resolveDeliveryFailureMessage(error)
 
         logInvitationDeliveryFailure({
-            campaignId: invitation.campaign.id,
+            campaignId: null,
             email: invitation.email,
             error,
             invitationId: invitation.id,
@@ -547,8 +484,8 @@ export async function resendInvitationAction(formData: FormData) {
 
         await recordInvitationDeliveryFailureAudit({
             actorUserId: actor.id,
-            campaignId: invitation.campaign.id,
-            campaignName: invitation.campaign.name,
+            campaignId: null,
+            campaignName: invitation.campaign?.name ?? null,
             email: invitation.email,
             errorMessage,
             invitationId: invitation.id,
@@ -623,9 +560,9 @@ export async function revokeInvitationAction(formData: FormData) {
                 invitationId: invitation.id,
                 metadata: {
                     email: invitation.email,
-                    campaignName: invitation.campaign.name,
+                    campaignName: invitation.campaign?.name ?? null,
                 },
-                campaignId: invitation.campaign.id,
+                campaignId: invitation.campaign?.id ?? null,
             },
         })
 
@@ -680,7 +617,13 @@ export async function removeMemberAction(formData: FormData) {
 
     const invitationIds = acceptedInvitations.map((invitation) => invitation.id)
     const campaignIds = Array.from(
-        new Set(acceptedInvitations.map((invitation) => invitation.campaignId))
+        new Set(
+            acceptedInvitations
+                .map((invitation) => invitation.campaignId)
+                .filter((campaignId): campaignId is string =>
+                    Boolean(campaignId)
+                )
+        )
     )
     const now = new Date()
 
@@ -700,18 +643,20 @@ export async function removeMemberAction(formData: FormData) {
         })
 
         if (memberUserId) {
-            await transaction.campaignParticipant.updateMany({
-                data: {
-                    removedAt: now,
-                },
-                where: {
-                    campaignId: {
-                        in: campaignIds,
+            if (campaignIds.length > 0) {
+                await transaction.campaignParticipant.updateMany({
+                    data: {
+                        removedAt: now,
                     },
-                    removedAt: null,
-                    userId: memberUserId,
-                },
-            })
+                    where: {
+                        campaignId: {
+                            in: campaignIds,
+                        },
+                        removedAt: null,
+                        userId: memberUserId,
+                    },
+                })
+            }
 
             await transaction.roleAssignment.deleteMany({
                 where: {

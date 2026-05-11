@@ -48,6 +48,25 @@ describe('deriveInvitationAccessProfile', () => {
         )
     })
 
+    it('treats site-only invitations as pending member setup', () => {
+        const access = deriveInvitationAccessProfile({
+            email: 'reader@example.com',
+            invitation: {
+                email: 'reader@example.com',
+                expiresAt: new Date('2026-05-15T05:00:00.000Z'),
+                campaign: null,
+                status: 'PENDING',
+            },
+            member: null,
+            participant: null,
+        })
+
+        expect(access.state).toBe('pending')
+        expect(access.allowCompetitorRoutes).toBe(false)
+        expect(access.campaignName).toBeNull()
+        expect(access.summary).toContain('Page Quest')
+    })
+
     it('allows confirmed members through even before a campaign participant exists', () => {
         const access = deriveInvitationAccessProfile({
             email: 'reader@example.com',

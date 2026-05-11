@@ -15,7 +15,7 @@ export type InvitationAcceptanceRecord = {
     acceptedByUserId?: string | null
     email: string
     expiresAt: Date
-    campaign: InvitationAcceptanceCampaignRecord
+    campaign: InvitationAcceptanceCampaignRecord | null
     revokedAt?: Date | null
     status: 'ACCEPTED' | 'EXPIRED' | 'PENDING' | 'REVOKED'
 }
@@ -41,6 +41,13 @@ export type InvitationAcceptanceProfile = {
     summary: string
 }
 
+function describeInvitationScope(
+    campaignName: string | null,
+    fallback: string
+) {
+    return campaignName ? `${fallback} for ${campaignName}` : fallback
+}
+
 export function deriveInvitationAcceptanceProfile({
     invitation,
     now,
@@ -62,8 +69,9 @@ export function deriveInvitationAcceptanceProfile({
     }
 
     if (
-        invitation.campaign.status === 'ARCHIVED' ||
-        invitation.campaign.visibility !== 'INVITE_ONLY'
+        invitation.campaign &&
+        (invitation.campaign.status === 'ARCHIVED' ||
+            invitation.campaign.visibility !== 'INVITE_ONLY')
     ) {
         return {
             canAccept: false,
@@ -81,9 +89,12 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            campaignName: invitation.campaign.name,
+            campaignName: invitation.campaign?.name ?? null,
             state: 'accepted',
-            summary: `This invitation for ${invitation.campaign.name} has already been accepted. Open the competitor dashboard with the linked account to continue.`,
+            summary: `${describeInvitationScope(
+                invitation.campaign?.name ?? null,
+                'This invitation has already been accepted'
+            )}. Sign in with the linked account to continue into Page Quest.`,
         }
     }
 
@@ -91,9 +102,12 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            campaignName: invitation.campaign.name,
+            campaignName: invitation.campaign?.name ?? null,
             state: 'revoked',
-            summary: `This invitation for ${invitation.campaign.name} has been revoked. Ask an administrator to resend it if you should still join.`,
+            summary: `${describeInvitationScope(
+                invitation.campaign?.name ?? null,
+                'This invitation has been revoked'
+            )}. Ask an administrator to resend it if you should still join.`,
         }
     }
 
@@ -101,9 +115,9 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            campaignName: invitation.campaign.name,
+            campaignName: invitation.campaign?.name ?? null,
             state: 'sign-in-required',
-            summary: `Sign in with ${invitation.email} to link your account and accept the invitation for ${invitation.campaign.name}.`,
+            summary: `Create your Page Quest account or sign in with ${invitation.email} to finish accepting ${invitation.campaign ? `the invitation for ${invitation.campaign.name}` : 'your site invitation'}.`,
         }
     }
 
@@ -114,17 +128,19 @@ export function deriveInvitationAcceptanceProfile({
         return {
             canAccept: false,
             expectedEmail: invitation.email,
-            campaignName: invitation.campaign.name,
+            campaignName: invitation.campaign?.name ?? null,
             state: 'wrong-account',
-            summary: `You are signed in as ${viewer.userEmail}, but this invitation belongs to ${invitation.email}. Sign in with the invited account before accepting ${invitation.campaign.name}.`,
+            summary: `You are signed in as ${viewer.userEmail}, but this invitation belongs to ${invitation.email}. Switch to the invited email before finishing ${invitation.campaign ? `setup for ${invitation.campaign.name}` : 'your Page Quest account setup'}.`,
         }
     }
 
     return {
         canAccept: true,
         expectedEmail: invitation.email,
-        campaignName: invitation.campaign.name,
+        campaignName: invitation.campaign?.name ?? null,
         state: 'ready',
-        summary: `Everything is ready. Accept the invitation to link ${viewer.userEmail} to ${invitation.campaign.name} and unlock the competitor dashboard.`,
+        summary: invitation.campaign
+            ? `Everything is ready. Accept this invitation to finish setting up Page Quest for ${viewer.userEmail} and join ${invitation.campaign.name}.`
+            : `Everything is ready. Accept this invitation to finish setting up Page Quest for ${viewer.userEmail}.`,
     }
 }

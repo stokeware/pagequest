@@ -140,6 +140,22 @@ describe('deriveInvitationTokenSummary', () => {
         expect(summary.summary).toContain('secure invite link is valid')
     })
 
+    it('summarizes valid site-only invite links clearly', () => {
+        const summary = deriveInvitationTokenSummary({
+            invitation: {
+                email: 'reader@example.com',
+                expiresAt: new Date('2026-05-15T12:00:00.000Z'),
+                campaign: null,
+                status: 'PENDING',
+            },
+            now,
+        })
+
+        expect(summary.state).toBe('pending')
+        expect(summary.campaignName).toBeNull()
+        expect(summary.summary).toContain('valid for Page Quest')
+    })
+
     it('summarizes invalid secure links clearly', () => {
         const summary = deriveInvitationTokenSummary({
             invitation: null,

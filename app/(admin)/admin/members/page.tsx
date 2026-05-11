@@ -60,7 +60,7 @@ const errorDetailMessages: Record<string, string> = {
         'That email already belongs to a confirmed competitor, so a new invitation is not needed.',
     'action-not-allowed': 'That record is no longer available for this action.',
     'campaign-unavailable':
-        'Create or publish an invite-only active or scheduled campaign before sending invitations.',
+        'Create an invite-only campaign before sending invitations. Draft, scheduled, active, and completed campaigns can all anchor new Page Quest member invites.',
     'duplicate-invitation':
         'That recipient already has a pending invitation. Resend or revoke the existing one instead.',
     'email-send-failed':

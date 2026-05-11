@@ -10,10 +10,10 @@ type InvitationAcceptanceTransaction = {
                 metadata: {
                     acceptedAt: string
                     email: string
-                    campaignName: string
+                    campaignName: string | null
                 }
-                campaignId: string
-                campaignParticipantId: string
+                campaignId?: string | null
+                campaignParticipantId?: string | null
             }
         }) => Promise<unknown>
     }
@@ -22,7 +22,7 @@ type InvitationAcceptanceTransaction = {
             data: {
                 acceptedAt: Date
                 acceptedByUserId: string
-                acceptedParticipantId: string
+                acceptedParticipantId: string | null
                 status: 'ACCEPTED'
             }
             where: {
@@ -94,10 +94,10 @@ export type InvitationAcceptanceWriteInput = {
     invitation: {
         email: string
         id: string
-        campaign: {
+        campaign?: {
             id: string
             name: string
-        }
+        } | null
     }
     now: Date
     userId: string
@@ -121,49 +121,53 @@ export async function recordInvitationAcceptance(
         },
     })
 
-    const existingParticipant =
-        await transaction.campaignParticipant.findUnique({
-            select: {
-                id: true,
-                joinedAt: true,
-            },
-            where: {
-                campaignId_userId: {
-                    campaignId: invitation.campaign.id,
-                    userId,
-                },
-            },
-        })
+    const participant = invitation.campaign
+        ? await (async () => {
+              const existingParticipant =
+                  await transaction.campaignParticipant.findUnique({
+                      select: {
+                          id: true,
+                          joinedAt: true,
+                      },
+                      where: {
+                          campaignId_userId: {
+                              campaignId: invitation.campaign.id,
+                              userId,
+                          },
+                      },
+                  })
 
-    const participant = existingParticipant
-        ? await transaction.campaignParticipant.update({
-              data: {
-                  joinedAt: existingParticipant.joinedAt ?? now,
-                  removedAt: null,
-              },
-              select: {
-                  id: true,
-              },
-              where: {
-                  id: existingParticipant.id,
-              },
-          })
-        : await transaction.campaignParticipant.create({
-              data: {
-                  joinedAt: now,
-                  campaignId: invitation.campaign.id,
-                  userId,
-              },
-              select: {
-                  id: true,
-              },
-          })
+              return existingParticipant
+                  ? await transaction.campaignParticipant.update({
+                        data: {
+                            joinedAt: existingParticipant.joinedAt ?? now,
+                            removedAt: null,
+                        },
+                        select: {
+                            id: true,
+                        },
+                        where: {
+                            id: existingParticipant.id,
+                        },
+                    })
+                  : await transaction.campaignParticipant.create({
+                        data: {
+                            joinedAt: now,
+                            campaignId: invitation.campaign.id,
+                            userId,
+                        },
+                        select: {
+                            id: true,
+                        },
+                    })
+          })()
+        : null
 
     await transaction.invitation.update({
         data: {
             acceptedAt: now,
             acceptedByUserId: userId,
-            acceptedParticipantId: participant.id,
+            acceptedParticipantId: participant?.id ?? null,
             status: 'ACCEPTED',
         },
         where: {
@@ -181,14 +185,14 @@ export async function recordInvitationAcceptance(
             metadata: {
                 acceptedAt: now.toISOString(),
                 email: invitation.email,
-                campaignName: invitation.campaign.name,
+                campaignName: invitation.campaign?.name ?? null,
             },
-            campaignId: invitation.campaign.id,
-            campaignParticipantId: participant.id,
+            campaignId: invitation.campaign?.id ?? null,
+            campaignParticipantId: participant?.id ?? null,
         },
     })
 
     return {
-        participantId: participant.id,
+        participantId: participant?.id ?? null,
     }
 }

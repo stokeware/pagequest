@@ -189,15 +189,6 @@ describe('admin invitation actions audit logging', () => {
     })
 
     it('records an audit log when an admin creates an invitation', async () => {
-        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
-            {
-                createdAt: new Date('2026-04-01T12:00:00.000Z'),
-                id: 'campaign-1',
-                name: 'Spring Story Sprint 2026',
-                startAt: new Date('2026-04-20T12:00:00.000Z'),
-                status: 'ACTIVE',
-            },
-        ])
         invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
             null
         )
@@ -221,23 +212,14 @@ describe('admin invitation actions audit logging', () => {
                 metadata: {
                     email: 'reader@example.com',
                     expiresAt: '2026-05-22T18:00:00.000Z',
-                    campaignName: 'Spring Story Sprint 2026',
+                    campaignName: null,
                 },
-                campaignId: 'campaign-1',
+                campaignId: null,
             },
         })
     })
 
     it('blocks invitation creation when the admin hits the send rate limit', async () => {
-        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
-            {
-                createdAt: new Date('2026-04-01T12:00:00.000Z'),
-                id: 'campaign-1',
-                name: 'Spring Story Sprint 2026',
-                startAt: new Date('2026-04-20T12:00:00.000Z'),
-                status: 'ACTIVE',
-            },
-        ])
         invitationActionMocks.consumeRateLimit.mockReturnValue({
             allowed: false,
             remaining: 0,
@@ -267,24 +249,12 @@ describe('admin invitation actions audit logging', () => {
         })
 
         expect(
-            invitationActionMocks.prisma.campaign.findMany
-        ).not.toHaveBeenCalled()
-        expect(
             invitationActionMocks.transaction.invitation.create
         ).not.toHaveBeenCalled()
         expect(invitationActionMocks.sendInvitationEmail).not.toHaveBeenCalled()
     })
 
     it('records delivery failure when invitation email sending fails', async () => {
-        invitationActionMocks.prisma.campaign.findMany.mockResolvedValue([
-            {
-                createdAt: new Date('2026-04-01T12:00:00.000Z'),
-                id: 'campaign-1',
-                name: 'Spring Story Sprint 2026',
-                startAt: new Date('2026-04-20T12:00:00.000Z'),
-                status: 'ACTIVE',
-            },
-        ])
         invitationActionMocks.prisma.invitation.findFirst.mockResolvedValue(
             null
         )
@@ -308,12 +278,12 @@ describe('admin invitation actions audit logging', () => {
             data: {
                 action: 'invitation.delivery_failed',
                 actorUserId: 'admin-1',
-                campaignId: 'campaign-1',
+                campaignId: null,
                 entityId: 'invite-1',
                 entityType: 'Invitation',
                 invitationId: 'invite-1',
                 metadata: {
-                    campaignName: 'Spring Story Sprint 2026',
+                    campaignName: null,
                     email: 'reader@example.com',
                     errorMessage: 'smtp down',
                     stage: 'created',
@@ -324,7 +294,7 @@ describe('admin invitation actions audit logging', () => {
         expect(invitationActionMocks.consoleError).toHaveBeenCalledWith(
             'Invitation email delivery failed.',
             expect.objectContaining({
-                campaignId: 'campaign-1',
+                campaignId: null,
                 email: 'reader@example.com',
                 invitationId: 'invite-1',
                 stage: 'created',
@@ -370,7 +340,45 @@ describe('admin invitation actions audit logging', () => {
                     previousStatus: 'EXPIRED',
                     campaignName: 'Spring Story Sprint 2026',
                 },
-                campaignId: 'campaign-1',
+                campaignId: null,
+            },
+        })
+    })
+
+    it('resends a site-only invitation without campaign metadata', async () => {
+        invitationActionMocks.prisma.invitation.findUnique.mockResolvedValue({
+            acceptedAt: null,
+            email: 'reader@example.com',
+            expiresAt: new Date('2026-05-10T12:00:00.000Z'),
+            id: 'invite-site',
+            campaign: null,
+            revokedAt: null,
+            status: 'PENDING',
+        })
+
+        const formData = new FormData()
+        formData.set('invitationId', 'invite-site')
+
+        await expect(resendInvitationAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('NEXT_REDIRECT'),
+        })
+
+        expect(
+            invitationActionMocks.transaction.auditLog.create
+        ).toHaveBeenCalledWith({
+            data: {
+                action: 'invitation.resent',
+                actorUserId: 'admin-1',
+                entityId: 'invite-site',
+                entityType: 'Invitation',
+                invitationId: 'invite-site',
+                metadata: {
+                    email: 'reader@example.com',
+                    expiresAt: '2026-05-23T18:00:00.000Z',
+                    previousStatus: 'PENDING',
+                    campaignName: null,
+                },
+                campaignId: null,
             },
         })
     })

@@ -12,6 +12,11 @@ import {
     FormField,
     Input,
 } from '@/components/ui'
+import {
+    getHostedAuthRequest,
+    getHostedAuthSignInOptions,
+    type HostedAuthFlow,
+} from '@/lib/auth/hosted-sign-in'
 import { getSignedInLandingPath } from '@/lib/auth/access'
 import type { AuthMode } from '@/lib/auth/config'
 
@@ -49,8 +54,9 @@ export function SignInForm({
         getClientHydrationSnapshot,
         getServerHydrationSnapshot
     )
-
-    const callbackUrl = searchParams.get('callbackUrl') ?? '/'
+    const hostedAuthRequest = getHostedAuthRequest(searchParams)
+    const callbackUrl = hostedAuthRequest.callbackUrl
+    const isHostedSignup = hostedAuthRequest.flow === 'signup'
 
     async function handleLocalSubmit(formData: FormData) {
         const email = String(formData.get('email') ?? '').trim()
@@ -94,26 +100,70 @@ export function SignInForm({
         })
     }
 
-    function handleHostedSignIn() {
+    function handleHostedSignIn(flow: HostedAuthFlow = hostedAuthRequest.flow) {
         setErrorMessage(null)
 
         startTransition(async () => {
-            await signIn(authMode, {
-                callbackUrl,
-            })
+            await signIn(
+                authMode,
+                getHostedAuthSignInOptions({
+                    callbackUrl,
+                    flow,
+                    loginHint: hostedAuthRequest.loginHint,
+                })
+            )
         })
     }
 
     if (authMode !== 'local') {
         return (
             <FormCard
-                title='Sign in'
-                description={`Use the hosted Auth0 identity flow configured for this environment.`}
+                title={isHostedSignup ? 'Welcome to Page Quest' : 'Sign in'}
+                description={
+                    isHostedSignup
+                        ? 'Create your account to accept the invitation. Auth0 will ask you to choose a password and then return you to Page Quest.'
+                        : 'Use the hosted Auth0 identity flow configured for this environment.'
+                }
             >
-                <FormActions note='The local credentials form stays disabled whenever the app runs in hosted auth mode, so preview deploys may still require a stable Auth0 callback URL for full sign-in validation.'>
-                    <Button onClick={handleHostedSignIn} disabled={isPending}>
-                        Continue with {providerLabel}
+                {hostedAuthRequest.loginHint ? (
+                    <FormField
+                        label='Email address'
+                        htmlFor='hosted-auth-email'
+                        hint='This email is prefilled so the hosted flow returns to the correct invitation.'
+                    >
+                        <Input
+                            id='hosted-auth-email'
+                            value={hostedAuthRequest.loginHint}
+                            readOnly
+                        />
+                    </FormField>
+                ) : null}
+
+                <FormActions
+                    note={
+                        isHostedSignup
+                            ? 'If this email is new, choose a password in Auth0. If the account already exists, you can switch to sign-in on the next screen.'
+                            : 'The local credentials form stays disabled whenever the app runs in hosted auth mode, so preview deploys may still require a stable Auth0 callback URL for full sign-in validation.'
+                    }
+                >
+                    <Button
+                        onClick={() => handleHostedSignIn()}
+                        disabled={isPending}
+                    >
+                        {isHostedSignup
+                            ? 'Create account'
+                            : `Continue with ${providerLabel}`}
                     </Button>
+
+                    {isHostedSignup ? (
+                        <Button
+                            variant='outline'
+                            onClick={() => handleHostedSignIn('login')}
+                            disabled={isPending}
+                        >
+                            I already have an account
+                        </Button>
+                    ) : null}
                 </FormActions>
             </FormCard>
         )

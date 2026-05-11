@@ -15,6 +15,7 @@ import {
     hashInvitationToken,
     normalizeInvitationToken,
 } from '@/lib/invitation-admin'
+import { buildHostedAuthPath } from '@/lib/auth/hosted-sign-in'
 import { deriveInvitationAcceptanceProfile } from '@/lib/invitation-acceptance'
 import { getRoleAwareSession } from '@/lib/auth/session'
 import { getInvitationAccessProfile } from '@/lib/invitation-access'
@@ -36,10 +37,18 @@ function getFirstSearchParamValue(
     return value ?? null
 }
 
-function getTokenAwareSignInPath(token: string) {
-    return `/sign-in?callbackUrl=${encodeURIComponent(
-        buildInvitationAcceptPath(token)
-    )}`
+function getTokenAwareAuthPath({
+    token,
+    email,
+}: {
+    token: string
+    email?: string | null
+}) {
+    return buildHostedAuthPath({
+        callbackUrl: buildInvitationAcceptPath(token),
+        flow: 'signup',
+        loginHint: email,
+    })
 }
 
 function getInvitationMutationNotice(
@@ -143,13 +152,13 @@ function InvitationTokenCard({
     if (access.state === 'sign-in-required') {
         return (
             <FormCard
-                title='Sign in to continue with this invitation.'
+                title='Set up your Page Quest account.'
                 description={access.summary}
             >
                 <FormField
                     label='Invited email'
                     htmlFor='secure-invite-email'
-                    hint='Use the invited account when you authenticate, otherwise the accept action will stay locked.'
+                    hint='This invitation stays reserved for this email while you create an account or sign in.'
                 >
                     <Input
                         id='secure-invite-email'
@@ -158,11 +167,18 @@ function InvitationTokenCard({
                     />
                 </FormField>
 
-                <FormActions note='After sign-in, this same secure link will return here so you can finish accepting the invitation.'>
+                <FormActions note='Continue to the hosted account setup flow. Auth0 can create a password for this email and then return you to the secure invitation.'>
                     <Button
-                        render={<Link href={getTokenAwareSignInPath(token)} />}
+                        render={
+                            <Link
+                                href={getTokenAwareAuthPath({
+                                    email: access.expectedEmail,
+                                    token,
+                                })}
+                            />
+                        }
                     >
-                        Sign in
+                        Create account or sign in
                     </Button>
                 </FormActions>
             </FormCard>
@@ -178,7 +194,7 @@ function InvitationTokenCard({
                 <FormField
                     label='Invited email'
                     htmlFor='wrong-account-email'
-                    hint='Switch to the invited account, then reopen this secure link to accept the campaign.'
+                    hint='Switch to the invited email, or create that account first, then reopen this secure link.'
                 >
                     <Input
                         id='wrong-account-email'
@@ -187,12 +203,19 @@ function InvitationTokenCard({
                     />
                 </FormField>
 
-                <FormActions note='The invite stays valid, but only the invited account can accept it.'>
+                <FormActions note='The invite stays valid, but only the invited email can finish setup. The next screen can sign in or create that account.'>
                     <Button
                         variant='outline'
-                        render={<Link href={getTokenAwareSignInPath(token)} />}
+                        render={
+                            <Link
+                                href={getTokenAwareAuthPath({
+                                    email: access.expectedEmail,
+                                    token,
+                                })}
+                            />
+                        }
                     >
-                        Use a different account
+                        Continue with invited email
                     </Button>
                 </FormActions>
             </FormCard>
@@ -200,14 +223,11 @@ function InvitationTokenCard({
     }
 
     return (
-        <FormCard
-            title='Secure invite link recognized.'
-            description={access.summary}
-        >
+        <FormCard title='Welcome to Page Quest.' description={access.summary}>
             <FormField
                 label='Invited email'
                 htmlFor='secure-invite-email'
-                hint='The sign-in account must match this email before the invitation can be accepted.'
+                hint='The authenticated account must match this email before membership can be finalized.'
             >
                 <Input
                     id='secure-invite-email'
@@ -216,21 +236,23 @@ function InvitationTokenCard({
                 />
             </FormField>
 
-            <FormField
-                label='Campaign'
-                htmlFor='secure-invite-campaign'
-                hint='This secure link is already validated. Accepting it will link the invited account to the campaign.'
-            >
-                <Input
-                    id='secure-invite-campaign'
-                    value={access.campaignName ?? ''}
-                    readOnly
-                />
-            </FormField>
+            {access.campaignName ? (
+                <FormField
+                    label='Campaign'
+                    htmlFor='secure-invite-campaign'
+                    hint='This legacy invite still links the invited account to this campaign.'
+                >
+                    <Input
+                        id='secure-invite-campaign'
+                        value={access.campaignName}
+                        readOnly
+                    />
+                </FormField>
+            ) : null}
 
             <form action={acceptInvitationAction} className='ui-form-shell'>
                 <input type='hidden' name='token' value={token} />
-                <FormActions note='Accepting this invitation links the signed-in account to the campaign and creates the participant record.'>
+                <FormActions note='Accepting this invitation completes your Page Quest membership and unlocks current and future invite-only campaigns for this account.'>
                     <Button nativeButton type='submit'>
                         Accept invitation
                     </Button>
@@ -268,7 +290,7 @@ function InvitationAccessCard({
         return (
             <EmptyState
                 eyebrow='Invitation access'
-                title='This account is already part of the campaign.'
+                title='This account already has Page Quest member access.'
                 description={access.summary}
                 action={
                     <Button render={<Link href='/dashboard' />}>
@@ -316,19 +338,21 @@ function InvitationAccessCard({
                 />
             </FormField>
 
-            <FormField
-                label='Campaign'
-                htmlFor='invite-campaign'
-                hint='This invitation is recognized for the signed-in account and can be completed through the secure link in the email.'
-            >
-                <Input
-                    id='invite-campaign'
-                    value={access.campaignName ?? ''}
-                    readOnly
-                />
-            </FormField>
+            {access.campaignName ? (
+                <FormField
+                    label='Campaign'
+                    htmlFor='invite-campaign'
+                    hint='This legacy invitation is recognized for the signed-in account and can be completed through the secure link in the email.'
+                >
+                    <Input
+                        id='invite-campaign'
+                        value={access.campaignName}
+                        readOnly
+                    />
+                </FormField>
+            ) : null}
 
-            <FormActions note='Invitation access is active. Use the secure link from the invitation email to complete acceptance and join the campaign.'>
+            <FormActions note='Invitation access is active. Use the secure link from the invitation email to complete your Page Quest account setup.'>
                 <Button disabled>
                     {access.state === 'pending'
                         ? 'Check your invitation email'
@@ -389,8 +413,8 @@ export default async function AcceptInvitationPage({
     return (
         <PublicShell
             eyebrow='Invitation access'
-            title='Accept a campaign invitation and join the season.'
-            description='This route now validates secure invite links, links the invited account, and unlocks the competitor experience after acceptance.'
+            title='Welcome to Page Quest.'
+            description='Use your invitation to create or connect your account, then finish acceptance to unlock Page Quest member access.'
         >
             {mutationNotice ? (
                 <ErrorState
