@@ -250,7 +250,7 @@ test.describe('log progress mobile flow', () => {
 })
 
 async function signInToLogProgress(page: Page) {
-    await page.goto('/log-progress')
+    await page.goto('/campaign-board')
     const signInForm = page.locator('form')
 
     await expect(page.getByLabel('Email address')).toBeEnabled()
@@ -258,7 +258,7 @@ async function signInToLogProgress(page: Page) {
     await page.getByLabel('Password').fill(localAuthPassword)
     await signInForm.getByRole('button', { name: 'Sign in' }).click()
 
-    await expect(page).toHaveURL(/\/log-progress$/)
+    await expect(page).toHaveURL(/\/campaign-board$/)
     await expect(page.getByText('Campaign context')).toBeVisible()
 }
 

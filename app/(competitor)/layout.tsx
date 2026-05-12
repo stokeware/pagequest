@@ -10,7 +10,7 @@ import {
 const competitorNavItems: ShellNavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: 'book-marked' },
     {
-        href: '/log-progress',
+        href: '/campaign-board',
         label: 'Campaign',
         icon: 'clipboard-pen-line',
     },

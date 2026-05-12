@@ -96,7 +96,7 @@ function buildLeaderboardUrl(appUrl: string) {
 }
 
 function buildLogProgressUrl(appUrl: string) {
-    return new URL('/log-progress', appUrl).toString()
+    return new URL('/campaign-board', appUrl).toString()
 }
 
 function countWholeDaysBetween(now: Date, anchor: Date) {

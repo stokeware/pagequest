@@ -121,7 +121,7 @@ export default async function DashboardPage({
                     description={viewModel.participantSummary}
                     action={
                         <div className='auth-inline-actions'>
-                            <Button render={<Link href='/log-progress' />}>
+                            <Button render={<Link href='/campaign-board' />}>
                                 Open log progress
                             </Button>
                             <Button

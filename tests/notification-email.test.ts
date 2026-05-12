@@ -12,7 +12,7 @@ describe('buildCampaignStartReminderEmailMessage', () => {
         const message = buildCampaignStartReminderEmailMessage({
             campaignName: 'Summer Reading Quest 2026',
             dashboardUrl: 'http://127.0.0.1:3000/dashboard',
-            logProgressUrl: 'http://127.0.0.1:3000/log-progress',
+            logProgressUrl: 'http://127.0.0.1:3000/campaign-board',
             recipientEmail: 'reader@example.com',
             startAt: new Date('2026-06-01T14:00:00.000Z'),
         })
@@ -27,7 +27,7 @@ describe('buildCampaignStartReminderEmailMessage', () => {
             'http://127.0.0.1:3000/dashboard'
         )
         expect(message.content.plainText).toContain(
-            'http://127.0.0.1:3000/log-progress'
+            'http://127.0.0.1:3000/campaign-board'
         )
         expect(message.content.html).toContain('Open your dashboard')
         expect(message.content.html).toContain('Log your first reading update')
@@ -50,7 +50,7 @@ describe('buildInactivityNudgeEmailMessage', () => {
             campaignName: 'Summer Reading Quest 2026',
             daysSinceLastEntry: 7,
             leaderboardUrl: 'http://127.0.0.1:3000/leaderboard',
-            logProgressUrl: 'http://127.0.0.1:3000/log-progress',
+            logProgressUrl: 'http://127.0.0.1:3000/campaign-board',
             recipientEmail: 'reader@example.com',
         })
 
@@ -65,7 +65,7 @@ describe('buildInactivityNudgeEmailMessage', () => {
             'http://127.0.0.1:3000/leaderboard'
         )
         expect(message.content.plainText).toContain(
-            'http://127.0.0.1:3000/log-progress'
+            'http://127.0.0.1:3000/campaign-board'
         )
         expect(message.content.html).toContain("Log today's reading progress")
         expect(message.content.html).toContain('Check the leaderboard')

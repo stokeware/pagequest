@@ -138,7 +138,13 @@ export function filterChallengesForCompetitorView<
         }
 
         if (!isPersonalGoalChallengeKind(challenge.kind)) {
-            return true
+            if (!isRecommendationChallengeKind(challenge.kind)) {
+                return true
+            }
+
+            return (
+                challenge.ownerParticipantId !== (campaignParticipantId ?? null)
+            )
         }
 
         return challenge.ownerParticipantId === (campaignParticipantId ?? null)
