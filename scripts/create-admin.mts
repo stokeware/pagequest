@@ -6,9 +6,10 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 
 import * as adminCliModule from '../lib/admin-account-cli'
-import { hashPassword } from '../lib/auth/password'
+import * as passwordModule from '../lib/auth/password'
 
 type AdminCliModule = typeof import('../lib/admin-account-cli')
+type PasswordModule = typeof import('../lib/auth/password')
 
 const adminCli = (
     'default' in adminCliModule
@@ -19,6 +20,16 @@ const adminCli = (
           ).default
         : adminCliModule
 ) as AdminCliModule
+
+const passwordHelpers = (
+    'default' in passwordModule
+        ? (
+              passwordModule as typeof passwordModule & {
+                  default: PasswordModule
+              }
+          ).default
+        : passwordModule
+) as PasswordModule
 
 type ProvisionedAdmin = {
     createdRole: boolean
@@ -189,7 +200,7 @@ async function provisionAdministrator(
         password: string
     }
 ): Promise<ProvisionedAdmin> {
-    const passwordHash = await hashPassword(inputData.password)
+    const passwordHash = await passwordHelpers.hashPassword(inputData.password)
     const passwordChangedAt = new Date()
 
     return prisma.$transaction(async (transaction) => {
