@@ -4,6 +4,65 @@ import { prisma } from '@/lib/prisma'
 
 const memberProvisionStatuses: CampaignStatus[] = ['ACTIVE', 'SCHEDULED']
 
+type MemberCampaignParticipantClient = {
+    campaign: {
+        findMany: (args: {
+            select: {
+                id: true
+            }
+            where: {
+                status: {
+                    in: CampaignStatus[]
+                }
+                visibility: 'INVITE_ONLY'
+            }
+        }) => Promise<
+            Array<{
+                id: string
+            }>
+        >
+    }
+    campaignParticipant: {
+        create: (args: {
+            data: {
+                campaignId: string
+                joinedAt: Date
+                userId: string
+            }
+        }) => Promise<unknown>
+        findMany: (args: {
+            select: {
+                campaignId: true
+                id: true
+                joinedAt: true
+                removedAt: true
+            }
+            where: {
+                campaignId: {
+                    in: string[]
+                }
+                userId: string
+            }
+        }) => Promise<
+            Array<{
+                campaignId: string
+                id: string
+                joinedAt: Date | null
+                removedAt: Date | null
+            }>
+        >
+        update: (args: {
+            data: {
+                joinedAt: Date
+                removedAt: null
+            }
+            where: {
+                id: string
+            }
+        }) => Promise<unknown>
+    }
+}
+
 export async function getAcceptedMemberRecord({
     userEmail,
     userId,
@@ -60,7 +119,41 @@ export async function ensureMemberCampaignParticipants({
     memberSince: Date
     userId: string
 }) {
-    const campaigns = await prisma.campaign.findMany({
+    await prisma.$transaction(async (transaction) => {
+        await synchronizeMemberCampaignParticipants(transaction, {
+            memberSince,
+            userId,
+        })
+    })
+}
+
+export async function ensureMemberCampaignParticipantsInTransaction(
+    transaction: MemberCampaignParticipantClient,
+    {
+        memberSince,
+        userId,
+    }: {
+        memberSince: Date
+        userId: string
+    }
+) {
+    await synchronizeMemberCampaignParticipants(transaction, {
+        memberSince,
+        userId,
+    })
+}
+
+async function synchronizeMemberCampaignParticipants(
+    client: MemberCampaignParticipantClient,
+    {
+        memberSince,
+        userId,
+    }: {
+        memberSince: Date
+        userId: string
+    }
+) {
+    const campaigns = await client.campaign.findMany({
         select: {
             id: true,
         },
@@ -76,7 +169,7 @@ export async function ensureMemberCampaignParticipants({
         return
     }
 
-    const existingParticipants = await prisma.campaignParticipant.findMany({
+    const existingParticipants = await client.campaignParticipant.findMany({
         select: {
             campaignId: true,
             id: true,
@@ -98,35 +191,31 @@ export async function ensureMemberCampaignParticipants({
         ])
     )
 
-    await prisma.$transaction(async (transaction) => {
-        for (const campaign of campaigns) {
-            const existingParticipant = participantsByCampaignId.get(
-                campaign.id
-            )
+    for (const campaign of campaigns) {
+        const existingParticipant = participantsByCampaignId.get(campaign.id)
 
-            if (!existingParticipant) {
-                await transaction.campaignParticipant.create({
-                    data: {
-                        campaignId: campaign.id,
-                        joinedAt: memberSince,
-                        userId,
-                    },
-                })
+        if (!existingParticipant) {
+            await client.campaignParticipant.create({
+                data: {
+                    campaignId: campaign.id,
+                    joinedAt: memberSince,
+                    userId,
+                },
+            })
 
-                continue
-            }
-
-            if (existingParticipant.removedAt) {
-                await transaction.campaignParticipant.update({
-                    data: {
-                        joinedAt: existingParticipant.joinedAt ?? memberSince,
-                        removedAt: null,
-                    },
-                    where: {
-                        id: existingParticipant.id,
-                    },
-                })
-            }
+            continue
         }
-    })
+
+        if (existingParticipant.removedAt) {
+            await client.campaignParticipant.update({
+                data: {
+                    joinedAt: existingParticipant.joinedAt ?? memberSince,
+                    removedAt: null,
+                },
+                where: {
+                    id: existingParticipant.id,
+                },
+            })
+        }
+    }
 }
