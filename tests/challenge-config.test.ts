@@ -19,7 +19,7 @@ describe('challenge config helpers', () => {
         ).not.toBe(personalGoalTemplateTitle)
     })
 
-    it('only includes the current participant personal goal in competitor views', () => {
+    it('shows only the current participant personal goal and hides their own recommendation', () => {
         const visibleChallenges = filterChallengesForCompetitorView(
             [
                 {
@@ -47,6 +47,13 @@ describe('challenge config helpers', () => {
                     id: 'recommendation-1',
                     isActive: true,
                     kind: 'RECOMMENDATION_INSTANCE',
+                    ownerParticipantId: 'participant-1',
+                    title: "Alice's Recommendation: Dune",
+                },
+                {
+                    id: 'recommendation-2',
+                    isActive: true,
+                    kind: 'RECOMMENDATION_INSTANCE',
                     ownerParticipantId: 'participant-2',
                     title: "Bob's Recommendation: Dune",
                 },
@@ -64,7 +71,7 @@ describe('challenge config helpers', () => {
         expect(visibleChallenges.map((challenge) => challenge.id)).toEqual([
             'admin-1',
             'goal-mine',
-            'recommendation-1',
+            'recommendation-2',
         ])
     })
 
