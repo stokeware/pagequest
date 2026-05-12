@@ -125,6 +125,26 @@ export function sortChallengesForCompetitorView<
     })
 }
 
+export function filterChallengesForCompetitorView<
+    T extends {
+        isActive: boolean
+        kind: ChallengeKind
+        ownerParticipantId: string | null
+    },
+>(challenges: T[], campaignParticipantId: string | null | undefined) {
+    return challenges.filter((challenge) => {
+        if (!challenge.isActive) {
+            return false
+        }
+
+        if (!isPersonalGoalChallengeKind(challenge.kind)) {
+            return true
+        }
+
+        return challenge.ownerParticipantId === (campaignParticipantId ?? null)
+    })
+}
+
 export function isRecommendationChallengeKind(kind: ChallengeKind) {
     return kind === 'RECOMMENDATION_INSTANCE'
 }
