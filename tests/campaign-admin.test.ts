@@ -133,12 +133,34 @@ describe('campaign admin helpers', () => {
         )
     })
 
-    it('prepares create and update values with derived statuses', () => {
+    it('keeps new campaigns as drafts until they are first saved from the editor', () => {
         const formValues = parseCampaignFormValues(buildCampaignFormData())
         const createdValues = prepareCampaignCreateValues(
             formValues,
             new Date('2026-04-01T12:00:00.000Z')
         )
+
+        expect(createdValues.status).toBe('DRAFT')
+        expect(createdValues.publishedAt).toBeNull()
+    })
+
+    it('auto-publishes unpublished campaigns on their first settings save', () => {
+        const formValues = parseCampaignFormValues(buildCampaignFormData())
+        const updatedValues = prepareCampaignUpdateValues({
+            archivedAt: null,
+            formValues,
+            now: new Date('2026-04-25T12:00:00.000Z'),
+            publishedAt: null,
+        })
+
+        expect(updatedValues.status).toBe('SCHEDULED')
+        expect(updatedValues.publishedAt?.toISOString()).toBe(
+            '2026-04-25T12:00:00.000Z'
+        )
+    })
+
+    it('preserves the original publish timestamp on later campaign saves', () => {
+        const formValues = parseCampaignFormValues(buildCampaignFormData())
         const updatedValues = prepareCampaignUpdateValues({
             archivedAt: null,
             formValues,
@@ -146,8 +168,6 @@ describe('campaign admin helpers', () => {
             publishedAt: new Date('2026-04-20T09:00:00.000Z'),
         })
 
-        expect(createdValues.status).toBe('DRAFT')
-        expect(createdValues.publishedAt).toBeNull()
         expect(updatedValues.status).toBe('SCHEDULED')
         expect(updatedValues.publishedAt?.toISOString()).toBe(
             '2026-04-20T09:00:00.000Z'

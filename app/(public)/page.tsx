@@ -53,9 +53,9 @@ export default async function HomePage() {
                     className='absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(223,198,140,0.26),transparent_34%),radial-gradient(circle_at_bottom,rgba(202,89,47,0.24),transparent_34%)]'
                 />
 
-                <div className='relative flex h-screen w-full items-center justify-center overflow-hidden p-8'>
+                <div className='relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-8 sm:px-6'>
                     <div
-                        className='relative h-[620px] w-full max-w-[900px] p-[3rem_3.5rem] text-center outline outline-1 outline-offset-[6px] outline-[#d4aa50] max-[520px]:p-[2rem_1.5rem]'
+                        className='relative w-full max-w-190 px-10 py-11 text-center outline-1 outline-offset-[6px] outline-[#d4aa50] sm:px-12 sm:py-12 max-[520px]:px-6 max-[520px]:py-8'
                         style={{
                             backgroundColor: '#f5e9c4',
                             backgroundImage:
@@ -79,7 +79,7 @@ export default async function HomePage() {
                         </p>
                         <Link
                             href='/sign-in'
-                            className='mt-8 inline-block border-b border-[#b8902a] pb-[2px] text-[1.15rem] tracking-[0.08em] text-[#7a2a08] transition-[color,border-color] duration-200 hover:border-[#ca592f] hover:text-[#ca592f]'
+                            className='mt-8 inline-block border-b border-[#b8902a] pb-0.5 text-[1.15rem] tracking-[0.08em] text-[#7a2a08] transition-[color,border-color] duration-200 hover:border-[#ca592f] hover:text-[#ca592f]'
                             style={{
                                 fontFamily:
                                     "var(--font-cinzel), 'Trajan Pro', 'Palatino Linotype', serif",
