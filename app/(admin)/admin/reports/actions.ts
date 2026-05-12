@@ -55,7 +55,7 @@ function finishAction({
     revalidatePath(adminReportsPath)
     revalidatePath('/dashboard')
     revalidatePath('/leaderboard')
-    revalidatePath('/log-progress')
+    revalidatePath('/campaign-board')
 
     redirect(
         buildRedirectUrl({

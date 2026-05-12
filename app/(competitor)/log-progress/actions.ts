@@ -86,7 +86,7 @@ export async function submitLogProgressAction(
 
         revalidatePath('/dashboard')
         revalidatePath('/leaderboard')
-        revalidatePath('/log-progress')
+        revalidatePath('/campaign-board')
 
         return {
             message: `Totals refreshed to ${result.totals.totalPoints.toString()} points across ${result.totals.totalBooks} books, ${result.totals.totalPages} pages, ${result.totals.totalAudiobookMinutes} audiobook minutes, and ${result.totals.totalChallenges} challenges.`,
@@ -192,7 +192,7 @@ export async function saveCampaignWorkspaceAction(
         return nextWorkspaceState
     })
 
-    revalidatePath('/log-progress')
+    revalidatePath('/campaign-board')
 
     return {
         message: 'Campaign changes saved.',

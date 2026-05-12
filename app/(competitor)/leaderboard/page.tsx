@@ -26,7 +26,7 @@ export default async function LeaderboardPage() {
                         </Button>
                         <Button
                             variant='outline'
-                            render={<Link href='/log-progress' />}
+                            render={<Link href='/campaign-board' />}
                         >
                             Log progress
                         </Button>

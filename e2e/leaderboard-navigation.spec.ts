@@ -48,7 +48,7 @@ test.describe('leaderboard navigation and refresh', () => {
         await signInWithLocalCredentials({
             email: competitorEmail,
             page,
-            startPath: '/log-progress',
+            startPath: '/campaign-board',
         })
 
         const entryForm = page.locator('form')

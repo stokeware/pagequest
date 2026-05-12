@@ -57,16 +57,16 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
     it('redirects signed-out competitor requests to sign in with the full callback URL', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
-                callbackUrl: '/log-progress?tab=audio',
+                callbackUrl: '/campaign-board?tab=audio',
                 identity: null,
             })
-        ).toBe('/sign-in?callbackUrl=%2Flog-progress%3Ftab%3Daudio')
+        ).toBe('/sign-in?callbackUrl=%2Fcampaign-board%3Ftab%3Daudio')
     })
 
     it('redirects admin-only users to their best available route', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
-                callbackUrl: '/log-progress',
+                callbackUrl: '/campaign-board',
                 identity: buildIdentity({
                     roles: ['ADMIN'],
                 }),
@@ -77,7 +77,7 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
     it('treats authenticated users without admin access as competitors', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
-                callbackUrl: '/log-progress',
+                callbackUrl: '/campaign-board',
                 identity: buildIdentity({
                     roles: [],
                 }),
@@ -88,7 +88,7 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
     it('allows competitor users through middleware', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
-                callbackUrl: '/log-progress',
+                callbackUrl: '/campaign-board',
                 identity: buildIdentity({
                     roles: ['COMPETITOR'],
                 }),
