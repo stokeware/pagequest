@@ -1,3 +1,5 @@
+import type { CampaignStatus } from '@prisma/client'
+
 import { normalizeInvitationEmail } from '@/lib/invitation-admin'
 import { ensureMemberCampaignParticipantsInTransaction } from '@/lib/member-access'
 
@@ -27,7 +29,7 @@ type InvitationMutationTransaction = {
             }
             where: {
                 status: {
-                    in: Array<'ACTIVE' | 'SCHEDULED'>
+                    in: CampaignStatus[]
                 }
                 visibility: 'INVITE_ONLY'
             }

@@ -29,6 +29,9 @@ type MemberCampaignParticipantClient = {
                 joinedAt: Date
                 userId: string
             }
+            select: {
+                id: true
+            }
         }) => Promise<unknown>
         findMany: (args: {
             select: {
@@ -55,6 +58,9 @@ type MemberCampaignParticipantClient = {
             data: {
                 joinedAt: Date
                 removedAt: null
+            }
+            select: {
+                id: true
             }
             where: {
                 id: string
@@ -201,6 +207,9 @@ async function synchronizeMemberCampaignParticipants(
                     joinedAt: memberSince,
                     userId,
                 },
+                select: {
+                    id: true,
+                },
             })
 
             continue
@@ -211,6 +220,9 @@ async function synchronizeMemberCampaignParticipants(
                 data: {
                     joinedAt: existingParticipant.joinedAt ?? memberSince,
                     removedAt: null,
+                },
+                select: {
+                    id: true,
                 },
                 where: {
                     id: existingParticipant.id,

@@ -183,6 +183,9 @@ describe('recordInvitationAcceptance', () => {
                     joinedAt: baseInput.now,
                     userId: 'user-1',
                 },
+                select: {
+                    id: true,
+                },
             }
         )
         expect(transaction.campaignParticipant.create).toHaveBeenNthCalledWith(
@@ -192,6 +195,9 @@ describe('recordInvitationAcceptance', () => {
                     campaignId: 'campaign-2',
                     joinedAt: baseInput.now,
                     userId: 'user-1',
+                },
+                select: {
+                    id: true,
                 },
             }
         )
