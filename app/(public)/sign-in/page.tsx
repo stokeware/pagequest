@@ -11,12 +11,7 @@ export default function SignInPage() {
         <PublicShell headerVariant='brand-only' contentVariant='default'>
             <h1 className='sr-only'>Sign in</h1>
             <Suspense fallback={null}>
-                <SignInForm
-                    authMode={authUiConfig.mode}
-                    localDemoEmails={authUiConfig.localDemoEmails}
-                    localPassphraseHint={authUiConfig.localPassphraseHint}
-                    providerLabel={authUiConfig.providerLabel}
-                />
+                <SignInForm localDemoEmails={authUiConfig.localDemoEmails} />
             </Suspense>
         </PublicShell>
     )

@@ -1,80 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-    getAuth0Config,
-    getAuthMode,
-    getAuthUiConfig,
-    getLocalAuthPassphrase,
-} from '@/lib/auth/config'
+import { getAuthUiConfig } from '@/lib/auth/config'
 import {
     getDefaultProtectedPath,
     getSignedInLandingPath,
 } from '@/lib/auth/access'
 
 describe('auth config', () => {
-    it('defaults to local auth mode', () => {
-        expect(getAuthMode({})).toBe('local')
-        expect(getLocalAuthPassphrase({})).toBe('pagequest-local')
-    })
-
-    it('accepts auth0 as the hosted auth mode', () => {
-        expect(
-            getAuthMode({
-                PAGEQUEST_AUTH_MODE: 'auth0',
-            })
-        ).toBe('auth0')
-    })
-
-    it('uses the configured local passphrase when provided', () => {
-        expect(
-            getLocalAuthPassphrase({
-                LOCAL_AUTH_PASSPHRASE: 'family-reading-club',
-            })
-        ).toBe('family-reading-club')
-    })
-
-    it('returns the Auth0 provider label when auth0 mode is selected', () => {
-        expect(
-            getAuthUiConfig({
-                PAGEQUEST_AUTH_MODE: 'auth0',
-            }).providerLabel
-        ).toBe('Auth0')
-    })
-
-    it('rejects unsupported hosted auth modes', () => {
-        expect(() =>
-            getAuthMode({
-                PAGEQUEST_AUTH_MODE: 'mystery',
-            })
-        ).toThrow(/PAGEQUEST_AUTH_MODE/)
-    })
-
-    it('requires the Auth0 configuration when requested', () => {
-        expect(() => getAuth0Config({})).toThrow(/AUTH0_CLIENT_ID/)
-    })
-
-    it('returns the configured Auth0 settings', () => {
-        expect(
-            getAuth0Config({
-                AUTH0_AUDIENCE: 'https://api.pagequest.example.com',
-                AUTH0_CLIENT_ID: 'auth0-client-id',
-                AUTH0_CLIENT_SECRET: 'auth0-client-secret',
-                AUTH0_ISSUER: 'https://pagequest.us.auth0.com',
-                AUTH0_SCOPE: 'openid profile email',
-            })
-        ).toEqual({
-            audience: 'https://api.pagequest.example.com',
-            clientId: 'auth0-client-id',
-            clientSecret: 'auth0-client-secret',
-            issuer: 'https://pagequest.us.auth0.com',
-            scope: 'openid profile email',
+    it('returns the app-owned credentials label and seeded local emails', () => {
+        expect(getAuthUiConfig()).toEqual({
+            localDemoEmails: [
+                'admin@pagequest.local',
+                'alice@pagequest.local',
+                'ben@pagequest.local',
+                'clara@pagequest.local',
+                'future-reader@pagequest.local',
+            ],
+            providerLabel: 'Page Quest account',
         })
-    })
-
-    it('returns the local provider label when auth0 is not enabled', () => {
-        expect(getAuthUiConfig({}).providerLabel).toBe(
-            'Local development sign-in'
-        )
     })
 })
 
