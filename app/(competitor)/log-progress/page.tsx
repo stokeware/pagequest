@@ -1,6 +1,7 @@
 import type { CampaignStatus, ChallengeKind } from '@prisma/client'
 
 import {
+    filterChallengesForCompetitorView,
     personalGoalTemplateTitle,
     resolveChallengePageMinuteMultiplier,
     resolveChallengePointValue,
@@ -171,7 +172,10 @@ async function getLogProgressViewModel(
     const workspaceState = participant
         ? hydrateWorkspaceState({
               challengeSources: participant.challengeSources,
-              challenges: campaign.challenges,
+              challenges: filterChallengesForCompetitorView(
+                  campaign.challenges,
+                  participant.id
+              ),
               metadata: participant.auditLogs[0]?.metadata,
           })
         : emptyCampaignWorkspaceState
@@ -183,6 +187,10 @@ async function getLogProgressViewModel(
               workspaceState,
           })
         : new Set<string>()
+    const visibleChallenges = filterChallengesForCompetitorView(
+        campaign.challenges,
+        participant?.id
+    )
 
     return {
         campaignDateRange: formatCampaignDateRange(
@@ -191,24 +199,22 @@ async function getLogProgressViewModel(
             campaign.timezone
         ),
         campaignChallenges: sortChallengesForCompetitorView(
-            campaign.challenges
-                .filter((challenge) => challenge.isActive)
-                .map((challenge) => ({
-                    achieved: achievedChallengeIds.has(challenge.id),
-                    id: challenge.id,
-                    kind: challenge.kind,
-                    ownedByCurrentParticipant:
-                        challenge.ownerParticipantId === participant?.id,
-                    pageMinuteMultiplier: Number(
-                        resolveChallengePageMinuteMultiplier(challenge)
-                    ),
-                    pointValue: Number(resolveChallengePointValue(challenge)),
-                    sourceBookTitle: challenge.sourceBookTitle,
-                    title:
-                        challenge.kind === 'PERSONAL_GOAL_INSTANCE'
-                            ? personalGoalTemplateTitle
-                            : challenge.title,
-                }))
+            visibleChallenges.map((challenge) => ({
+                achieved: achievedChallengeIds.has(challenge.id),
+                id: challenge.id,
+                kind: challenge.kind,
+                ownedByCurrentParticipant:
+                    challenge.ownerParticipantId === participant?.id,
+                pageMinuteMultiplier: Number(
+                    resolveChallengePageMinuteMultiplier(challenge)
+                ),
+                pointValue: Number(resolveChallengePointValue(challenge)),
+                sourceBookTitle: challenge.sourceBookTitle,
+                title:
+                    challenge.kind === 'PERSONAL_GOAL_INSTANCE'
+                        ? personalGoalTemplateTitle
+                        : challenge.title,
+            }))
         ),
         campaignParticipantId: participant?.id ?? null,
         campaignName: campaign.name,

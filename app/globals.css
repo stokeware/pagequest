@@ -117,13 +117,28 @@
 
 body {
     min-height: 100vh;
-    background:
+    background-color: #1f140d;
+    background-image:
         radial-gradient(
             circle at top,
-            rgba(202, 89, 47, 0.16),
-            transparent 32%
+            rgba(223, 198, 140, 0.26),
+            transparent 34%
         ),
-        linear-gradient(180deg, var(--cream) 0%, var(--background) 100%);
+        radial-gradient(
+            circle at bottom,
+            rgba(202, 89, 47, 0.24),
+            transparent 34%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(12, 10, 8, 0.52) 0%,
+            rgba(37, 22, 12, 0.34) 40%,
+            rgba(12, 10, 8, 0.68) 100%
+        ),
+        url('https://izsihmntzljablvq.public.blob.vercel-storage.com/images/pagequest-library.png');
+    background-position: center, center, center, center;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+    background-size: auto, auto, auto, cover;
     color: var(--foreground);
     font-family: var(--font-body), sans-serif;
 }
