@@ -5,6 +5,16 @@ import type {
 } from '@prisma/client'
 import { cache } from 'react'
 
+import {
+    calculateCampaignWorkspaceTotals,
+    campaignWorkspaceAuditAction,
+    parseCampaignWorkspaceState,
+    type CampaignWorkspaceChallenge,
+} from '@/lib/campaign-workspace'
+import {
+    resolveChallengePageMinuteMultiplier,
+    resolveChallengePointValue,
+} from '@/lib/challenge-config'
 import { prisma } from '@/lib/prisma'
 import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
 import type { CampaignScoringRules } from '@/lib/campaign-domain'
@@ -125,6 +135,7 @@ type CompetitorCurrentCampaignParticipant =
     }
 
 type CompetitorVisibleCampaign = CompetitorCampaignRecord & {
+    challenges: CampaignWorkspaceChallenge[]
     scoringRules: CampaignScoringRules
 }
 
@@ -189,11 +200,11 @@ export const getCompetitorCampaignContext = cache(
 
         const participant = await getCompetitorCampaignParticipant(
             userId,
-            visibleCampaign.id
+            visibleCampaign
         )
 
         const [standings, recentEntries] = await Promise.all([
-            getCampaignStandings(visibleCampaign.id),
+            getCampaignStandings(visibleCampaign),
             participant
                 ? getRecentReadingEntries(participant.id)
                 : Promise.resolve([]),
@@ -405,6 +416,23 @@ async function getVisibleCompetitorCampaign() {
             startAt: 'asc',
         },
         select: {
+            challenges: {
+                select: {
+                    id: true,
+                    kind: true,
+                    pageMinuteMultiplier: true,
+                    pointValue: true,
+                    templateChallenge: {
+                        select: {
+                            pageMinuteMultiplier: true,
+                            pointValue: true,
+                        },
+                    },
+                },
+                where: {
+                    isActive: true,
+                },
+            },
             endAt: true,
             id: true,
             name: true,
@@ -435,6 +463,15 @@ async function getVisibleCompetitorCampaign() {
 
             return [
                 {
+                    challenges: campaign.challenges.map((challenge) => ({
+                        id: challenge.id,
+                        pageMinuteMultiplier: Number(
+                            resolveChallengePageMinuteMultiplier(challenge)
+                        ),
+                        pointValue: Number(
+                            resolveChallengePointValue(challenge)
+                        ),
+                    })),
                     endAt: campaign.endAt,
                     id: campaign.id,
                     name: campaign.name,
@@ -450,7 +487,7 @@ async function getVisibleCompetitorCampaign() {
 
 async function getCompetitorCampaignParticipant(
     userId: string | null,
-    campaignId: string
+    campaign: CompetitorVisibleCampaign
 ) {
     if (!userId) {
         return null
@@ -465,6 +502,19 @@ async function getCompetitorCampaignParticipant(
             id: true,
             joinedAt: true,
             lastActivityAt: true,
+            auditLogs: {
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                select: {
+                    createdAt: true,
+                    metadata: true,
+                },
+                take: 1,
+                where: {
+                    action: campaignWorkspaceAuditAction,
+                },
+            },
             campaign: {
                 select: {
                     endAt: true,
@@ -486,7 +536,7 @@ async function getCompetitorCampaignParticipant(
             totalPoints: true,
         },
         where: {
-            campaignId,
+            campaignId: campaign.id,
             removedAt: null,
             userId,
         },
@@ -499,11 +549,16 @@ async function getCompetitorCampaignParticipant(
         return null
     }
 
+    const derivedMetrics = resolveParticipantProgressMetrics(
+        participant,
+        campaign
+    )
+
     return {
         createdAt: participant.createdAt,
         id: participant.id,
         joinedAt: participant.joinedAt,
-        lastActivityAt: participant.lastActivityAt,
+        lastActivityAt: derivedMetrics.lastActivityAt,
         campaign: {
             endAt: participant.campaign.endAt,
             id: participant.campaign.id,
@@ -513,11 +568,11 @@ async function getCompetitorCampaignParticipant(
             timezone: participant.campaign.timezone,
         },
         scoringRules: toCampaignScoringRules(participant.campaign),
-        totalAudiobookMinutes: participant.totalAudiobookMinutes,
-        totalBooks: participant.totalBooks,
-        totalChallenges: participant.totalChallenges,
-        totalPages: participant.totalPages,
-        totalPoints: participant.totalPoints,
+        totalAudiobookMinutes: derivedMetrics.totalAudiobookMinutes,
+        totalBooks: derivedMetrics.totalBooks,
+        totalChallenges: derivedMetrics.totalChallenges,
+        totalPages: derivedMetrics.totalPages,
+        totalPoints: derivedMetrics.totalPoints,
     } satisfies CompetitorCurrentCampaignParticipant
 }
 
@@ -548,10 +603,23 @@ function isCompetitorHistoryCampaignStatus(
     )
 }
 
-async function getCampaignStandings(campaignId: string) {
-    return prisma.campaignParticipant.findMany({
+async function getCampaignStandings(campaign: CompetitorVisibleCampaign) {
+    const participants = await prisma.campaignParticipant.findMany({
         orderBy: standingsOrderBy,
         select: {
+            auditLogs: {
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                select: {
+                    createdAt: true,
+                    metadata: true,
+                },
+                take: 1,
+                where: {
+                    action: campaignWorkspaceAuditAction,
+                },
+            },
             createdAt: true,
             id: true,
             lastActivityAt: true,
@@ -568,10 +636,31 @@ async function getCampaignStandings(campaignId: string) {
             },
         },
         where: {
-            campaignId,
+            campaignId: campaign.id,
             removedAt: null,
         },
     })
+
+    return participants
+        .map((participant) => {
+            const derivedMetrics = resolveParticipantProgressMetrics(
+                participant,
+                campaign
+            )
+
+            return {
+                createdAt: participant.createdAt,
+                id: participant.id,
+                lastActivityAt: derivedMetrics.lastActivityAt,
+                totalAudiobookMinutes: derivedMetrics.totalAudiobookMinutes,
+                totalBooks: derivedMetrics.totalBooks,
+                totalChallenges: derivedMetrics.totalChallenges,
+                totalPages: derivedMetrics.totalPages,
+                totalPoints: derivedMetrics.totalPoints,
+                user: participant.user,
+            }
+        })
+        .sort(compareStandings)
 }
 
 async function getRecentReadingEntries(participantId: string) {
@@ -615,4 +704,89 @@ function toCampaignScoringRules(campaign: {
             campaign.pointsPerChallengeCompletion.toString(),
         pointsPerPage: campaign.pointsPerPage.toString(),
     }
+}
+
+function resolveParticipantProgressMetrics(
+    participant: {
+        auditLogs: Array<{
+            createdAt: Date
+            metadata: unknown
+        }>
+        lastActivityAt: Date | null
+        totalAudiobookMinutes: number
+        totalBooks: number
+        totalChallenges: number
+        totalPages: number
+        totalPoints: { toString(): string }
+    },
+    campaign?: CompetitorVisibleCampaign
+) {
+    const latestWorkspaceAudit = participant.auditLogs[0]
+
+    if (!latestWorkspaceAudit || !campaign) {
+        return {
+            lastActivityAt: participant.lastActivityAt,
+            totalAudiobookMinutes: participant.totalAudiobookMinutes,
+            totalBooks: participant.totalBooks,
+            totalChallenges: participant.totalChallenges,
+            totalPages: participant.totalPages,
+            totalPoints: participant.totalPoints,
+        }
+    }
+
+    const workspaceTotals = calculateCampaignWorkspaceTotals({
+        campaignChallenges: campaign.challenges,
+        pointsPerMinute: Number(campaign.scoringRules.pointsPerAudiobookMinute),
+        pointsPerPage: Number(campaign.scoringRules.pointsPerPage),
+        workspaceState: parseCampaignWorkspaceState(
+            latestWorkspaceAudit.metadata
+        ),
+    })
+
+    if (!workspaceTotals.hasMeaningfulProgress) {
+        return {
+            lastActivityAt: participant.lastActivityAt,
+            totalAudiobookMinutes: participant.totalAudiobookMinutes,
+            totalBooks: participant.totalBooks,
+            totalChallenges: participant.totalChallenges,
+            totalPages: participant.totalPages,
+            totalPoints: participant.totalPoints,
+        }
+    }
+
+    return {
+        lastActivityAt: latestWorkspaceAudit.createdAt,
+        totalAudiobookMinutes: workspaceTotals.totalAudiobookMinutes,
+        totalBooks: workspaceTotals.totalBooks,
+        totalChallenges: workspaceTotals.totalChallenges,
+        totalPages: workspaceTotals.totalPages,
+        totalPoints: workspaceTotals.totalPoints,
+    }
+}
+
+function compareStandings(
+    left: CompetitorStandingRecord,
+    right: CompetitorStandingRecord
+) {
+    const pointsDelta =
+        Number(right.totalPoints.toString()) -
+        Number(left.totalPoints.toString())
+
+    if (pointsDelta !== 0) {
+        return pointsDelta
+    }
+
+    if (right.totalPages !== left.totalPages) {
+        return right.totalPages - left.totalPages
+    }
+
+    if (right.totalAudiobookMinutes !== left.totalAudiobookMinutes) {
+        return right.totalAudiobookMinutes - left.totalAudiobookMinutes
+    }
+
+    if (right.totalBooks !== left.totalBooks) {
+        return right.totalBooks - left.totalBooks
+    }
+
+    return left.createdAt.getTime() - right.createdAt.getTime()
 }
