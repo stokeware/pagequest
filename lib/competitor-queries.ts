@@ -419,6 +419,7 @@ async function getVisibleCompetitorCampaign() {
             challenges: {
                 select: {
                     id: true,
+                    kind: true,
                     pageMinuteMultiplier: true,
                     pointValue: true,
                     templateChallenge: {
