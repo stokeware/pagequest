@@ -7,15 +7,29 @@ import {
 
 function buildTransaction({
     existingParticipant = null,
+    existingMemberParticipants = [],
+    memberCampaigns = [],
 }: {
     existingParticipant?: {
         id: string
         joinedAt: Date | null
     } | null
+    existingMemberParticipants?: Array<{
+        campaignId: string
+        id: string
+        joinedAt: Date | null
+        removedAt: Date | null
+    }>
+    memberCampaigns?: Array<{
+        id: string
+    }>
 }) {
     return {
         auditLog: {
             create: vi.fn(async () => undefined),
+        },
+        campaign: {
+            findMany: vi.fn(async () => memberCampaigns),
         },
         roleAssignment: {
             findUnique: vi.fn(async () => null),
@@ -32,6 +46,7 @@ function buildTransaction({
         },
         campaignParticipant: {
             create: vi.fn(async () => ({ id: 'participant-new' })),
+            findMany: vi.fn(async () => existingMemberParticipants),
             findUnique: vi.fn(async () => existingParticipant),
             update: vi.fn(async () => ({
                 id: existingParticipant?.id ?? 'participant-existing',
@@ -127,8 +142,10 @@ describe('recordInvitationAcceptance', () => {
         })
     })
 
-    it('accepts a site-only invitation without creating a campaign participant', async () => {
-        const transaction = buildTransaction({})
+    it('provisions current and upcoming campaign participants for a site-only invitation', async () => {
+        const transaction = buildTransaction({
+            memberCampaigns: [{ id: 'campaign-1' }, { id: 'campaign-2' }],
+        })
 
         const result = await recordInvitationAcceptance(transaction, {
             ...baseInput,
@@ -142,7 +159,48 @@ describe('recordInvitationAcceptance', () => {
         expect(
             transaction.campaignParticipant.findUnique
         ).not.toHaveBeenCalled()
-        expect(transaction.campaignParticipant.create).not.toHaveBeenCalled()
+        expect(transaction.campaign.findMany).toHaveBeenCalledOnce()
+        expect(transaction.campaignParticipant.findMany).toHaveBeenCalledWith({
+            select: {
+                campaignId: true,
+                id: true,
+                joinedAt: true,
+                removedAt: true,
+            },
+            where: {
+                campaignId: {
+                    in: ['campaign-1', 'campaign-2'],
+                },
+                userId: 'user-1',
+            },
+        })
+        expect(transaction.campaignParticipant.create).toHaveBeenCalledTimes(2)
+        expect(transaction.campaignParticipant.create).toHaveBeenNthCalledWith(
+            1,
+            {
+                data: {
+                    campaignId: 'campaign-1',
+                    joinedAt: baseInput.now,
+                    userId: 'user-1',
+                },
+                select: {
+                    id: true,
+                },
+            }
+        )
+        expect(transaction.campaignParticipant.create).toHaveBeenNthCalledWith(
+            2,
+            {
+                data: {
+                    campaignId: 'campaign-2',
+                    joinedAt: baseInput.now,
+                    userId: 'user-1',
+                },
+                select: {
+                    id: true,
+                },
+            }
+        )
         expect(transaction.campaignParticipant.update).not.toHaveBeenCalled()
         expect(transaction.invitation.update).toHaveBeenCalledWith({
             data: {

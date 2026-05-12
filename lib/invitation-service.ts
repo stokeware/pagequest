@@ -1,4 +1,7 @@
+import type { CampaignStatus } from '@prisma/client'
+
 import { normalizeInvitationEmail } from '@/lib/invitation-admin'
+import { ensureMemberCampaignParticipantsInTransaction } from '@/lib/member-access'
 
 type InvitationMutationTransaction = {
     auditLog: {
@@ -18,6 +21,23 @@ type InvitationMutationTransaction = {
                 campaignParticipantId?: string | null
             }
         }) => Promise<unknown>
+    }
+    campaign: {
+        findMany: (args: {
+            select: {
+                id: true
+            }
+            where: {
+                status: {
+                    in: CampaignStatus[]
+                }
+                visibility: 'INVITE_ONLY'
+            }
+        }) => Promise<
+            Array<{
+                id: string
+            }>
+        >
     }
     roleAssignment: {
         findUnique: (args: {
@@ -91,6 +111,27 @@ type InvitationMutationTransaction = {
         }) => Promise<{
             id: string
         }>
+        findMany: (args: {
+            select: {
+                campaignId: true
+                id: true
+                joinedAt: true
+                removedAt: true
+            }
+            where: {
+                campaignId: {
+                    in: string[]
+                }
+                userId: string
+            }
+        }) => Promise<
+            Array<{
+                campaignId: string
+                id: string
+                joinedAt: Date | null
+                removedAt: Date | null
+            }>
+        >
         findUnique: (args: {
             select: {
                 id: true
@@ -232,6 +273,11 @@ export async function recordInvitationAcceptance(
         where: {
             id: invitation.id,
         },
+    })
+
+    await ensureMemberCampaignParticipantsInTransaction(transaction, {
+        memberSince: now,
+        userId,
     })
 
     await transaction.auditLog.create({

@@ -2,11 +2,9 @@ import Link from 'next/link'
 import { getServerSession } from 'next-auth/next'
 import { redirect } from 'next/navigation'
 
-import { HomeCountdown } from '@/components/public/home-countdown'
 import { SkipLink } from '@/components/ui'
 import { authOptions } from '@/lib/auth'
 import { getSignedInLandingPath } from '@/lib/auth/access'
-import { getHomePageCountdownTarget } from '@/lib/home-page'
 
 const proclamation = [
     'Hearken, good folk, and attend this noble proclamation:',
@@ -32,9 +30,6 @@ export default async function HomePage() {
     if (redirectPath) {
         redirect(redirectPath)
     }
-
-    const countdownTarget = await getHomePageCountdownTarget()
-    const renderedAt = new Date()
 
     return (
         <>
@@ -82,13 +77,6 @@ export default async function HomePage() {
                         <p className='mb-5 text-[1.2rem] leading-[1.8] text-[#3a2008] indent-[2em]'>
                             {proclamation[2]}
                         </p>
-                        <p className='mb-5 mt-8 text-[1.45rem] italic tracking-[0.04em] text-[#7a3818]'>
-                            The quest begins in
-                        </p>
-                        <HomeCountdown
-                            initialNowIso={renderedAt.toISOString()}
-                            targetIso={countdownTarget.toISOString()}
-                        />
                         <Link
                             href='/sign-in'
                             className='mt-8 inline-block border-b border-[#b8902a] pb-[2px] text-[1.15rem] tracking-[0.08em] text-[#7a2a08] transition-[color,border-color] duration-200 hover:border-[#ca592f] hover:text-[#ca592f]'
