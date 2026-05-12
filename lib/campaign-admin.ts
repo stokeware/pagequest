@@ -183,7 +183,7 @@ export function prepareCampaignUpdateValues({
         archivedAt,
         formValues,
         now,
-        publishedAt,
+        publishedAt: publishedAt ?? now ?? new Date(),
     })
 }
 
