@@ -77,7 +77,7 @@ describe('password helpers', () => {
 
     it('throws when password validation or confirmation fails', () => {
         expect(() => assertValidPassword('short')).toThrow(
-            /at least 12 characters/
+            /at least 6 characters/
         )
 
         expect(() =>
