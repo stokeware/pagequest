@@ -26,6 +26,7 @@ export type CreateAdminPromptInput = {
 export type CreateAdminInput = {
     email: string
     name: string
+    password: string
 }
 
 const usageLines = [
@@ -37,7 +38,7 @@ const usageLines = [
 ]
 
 const hostedPasswordNotice =
-    'Production sign-in is managed by Auth0. This script creates the user and ADMIN role in Neon, but it does not store or sync a password.'
+    'This script stores the administrator password as a Page Quest password hash in the database.'
 
 export function getCreateAdminUsage() {
     return `${usageLines.join('\n')}\n`
@@ -137,6 +138,7 @@ export function validateCreateAdminInput({
     return {
         email: normalizedEmail,
         name: normalizedName,
+        password,
     }
 }
 

@@ -27,6 +27,7 @@ import {
     authOptions,
     authSessionSettings,
     createAuthSession,
+    deleteAuthSession,
     getAuthSessionCookie,
     loadSessionIdentity,
 } from '@/lib/auth'
@@ -192,6 +193,26 @@ describe('password authentication helpers', () => {
             roles: ['ADMIN'],
             userId: 'user-1',
         })
+    })
+
+    it('deletes a stored database session for logout', async () => {
+        await deleteAuthSession('session-token-1')
+
+        expect(authProviderMocks.prisma.session.delete).toHaveBeenCalledWith({
+            where: {
+                sessionToken: 'session-token-1',
+            },
+        })
+    })
+
+    it('swallows missing-session errors during logout cleanup', async () => {
+        authProviderMocks.prisma.session.delete.mockRejectedValueOnce(
+            new Error('Record to delete does not exist.')
+        )
+
+        await expect(
+            deleteAuthSession('missing-session-token')
+        ).resolves.toBeUndefined()
     })
 
     it('configures database sessions and the local auth session cookie', () => {

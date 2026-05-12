@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 
 import * as adminCliModule from '../lib/admin-account-cli'
+import { hashPassword } from '../lib/auth/password'
 
 type AdminCliModule = typeof import('../lib/admin-account-cli')
 
@@ -24,6 +25,7 @@ type ProvisionedAdmin = {
     createdUser: boolean
     email: string
     name: string
+    passwordWasStored: boolean
 }
 
 const legacySslModeAliases = new Set(['prefer', 'require', 'verify-ca'])
@@ -184,8 +186,12 @@ async function provisionAdministrator(
     inputData: {
         email: string
         name: string
+        password: string
     }
 ): Promise<ProvisionedAdmin> {
+    const passwordHash = await hashPassword(inputData.password)
+    const passwordChangedAt = new Date()
+
     return prisma.$transaction(async (transaction) => {
         const existingUser = await transaction.user.findUnique({
             where: {
@@ -196,7 +202,11 @@ async function provisionAdministrator(
         const user = existingUser
             ? await transaction.user.update({
                   data: {
+                      authMethod: 'PASSWORD',
+                      lastPasswordChangeAt: passwordChangedAt,
                       name: inputData.name,
+                      passwordHash,
+                      passwordSetAt: passwordChangedAt,
                   },
                   where: {
                       id: existingUser.id,
@@ -204,8 +214,12 @@ async function provisionAdministrator(
               })
             : await transaction.user.create({
                   data: {
+                      authMethod: 'PASSWORD',
                       email: inputData.email,
+                      lastPasswordChangeAt: passwordChangedAt,
                       name: inputData.name,
+                      passwordHash,
+                      passwordSetAt: passwordChangedAt,
                   },
               })
 
@@ -233,6 +247,7 @@ async function provisionAdministrator(
             createdUser: !existingUser,
             email: user.email,
             name: user.name ?? inputData.name,
+            passwordWasStored: true,
         }
     })
 }
@@ -240,13 +255,17 @@ async function provisionAdministrator(
 function formatProvisioningResult(result: ProvisionedAdmin) {
     const accountAction = result.createdUser ? 'Created' : 'Updated'
     const roleLine = result.createdRole
-        ? 'Granted ADMIN role in Neon.'
+        ? 'Granted ADMIN role in the Page Quest database.'
         : 'ADMIN role was already present.'
+    const passwordLine = result.createdUser
+        ? 'Stored the initial password hash for this administrator account.'
+        : 'Updated the password hash for this administrator account.'
 
     return [
         `${accountAction} administrator record for ${result.name} <${result.email}>.`,
         roleLine,
-        'Hosted sign-in remains Auth0-managed. Set or rotate the password in Auth0 before the first login.',
+        passwordLine,
+        'Sign in with this email address and the password entered during provisioning.',
     ].join('\n')
 }
 

@@ -44,6 +44,7 @@ describe('admin account CLI helpers', () => {
         ).toEqual({
             email: 'admin@pagequest.ing',
             name: 'Morgan Questmaster',
+            password: 'secret-value',
         })
     })
 
@@ -123,10 +124,8 @@ describe('admin account CLI helpers', () => {
         ).toThrow(/Bootstrap secret is not valid/)
     })
 
-    it('documents that the password is not stored in Neon', () => {
-        expect(getCreateAdminPasswordNotice()).toMatch(
-            /does not store or sync a password/
-        )
+    it('documents that the password is stored as a Page Quest hash', () => {
+        expect(getCreateAdminPasswordNotice()).toMatch(/password hash/)
     })
 
     it('documents the hosted provisioning secret requirement', () => {
