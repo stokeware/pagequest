@@ -165,11 +165,11 @@ describe('log progress competitor UI', () => {
         )
     })
 
-    it('filters challenge choices by row assignments and the own recommendation rule', () => {
+    it('sorts challenge choices like the challenges table and hides own recommendation and personal goal', () => {
         const progressRows: ProgressRow[] = [
             {
                 bookName: 'Shared pick',
-                challengeId: 'challenge-3',
+                challengeId: 'challenge-5',
                 completed: false,
                 id: 'progress-row-1',
                 minutes: '20',
@@ -197,7 +197,7 @@ describe('log progress competitor UI', () => {
                     pageMinuteMultiplier: 0,
                     pointValue: 25,
                     sourceBookTitle: 'My favorite recommendation',
-                    title: 'Friend recommendation',
+                    title: "Alice's Recommendation: My favorite recommendation",
                 },
                 {
                     achieved: false,
@@ -206,12 +206,32 @@ describe('log progress competitor UI', () => {
                     ownedByCurrentParticipant: false,
                     pageMinuteMultiplier: 0,
                     pointValue: 40,
-                    sourceBookTitle: 'My favorite recommendation',
+                    sourceBookTitle: 'Other recommendation',
                     title: "Clara's Recommendation: My favorite recommendation",
                 },
                 {
                     achieved: false,
                     id: 'challenge-3',
+                    kind: 'RECOMMENDATION_INSTANCE',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
+                    pointValue: 15,
+                    sourceBookTitle: 'Different book',
+                    title: "Bob's Recommendation: Another Book",
+                },
+                {
+                    achieved: false,
+                    id: 'challenge-4',
+                    kind: 'PERSONAL_GOAL_INSTANCE',
+                    ownedByCurrentParticipant: true,
+                    pageMinuteMultiplier: 2,
+                    pointValue: 0,
+                    sourceBookTitle: null,
+                    title: 'Personal Goal',
+                },
+                {
+                    achieved: false,
+                    id: 'challenge-5',
                     kind: 'ADMIN',
                     ownedByCurrentParticipant: false,
                     pageMinuteMultiplier: 0,
@@ -219,13 +239,27 @@ describe('log progress competitor UI', () => {
                     sourceBookTitle: null,
                     title: 'Library visit',
                 },
+                {
+                    achieved: false,
+                    id: 'challenge-6',
+                    kind: 'ADMIN',
+                    ownedByCurrentParticipant: false,
+                    pageMinuteMultiplier: 0,
+                    pointValue: 15,
+                    sourceBookTitle: null,
+                    title: 'Author event',
+                },
             ],
             progressRows,
             rowId: 'progress-row-2',
         })
 
         expect(availableChallenges.map((challenge) => challenge.title)).toEqual(
-            ["Clara's Recommendation: My favorite recommendation"]
+            [
+                "Bob's Recommendation: Another Book",
+                "Clara's Recommendation: My favorite recommendation",
+                'Author event',
+            ]
         )
     })
 

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useId, useState, useTransition } from 'react'
 
 import { Button, Card, CardContent, FormField, Input } from '@/components/ui'
+import { sortChallengesForCompetitorView } from '@/lib/challenge-config'
 import { cn } from '@/lib/utils'
 
 import { saveCampaignWorkspaceAction } from './actions'
@@ -97,28 +98,23 @@ export function getAvailableProgressChallenges({
         )
     }
 
-    return campaignChallenges.filter((challenge) => {
-        if (selectedChallengeIds.has(challenge.id)) {
-            return false
-        }
-
-        if (challenge.kind === 'PERSONAL_GOAL_INSTANCE') {
-            return false
-        }
-
-        if (challenge.kind === 'RECOMMENDATION_INSTANCE') {
-            if (challenge.ownedByCurrentParticipant) {
+    return sortChallengesForCompetitorView(
+        campaignChallenges.filter((challenge) => {
+            if (selectedChallengeIds.has(challenge.id)) {
                 return false
             }
 
-            return (
-                normalizeText(challenge.sourceBookTitle ?? '') ===
-                normalizeText(currentRow.bookName)
-            )
-        }
+            if (challenge.kind === 'PERSONAL_GOAL_INSTANCE') {
+                return false
+            }
 
-        return true
-    })
+            if (challenge.kind === 'RECOMMENDATION_INSTANCE') {
+                return !challenge.ownedByCurrentParticipant
+            }
+
+            return true
+        })
+    )
 }
 
 type LogProgressScreenProps = LogProgressViewModel & {
@@ -983,10 +979,6 @@ function getPersonalGoalChallenge(
     return campaignChallenges.find(
         (challenge) => challenge.kind === 'PERSONAL_GOAL_INSTANCE'
     )
-}
-
-function normalizeText(value: string) {
-    return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 export function calculateProgressRowPoints({
