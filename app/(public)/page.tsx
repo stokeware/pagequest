@@ -12,9 +12,6 @@ const proclamation = [
     'For it is no mere pastime, but a grand tourney of wit and wisdom — wherein the victor claims not only triumph, but everlasting renown in the annals of their noble line. Thus is waged the ultimate battle of reading prowess, where glory awaits the most indomitable and peerless of readers.',
 ]
 
-const backgroundImageUrl =
-    'https://izsihmntzljablvq.public.blob.vercel-storage.com/images/pagequest-library.png'
-
 export default async function HomePage() {
     const session = await getServerSession(authOptions)
     const isAuthenticated = Boolean(session?.user)
@@ -39,20 +36,6 @@ export default async function HomePage() {
                 tabIndex={-1}
                 className='relative isolate flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-8 lg:px-12'
             >
-                <div
-                    aria-hidden='true'
-                    className='absolute inset-0 bg-cover bg-center bg-no-repeat'
-                    style={{ backgroundImage: `url(${backgroundImageUrl})` }}
-                />
-                <div
-                    aria-hidden='true'
-                    className='absolute inset-0 bg-[linear-gradient(180deg,rgba(12,10,8,0.52)_0%,rgba(37,22,12,0.34)_40%,rgba(12,10,8,0.68)_100%)]'
-                />
-                <div
-                    aria-hidden='true'
-                    className='absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(223,198,140,0.26),transparent_34%),radial-gradient(circle_at_bottom,rgba(202,89,47,0.24),transparent_34%)]'
-                />
-
                 <div className='relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-8 sm:px-6'>
                     <div
                         className='relative w-full max-w-190 px-10 py-11 text-center outline-1 outline-offset-[6px] outline-[#d4aa50] sm:px-12 sm:py-12 max-[520px]:px-6 max-[520px]:py-8'
