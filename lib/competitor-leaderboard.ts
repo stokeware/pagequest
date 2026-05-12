@@ -63,16 +63,20 @@ export function buildCompetitorLeaderboardViewModel(
     }
 
     const rankedStandings = rankStandings(context.standings)
-    const participantStanding = rankedStandings.find(
-        (standing) => standing.id === context.participant.id
-    )
+    const participantStanding = context.participant
+        ? rankedStandings.find(
+              (standing) => standing.id === context.participant?.id
+          )
+        : null
     const leader = rankedStandings[0] ?? null
 
     return {
         hasQuest: true,
         highlights: [
             {
-                detail: 'Tie-aware placement based on points and raw progress totals.',
+                detail: context.participant
+                    ? 'Tie-aware placement based on points and raw progress totals.'
+                    : 'Join this campaign to claim a ranked spot on the leaderboard.',
                 label: 'Your rank',
                 value: participantStanding
                     ? `#${participantStanding.rankNumber}`
@@ -86,10 +90,7 @@ export function buildCompetitorLeaderboardViewModel(
                 value: leader ? formatPoints(leader.totalPoints) : '0 points',
             },
             {
-                detail: getCampaignWindowLabel(
-                    context.participant.campaign.status,
-                    now
-                ),
+                detail: getCampaignWindowLabel(context.campaign.status, now),
                 label: 'Readers on board',
                 value: formatCount(rankedStandings.length),
             },
@@ -98,16 +99,14 @@ export function buildCompetitorLeaderboardViewModel(
             context,
             rankedStandings.length
         ),
-        campaignName: context.participant.campaign.name,
-        campaignStatusLabel: getCampaignStatusLabel(
-            context.participant.campaign.status
-        ),
+        campaignName: context.campaign.name,
+        campaignStatusLabel: getCampaignStatusLabel(context.campaign.status),
         rows: rankedStandings.map((standing) => ({
             activityLabel: getActivityLabel(
                 standing.lastActivityAt,
-                context.participant.campaign.timezone
+                context.campaign.timezone
             ),
-            isViewer: standing.id === context.participant.id,
+            isViewer: context.participant?.id === standing.id,
             metricsLabel: [
                 `${formatCount(standing.totalPages)} pages`,
                 `${formatCount(standing.totalAudiobookMinutes)} minutes`,
@@ -119,7 +118,7 @@ export function buildCompetitorLeaderboardViewModel(
             pointsLabel: formatPoints(standing.totalPoints),
             rankLabel: `#${standing.rankNumber}`,
             readerLabel:
-                standing.id === context.participant.id
+                standing.id === context.participant?.id
                     ? `${getReaderLabel(standing)} (You)`
                     : getReaderLabel(standing),
         })),
@@ -130,7 +129,7 @@ function getCampaignDescription(
     context: CompetitorCampaignContext,
     readerCount: number
 ) {
-    return `${context.participant.campaign.name} is ordered by points first, then pages, audiobook minutes, books, and join order when totals stay tied. ${formatCount(readerCount)} readers are currently on the board.`
+    return `${context.campaign.name} is ordered by points first, then pages, audiobook minutes, books, and join order when totals stay tied. ${formatCount(readerCount)} readers are currently on the board.`
 }
 
 function getCampaignStatusLabel(status: CompetitorCampaignStatus) {

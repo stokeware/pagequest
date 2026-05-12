@@ -9,6 +9,14 @@ describe('competitor participant detail view model', () => {
     it('builds a full campaign history view for a participant on the current leaderboard', () => {
         const viewModel = buildCompetitorParticipantDetailViewModel({
             context: {
+                campaign: {
+                    endAt: new Date('2026-05-20T23:00:00Z'),
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint',
+                    startAt: new Date('2026-04-20T12:00:00Z'),
+                    status: 'ACTIVE',
+                    timezone: 'UTC',
+                },
                 participant: {
                     createdAt: new Date('2026-04-01T12:00:00Z'),
                     id: 'participant-2',
