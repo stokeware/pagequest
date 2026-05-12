@@ -9,6 +9,14 @@ describe('competitor leaderboard view model', () => {
     it('builds standings with raw metrics and tie-aware ranks', () => {
         const viewModel = buildCompetitorLeaderboardViewModel(
             {
+                campaign: {
+                    endAt: new Date('2026-05-20T23:00:00Z'),
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint',
+                    startAt: new Date('2026-04-20T12:00:00Z'),
+                    status: 'ACTIVE',
+                    timezone: 'UTC',
+                },
                 participant: {
                     createdAt: new Date('2026-04-01T12:00:00Z'),
                     id: 'participant-2',
@@ -99,6 +107,48 @@ describe('competitor leaderboard view model', () => {
             pointsLabel: '450 points',
             metricsLabel: '350 pages • 120 minutes • 4 books • 2 challenges',
         })
+    })
+
+    it('shows the visible leaderboard when the viewer is not linked yet', () => {
+        const viewModel = buildCompetitorLeaderboardViewModel(
+            {
+                campaign: {
+                    endAt: new Date('2026-05-20T23:00:00Z'),
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint',
+                    startAt: new Date('2026-04-20T12:00:00Z'),
+                    status: 'ACTIVE',
+                    timezone: 'UTC',
+                },
+                participant: null,
+                recentEntries: [],
+                standings: [
+                    {
+                        createdAt: new Date('2026-04-01T12:00:00Z'),
+                        id: 'participant-1',
+                        lastActivityAt: new Date('2026-05-07T12:00:00Z'),
+                        totalAudiobookMinutes: 120,
+                        totalBooks: 4,
+                        totalChallenges: 2,
+                        totalPages: 350,
+                        totalPoints: { toString: () => '450' },
+                        user: {
+                            email: 'leader@example.com',
+                            name: 'Morgan',
+                        },
+                    },
+                ],
+            },
+            new Date('2026-05-08T12:00:00Z')
+        )
+
+        expect(viewModel.hasQuest).toBe(true)
+        expect(viewModel.campaignName).toBe('Spring Story Sprint')
+        expect(viewModel.highlights[0]).toMatchObject({
+            label: 'Your rank',
+            value: 'Unranked',
+        })
+        expect(viewModel.rows[0]?.readerLabel).toBe('Morgan')
     })
 
     it('returns the empty model without a linked campaign', () => {

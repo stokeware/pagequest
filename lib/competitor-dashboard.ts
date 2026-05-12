@@ -1,6 +1,7 @@
 import { cache } from 'react'
 
 import {
+    type CompetitorCampaignRecord,
     getCompetitorCampaignContext,
     type CompetitorCampaignContextWithScoring,
     type CompetitorCampaignParticipantRecord,
@@ -119,6 +120,10 @@ export function buildCompetitorDashboardViewModel(
         return defaultCompetitorDashboardViewModel
     }
 
+    if (!selection.participant) {
+        return buildCampaignVisibilityDashboardViewModel(selection, now)
+    }
+
     const { participant, recentEntries, scoringRules, standings } = selection
     const rankedStandings = rankStandings(standings)
     const recentActivity = buildCompletedBookActivityItems({
@@ -160,7 +165,7 @@ export function buildCompetitorDashboardViewModel(
         recentActivity,
         shellMetrics: [
             {
-                detail: getShellCampaignDetail(participant, now),
+                detail: getShellCampaignDetail(participant.campaign, now),
                 label: 'Active campaign',
                 value: participant.campaign.name,
             },
@@ -182,6 +187,54 @@ export function buildCompetitorDashboardViewModel(
     }
 }
 
+function buildCampaignVisibilityDashboardViewModel(
+    selection: CompetitorCampaignContextWithScoring,
+    now: Date
+): CompetitorDashboardViewModel {
+    return {
+        hasQuest: true,
+        participantSummary: getCampaignVisibilitySummary(selection.campaign),
+        campaignName: selection.campaign.name,
+        campaignStatusLabel: getCampaignStatusLabel(selection.campaign.status),
+        recentActivity: [],
+        shellMetrics: [
+            {
+                detail: getShellCampaignDetail(selection.campaign, now),
+                label: 'Active campaign',
+                value: selection.campaign.name,
+            },
+            {
+                detail:
+                    selection.standings.length > 0
+                        ? `${formatCount(selection.standings.length)} readers are already on the board.`
+                        : 'No readers are on the board yet.',
+                label: 'Current standing',
+                value: 'Unranked',
+            },
+            {
+                detail: 'Your recent reading will appear after this campaign is linked to your account.',
+                label: 'Recent activity',
+                value: 'No personal activity yet',
+            },
+        ],
+        snapshotCards: [
+            {
+                description:
+                    'Join this campaign to claim a ranked spot on the leaderboard.',
+                title: 'Current rank',
+                value: 'Unranked',
+            },
+            {
+                description:
+                    'Your totals will appear after this campaign is linked to your account.',
+                title: 'Total points',
+                value: '0 points',
+            },
+        ],
+        summaryMetrics: [],
+    }
+}
+
 function getParticipantSummary(
     participant: CompetitorCampaignParticipantRecord
 ) {
@@ -198,6 +251,19 @@ function getParticipantSummary(
             return `${participant.campaign.name} has wrapped up. ${lastActivity}`
         default:
             return assertNever(participant.campaign.status)
+    }
+}
+
+function getCampaignVisibilitySummary(campaign: CompetitorCampaignRecord) {
+    switch (campaign.status) {
+        case 'ACTIVE':
+            return `${campaign.name} is live. Your account is not linked to this campaign yet.`
+        case 'SCHEDULED':
+            return `${campaign.name} has not opened yet. Your account is not linked to this campaign yet.`
+        case 'COMPLETED':
+            return `${campaign.name} has wrapped up. Your account is not linked to this campaign.`
+        default:
+            return assertNever(campaign.status)
     }
 }
 
@@ -251,19 +317,16 @@ function getRankDescription({
     return `${formatPointsFromNumber(pointsBehindLeader)} behind first place.`
 }
 
-function getShellCampaignDetail(
-    participant: CompetitorCampaignParticipantRecord,
-    now: Date
-) {
-    switch (participant.campaign.status) {
+function getShellCampaignDetail(campaign: CompetitorCampaignRecord, now: Date) {
+    switch (campaign.status) {
         case 'ACTIVE':
-            return `${getDurationLabel(participant.campaign.endAt, now)} remaining`
+            return `${getDurationLabel(campaign.endAt, now)} remaining`
         case 'SCHEDULED':
-            return `Starts in ${getDurationLabel(participant.campaign.startAt, now).toLowerCase()}`
+            return `Starts in ${getDurationLabel(campaign.startAt, now).toLowerCase()}`
         case 'COMPLETED':
-            return `Ended ${formatBoundaryDate(participant.campaign.endAt, participant.campaign.timezone)}`
+            return `Ended ${formatBoundaryDate(campaign.endAt, campaign.timezone)}`
         default:
-            return assertNever(participant.campaign.status)
+            return assertNever(campaign.status)
     }
 }
 

@@ -7,6 +7,7 @@ import {
     sortChallengesForCompetitorView,
 } from '@/lib/challenge-config'
 import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
+import { selectVisibleCompetitorCampaign } from '@/lib/competitor-queries'
 import { prisma } from '@/lib/prisma'
 
 import {
@@ -43,150 +44,153 @@ const defaultViewModel: LogProgressViewModel = {
 async function getLogProgressViewModel(
     userId: string | null
 ): Promise<LogProgressViewModel> {
-    if (!userId) {
-        return defaultViewModel
-    }
-
     await synchronizeDerivedCampaignStatuses()
 
-    const participants = await prisma.campaignParticipant.findMany({
+    const campaigns = await prisma.campaign.findMany({
         orderBy: {
-            createdAt: 'desc',
+            startAt: 'asc',
         },
         select: {
-            id: true,
-            auditLogs: {
-                orderBy: {
-                    createdAt: 'desc',
-                },
+            challenges: {
                 select: {
-                    metadata: true,
-                },
-                take: 1,
-                where: {
-                    action: campaignWorkspaceAuditAction,
-                },
-            },
-            challengeCompletions: {
-                select: {
-                    challengeId: true,
-                },
-                where: {
-                    readingEntry: {
-                        deletedAt: null,
-                    },
-                    reviewState: {
-                        in: ['APPROVED', 'AUTO_APPROVED'],
-                    },
-                },
-            },
-            challengeSources: {
-                select: {
-                    bookTitle: true,
+                    id: true,
+                    isActive: true,
                     kind: true,
-                },
-            },
-            campaign: {
-                select: {
-                    challenges: {
+                    ownerParticipantId: true,
+                    pageMinuteMultiplier: true,
+                    pointValue: true,
+                    sourceBookTitle: true,
+                    templateChallenge: {
                         select: {
-                            id: true,
-                            isActive: true,
-                            kind: true,
-                            ownerParticipantId: true,
                             pageMinuteMultiplier: true,
                             pointValue: true,
-                            sourceBookTitle: true,
-                            templateChallenge: {
-                                select: {
-                                    pageMinuteMultiplier: true,
-                                    pointValue: true,
-                                },
-                            },
-                            title: true,
-                        },
-                        where: {
-                            isActive: true,
-                            kind: {
-                                in: [
-                                    'ADMIN',
-                                    'PERSONAL_GOAL_INSTANCE',
-                                    'RECOMMENDATION_INSTANCE',
-                                ],
-                            },
                         },
                     },
-                    endAt: true,
-                    name: true,
-                    pointsPerAudiobookMinute: true,
-                    pointsPerPage: true,
-                    startAt: true,
-                    status: true,
-                    timezone: true,
+                    title: true,
+                },
+                where: {
+                    isActive: true,
+                    kind: {
+                        in: [
+                            'ADMIN',
+                            'PERSONAL_GOAL_INSTANCE',
+                            'RECOMMENDATION_INSTANCE',
+                        ],
+                    },
                 },
             },
+            endAt: true,
+            id: true,
+            name: true,
+            pointsPerAudiobookMinute: true,
+            pointsPerPage: true,
+            startAt: true,
+            status: true,
+            timezone: true,
         },
-        take: 5,
         where: {
-            campaign: {
-                status: {
-                    in: loggableCampaignStatuses,
-                },
+            archivedAt: null,
+            publishedAt: {
+                not: null,
             },
-            removedAt: null,
-            userId,
+            status: {
+                in: loggableCampaignStatuses,
+            },
         },
     })
 
-    const participant =
-        participants.find((entry) => entry.campaign.status === 'ACTIVE') ??
-        participants
-            .filter((entry) => entry.campaign.status === 'SCHEDULED')
-            .sort(
-                (left, right) =>
-                    left.campaign.startAt.getTime() -
-                    right.campaign.startAt.getTime()
-            )[0] ??
-        participants
-            .filter((entry) => entry.campaign.status === 'COMPLETED')
-            .sort(
-                (left, right) =>
-                    right.campaign.endAt.getTime() -
-                    left.campaign.endAt.getTime()
-            )[0] ??
-        null
+    const campaign = selectVisibleCompetitorCampaign(
+        campaigns.flatMap((entry) => {
+            if (!loggableCampaignStatuses.includes(entry.status)) {
+                return []
+            }
 
-    if (!participant) {
+            return [entry]
+        })
+    )
+
+    if (!campaign) {
         return defaultViewModel
     }
 
-    const workspaceState = hydrateWorkspaceState({
-        challengeSources: participant.challengeSources,
-        challenges: participant.campaign.challenges,
-        metadata: participant.auditLogs[0]?.metadata,
-    })
-    const achievedChallengeIds = getAchievedChallengeIds({
-        approvedChallengeIds: participant.challengeCompletions.map(
-            (completion) => completion.challengeId
-        ),
-        workspaceState,
-    })
+    const participant = userId
+        ? await prisma.campaignParticipant.findFirst({
+              orderBy: {
+                  createdAt: 'desc',
+              },
+              select: {
+                  id: true,
+                  auditLogs: {
+                      orderBy: {
+                          createdAt: 'desc',
+                      },
+                      select: {
+                          metadata: true,
+                      },
+                      take: 1,
+                      where: {
+                          action: campaignWorkspaceAuditAction,
+                      },
+                  },
+                  challengeCompletions: {
+                      select: {
+                          challengeId: true,
+                      },
+                      where: {
+                          readingEntry: {
+                              deletedAt: null,
+                          },
+                          reviewState: {
+                              in: ['APPROVED', 'AUTO_APPROVED'],
+                          },
+                      },
+                  },
+                  challengeSources: {
+                      select: {
+                          bookTitle: true,
+                          kind: true,
+                      },
+                  },
+              },
+              where: {
+                  campaignId: campaign.id,
+                  removedAt: null,
+                  userId,
+              },
+          })
+        : null
+
+    const workspaceState = participant
+        ? hydrateWorkspaceState({
+              challengeSources: participant.challengeSources,
+              challenges: campaign.challenges,
+              metadata: participant.auditLogs[0]?.metadata,
+          })
+        : emptyCampaignWorkspaceState
+    const achievedChallengeIds = participant
+        ? getAchievedChallengeIds({
+              approvedChallengeIds: participant.challengeCompletions.map(
+                  (completion) => completion.challengeId
+              ),
+              workspaceState,
+          })
+        : new Set<string>()
 
     return {
         campaignDateRange: formatCampaignDateRange(
-            participant.campaign.startAt,
-            participant.campaign.endAt,
-            participant.campaign.timezone
+            campaign.startAt,
+            campaign.endAt,
+            campaign.timezone
         ),
         campaignChallenges: sortChallengesForCompetitorView(
-            participant.campaign.challenges
+            campaign.challenges
                 .filter((challenge) => challenge.isActive)
                 .map((challenge) => ({
                     achieved: achievedChallengeIds.has(challenge.id),
                     id: challenge.id,
                     kind: challenge.kind,
                     ownedByCurrentParticipant:
-                        challenge.ownerParticipantId === participant.id,
+                        challenge.ownerParticipantId === participant?.id,
                     pageMinuteMultiplier: Number(
                         resolveChallengePageMinuteMultiplier(challenge)
                     ),
@@ -198,15 +202,13 @@ async function getLogProgressViewModel(
                             : challenge.title,
                 }))
         ),
-        campaignParticipantId: participant.id,
-        campaignName: participant.campaign.name,
+        campaignParticipantId: participant?.id ?? null,
+        campaignName: campaign.name,
         progressScoring: {
             pointsPerMinute: Number(
-                participant.campaign.pointsPerAudiobookMinute.toString()
+                campaign.pointsPerAudiobookMinute.toString()
             ),
-            pointsPerPage: Number(
-                participant.campaign.pointsPerPage.toString()
-            ),
+            pointsPerPage: Number(campaign.pointsPerPage.toString()),
         },
         workspaceState,
     }

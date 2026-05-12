@@ -6,6 +6,7 @@ import type {
 import { cache } from 'react'
 
 import { prisma } from '@/lib/prisma'
+import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
 import type { CampaignScoringRules } from '@/lib/campaign-domain'
 
 export type CompetitorCampaignStatus = Extract<
@@ -23,19 +24,21 @@ export type CompetitorCampaignParticipantRecord = {
     id: string
     joinedAt: Date | null
     lastActivityAt: Date | null
-    campaign: {
-        endAt: Date
-        id: string
-        name: string
-        startAt: Date
-        status: CompetitorCampaignStatus
-        timezone: string
-    }
+    campaign: CompetitorCampaignRecord
     totalAudiobookMinutes: number
     totalBooks: number
     totalChallenges: number
     totalPages: number
     totalPoints: { toString(): string }
+}
+
+export type CompetitorCampaignRecord = {
+    endAt: Date
+    id: string
+    name: string
+    startAt: Date
+    status: CompetitorCampaignStatus
+    timezone: string
 }
 
 export type CompetitorStandingRecord = {
@@ -87,7 +90,8 @@ export type CompetitorHistoryEntryRecord = {
 }
 
 export type CompetitorCampaignContext = {
-    participant: CompetitorCampaignParticipantRecord
+    campaign: CompetitorCampaignRecord
+    participant: CompetitorCampaignParticipantRecord | null
     recentEntries: CompetitorRecentEntryRecord[]
     standings: CompetitorStandingRecord[]
 }
@@ -119,6 +123,15 @@ type CompetitorCurrentCampaignParticipant =
     CompetitorCampaignParticipantRecord & {
         scoringRules: CampaignScoringRules
     }
+
+type CompetitorVisibleCampaign = CompetitorCampaignRecord & {
+    scoringRules: CampaignScoringRules
+}
+
+type CompetitorVisibleCampaignSelection = Pick<
+    CompetitorCampaignRecord,
+    'endAt' | 'startAt' | 'status'
+>
 
 type CompetitorHistoryCampaignParticipant = CompetitorHistoryCampaignRecord
 
@@ -166,23 +179,31 @@ export const getCompetitorCampaignContext = cache(
     async (
         userId: string | null
     ): Promise<CompetitorCampaignContextWithScoring | null> => {
-        const participants =
-            await getCompetitorCurrentCampaignParticipants(userId)
-        const participant = selectPrimaryCompetitorParticipant(participants)
+        await synchronizeDerivedCampaignStatuses()
 
-        if (!participant) {
+        const visibleCampaign = await getVisibleCompetitorCampaign()
+
+        if (!visibleCampaign) {
             return null
         }
 
+        const participant = await getCompetitorCampaignParticipant(
+            userId,
+            visibleCampaign.id
+        )
+
         const [standings, recentEntries] = await Promise.all([
-            getCampaignStandings(participant.campaign.id),
-            getRecentReadingEntries(participant.id),
+            getCampaignStandings(visibleCampaign.id),
+            participant
+                ? getRecentReadingEntries(participant.id)
+                : Promise.resolve([]),
         ])
 
         return {
+            campaign: toCompetitorCampaignRecord(visibleCampaign),
             participant,
             recentEntries,
-            scoringRules: participant.scoringRules,
+            scoringRules: visibleCampaign.scoringRules,
             standings,
         }
     }
@@ -302,124 +323,215 @@ export const getParticipantReadingEntries = cache(
     }
 )
 
-export function selectPrimaryCompetitorParticipant<
-    T extends {
-        campaign: {
-            startAt: Date
-            status: CompetitorCampaignStatus
-        }
-    },
->(participants: T[], now = new Date()) {
-    const activeParticipant = participants.find(
-        (entry) => entry.campaign.status === 'ACTIVE'
-    )
-
-    if (activeParticipant) {
-        return activeParticipant
-    }
-
-    const nowTimestamp = now.getTime()
-    const futureParticipant = [...participants]
-        .filter((entry) => entry.campaign.startAt.getTime() > nowTimestamp)
-        .sort(
-            (left, right) =>
-                left.campaign.startAt.getTime() -
-                right.campaign.startAt.getTime()
-        )[0]
-
-    if (futureParticipant) {
-        return futureParticipant
-    }
-
-    const latestPastParticipant = [...participants]
-        .filter((entry) => entry.campaign.startAt.getTime() <= nowTimestamp)
-        .sort(
-            (left, right) =>
-                right.campaign.startAt.getTime() -
-                left.campaign.startAt.getTime()
-        )[0]
-
-    return latestPastParticipant ?? null
+export function selectVisibleCompetitorCampaign<
+    T extends CompetitorVisibleCampaignSelection,
+>(campaigns: T[], now = new Date()) {
+    return selectVisibleCompetitorEntry(campaigns, (campaign) => campaign, now)
 }
 
-async function getCompetitorCurrentCampaignParticipants(userId: string | null) {
-    if (!userId) {
-        return []
+export function selectPrimaryCompetitorParticipant<
+    T extends {
+        campaign: CompetitorVisibleCampaignSelection
+    },
+>(participants: T[], now = new Date()) {
+    return selectVisibleCompetitorEntry(
+        participants,
+        (participant) => participant.campaign,
+        now
+    )
+}
+
+function selectVisibleCompetitorEntry<T>(
+    entries: T[],
+    getCampaign: (entry: T) => CompetitorVisibleCampaignSelection,
+    now = new Date()
+) {
+    const nowTimestamp = now.getTime()
+    const activeEntry = entries.find((entry) => {
+        const campaign = getCampaign(entry)
+
+        return (
+            campaign.status === 'ACTIVE' ||
+            (campaign.status === 'SCHEDULED' &&
+                campaign.startAt.getTime() <= nowTimestamp &&
+                campaign.endAt.getTime() > nowTimestamp)
+        )
+    })
+
+    if (activeEntry) {
+        return activeEntry
     }
 
-    return prisma.campaignParticipant
-        .findMany({
-            orderBy: {
-                createdAt: 'desc',
-            },
-            select: {
-                createdAt: true,
-                id: true,
-                joinedAt: true,
-                lastActivityAt: true,
-                campaign: {
-                    select: {
-                        endAt: true,
-                        id: true,
-                        name: true,
-                        pointsPerAudiobookMinute: true,
-                        pointsPerBook: true,
-                        pointsPerChallengeCompletion: true,
-                        pointsPerPage: true,
-                        startAt: true,
-                        status: true,
-                        timezone: true,
-                    },
-                },
-                totalAudiobookMinutes: true,
-                totalBooks: true,
-                totalChallenges: true,
-                totalPages: true,
-                totalPoints: true,
-            },
-            where: {
-                campaign: {
-                    status: {
-                        in: currentCampaignStatuses,
-                    },
-                },
-                removedAt: null,
-                userId,
-            },
-        })
-        .then((participants) =>
-            participants.flatMap((participant) => {
-                if (!isCompetitorCampaignStatus(participant.campaign.status)) {
-                    return []
-                }
+    const futureEntry = [...entries]
+        .filter((entry) => {
+            const campaign = getCampaign(entry)
 
-                return [
-                    {
-                        createdAt: participant.createdAt,
-                        id: participant.id,
-                        joinedAt: participant.joinedAt,
-                        lastActivityAt: participant.lastActivityAt,
-                        campaign: {
-                            endAt: participant.campaign.endAt,
-                            id: participant.campaign.id,
-                            name: participant.campaign.name,
-                            startAt: participant.campaign.startAt,
-                            status: participant.campaign.status,
-                            timezone: participant.campaign.timezone,
-                        },
-                        scoringRules: toCampaignScoringRules(
-                            participant.campaign
-                        ),
-                        totalAudiobookMinutes:
-                            participant.totalAudiobookMinutes,
-                        totalBooks: participant.totalBooks,
-                        totalChallenges: participant.totalChallenges,
-                        totalPages: participant.totalPages,
-                        totalPoints: participant.totalPoints,
-                    } satisfies CompetitorCurrentCampaignParticipant,
-                ]
-            })
-        )
+            return (
+                campaign.status === 'SCHEDULED' ||
+                campaign.startAt.getTime() > nowTimestamp
+            )
+        })
+        .sort(
+            (left, right) =>
+                getCampaign(left).startAt.getTime() -
+                getCampaign(right).startAt.getTime()
+        )[0]
+
+    if (futureEntry) {
+        return futureEntry
+    }
+
+    const latestPastEntry = [...entries]
+        .filter((entry) => {
+            const campaign = getCampaign(entry)
+
+            return (
+                campaign.status === 'COMPLETED' ||
+                campaign.endAt.getTime() <= nowTimestamp
+            )
+        })
+        .sort(
+            (left, right) =>
+                getCampaign(right).endAt.getTime() -
+                getCampaign(left).endAt.getTime()
+        )[0]
+
+    return latestPastEntry ?? null
+}
+
+async function getVisibleCompetitorCampaign() {
+    const campaigns = await prisma.campaign.findMany({
+        orderBy: {
+            startAt: 'asc',
+        },
+        select: {
+            endAt: true,
+            id: true,
+            name: true,
+            pointsPerAudiobookMinute: true,
+            pointsPerBook: true,
+            pointsPerChallengeCompletion: true,
+            pointsPerPage: true,
+            startAt: true,
+            status: true,
+            timezone: true,
+        },
+        where: {
+            archivedAt: null,
+            publishedAt: {
+                not: null,
+            },
+            status: {
+                in: currentCampaignStatuses,
+            },
+        },
+    })
+
+    return selectVisibleCompetitorCampaign(
+        campaigns.flatMap((campaign) => {
+            if (!isCompetitorCampaignStatus(campaign.status)) {
+                return []
+            }
+
+            return [
+                {
+                    endAt: campaign.endAt,
+                    id: campaign.id,
+                    name: campaign.name,
+                    scoringRules: toCampaignScoringRules(campaign),
+                    startAt: campaign.startAt,
+                    status: campaign.status,
+                    timezone: campaign.timezone,
+                } satisfies CompetitorVisibleCampaign,
+            ]
+        })
+    )
+}
+
+async function getCompetitorCampaignParticipant(
+    userId: string | null,
+    campaignId: string
+) {
+    if (!userId) {
+        return null
+    }
+
+    const participant = await prisma.campaignParticipant.findFirst({
+        orderBy: {
+            createdAt: 'desc',
+        },
+        select: {
+            createdAt: true,
+            id: true,
+            joinedAt: true,
+            lastActivityAt: true,
+            campaign: {
+                select: {
+                    endAt: true,
+                    id: true,
+                    name: true,
+                    pointsPerAudiobookMinute: true,
+                    pointsPerBook: true,
+                    pointsPerChallengeCompletion: true,
+                    pointsPerPage: true,
+                    startAt: true,
+                    status: true,
+                    timezone: true,
+                },
+            },
+            totalAudiobookMinutes: true,
+            totalBooks: true,
+            totalChallenges: true,
+            totalPages: true,
+            totalPoints: true,
+        },
+        where: {
+            campaignId,
+            removedAt: null,
+            userId,
+        },
+    })
+
+    if (
+        !participant ||
+        !isCompetitorCampaignStatus(participant.campaign.status)
+    ) {
+        return null
+    }
+
+    return {
+        createdAt: participant.createdAt,
+        id: participant.id,
+        joinedAt: participant.joinedAt,
+        lastActivityAt: participant.lastActivityAt,
+        campaign: {
+            endAt: participant.campaign.endAt,
+            id: participant.campaign.id,
+            name: participant.campaign.name,
+            startAt: participant.campaign.startAt,
+            status: participant.campaign.status,
+            timezone: participant.campaign.timezone,
+        },
+        scoringRules: toCampaignScoringRules(participant.campaign),
+        totalAudiobookMinutes: participant.totalAudiobookMinutes,
+        totalBooks: participant.totalBooks,
+        totalChallenges: participant.totalChallenges,
+        totalPages: participant.totalPages,
+        totalPoints: participant.totalPoints,
+    } satisfies CompetitorCurrentCampaignParticipant
+}
+
+function toCompetitorCampaignRecord(
+    campaign: CompetitorVisibleCampaign
+): CompetitorCampaignRecord {
+    return {
+        endAt: campaign.endAt,
+        id: campaign.id,
+        name: campaign.name,
+        startAt: campaign.startAt,
+        status: campaign.status,
+        timezone: campaign.timezone,
+    }
 }
 
 function isCompetitorCampaignStatus(

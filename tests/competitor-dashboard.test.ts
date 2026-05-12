@@ -10,6 +10,14 @@ describe('competitor dashboard view model', () => {
     it('builds a live dashboard snapshot from standings and entries', () => {
         const viewModel = buildCompetitorDashboardViewModel(
             {
+                campaign: {
+                    endAt: new Date('2026-05-20T23:00:00Z'),
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint',
+                    startAt: new Date('2026-04-20T12:00:00Z'),
+                    status: 'ACTIVE',
+                    timezone: 'UTC',
+                },
                 participant: {
                     createdAt: new Date('2026-04-01T12:00:00Z'),
                     id: 'participant-2',
@@ -124,6 +132,57 @@ describe('competitor dashboard view model', () => {
         expect(viewModel.shellMetrics[1]).toMatchObject({
             label: 'Current standing',
             value: '#2',
+        })
+    })
+
+    it('shows the visible campaign even when the viewer is not linked yet', () => {
+        const viewModel = buildCompetitorDashboardViewModel(
+            {
+                campaign: {
+                    endAt: new Date('2026-05-20T23:00:00Z'),
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint',
+                    startAt: new Date('2026-04-20T12:00:00Z'),
+                    status: 'ACTIVE',
+                    timezone: 'UTC',
+                },
+                participant: null,
+                recentEntries: [],
+                scoringRules: {
+                    pointsPerAudiobookMinute: '0.75',
+                    pointsPerBook: '25',
+                    pointsPerChallengeCompletion: '40',
+                    pointsPerPage: '1',
+                },
+                standings: [
+                    {
+                        createdAt: new Date('2026-04-01T12:00:00Z'),
+                        id: 'participant-1',
+                        lastActivityAt: new Date('2026-05-07T12:00:00Z'),
+                        totalAudiobookMinutes: 120,
+                        totalBooks: 4,
+                        totalChallenges: 2,
+                        totalPages: 340,
+                        totalPoints: { toString: () => '432.25' },
+                        user: {
+                            email: 'leader@example.com',
+                            name: 'Morgan',
+                        },
+                    },
+                ],
+            },
+            new Date('2026-05-08T12:00:00Z')
+        )
+
+        expect(viewModel.hasQuest).toBe(true)
+        expect(viewModel.campaignName).toBe('Spring Story Sprint')
+        expect(viewModel.snapshotCards[0]).toMatchObject({
+            title: 'Current rank',
+            value: 'Unranked',
+        })
+        expect(viewModel.shellMetrics[1]).toMatchObject({
+            label: 'Current standing',
+            value: 'Unranked',
         })
     })
 

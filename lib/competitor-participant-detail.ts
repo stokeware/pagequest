@@ -110,11 +110,11 @@ export function buildCompetitorParticipantDetailViewModel(
     }
 
     const participantLabel = getReaderLabel(participant)
-    const isViewer = participant.id === context.participant.id
+    const isViewer = participant.id === context.participant?.id
     const historyItems = formatCompetitorHistoryEntries({
         entries: historyEntries,
         scoringRules,
-        timezone: context.participant.campaign.timezone,
+        timezone: context.campaign.timezone,
     })
 
     return {
@@ -128,10 +128,8 @@ export function buildCompetitorParticipantDetailViewModel(
                 ? `${participantLabel} has ${formatCount(historyItems.length)} ${pluralize('entry', historyItems.length)} recorded for this campaign.`
                 : `${participantLabel} has not logged any reading for this campaign yet.`,
         rankLabel: `#${participant.rankNumber}`,
-        campaignName: context.participant.campaign.name,
-        campaignStatusLabel: getCampaignStatusLabel(
-            context.participant.campaign.status
-        ),
+        campaignName: context.campaign.name,
+        campaignStatusLabel: getCampaignStatusLabel(context.campaign.status),
         summaryMetrics: [
             {
                 detail: 'Current placement on this campaign leaderboard.',
@@ -161,7 +159,7 @@ export function buildCompetitorParticipantDetailViewModel(
                 value: participant.lastActivityAt
                     ? formatCalendarDate(
                           participant.lastActivityAt,
-                          context.participant.campaign.timezone
+                          context.campaign.timezone
                       )
                     : 'No activity yet',
             },
