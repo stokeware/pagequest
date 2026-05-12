@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
+const { Algorithm, hash } = require('@node-rs/argon2')
 const { PrismaClient, Prisma } = require('@prisma/client')
 const { PrismaPg } = require('@prisma/adapter-pg')
 
@@ -45,6 +46,16 @@ const campaignScoring = {
     pointsPerPage: new Prisma.Decimal(1),
     pointsPerAudiobookMinute: new Prisma.Decimal('0.75'),
     pointsPerChallengeCompletion: new Prisma.Decimal(40),
+}
+
+const seededUserPassword = 'pagequest-local'
+
+const passwordHashOptions = {
+    algorithm: Algorithm.Argon2id,
+    memoryCost: 19456,
+    outputLen: 32,
+    parallelism: 1,
+    timeCost: 2,
 }
 
 const adminUser = {
@@ -255,6 +266,15 @@ function calculateParticipantTotals(entries) {
     return totals
 }
 
+async function buildSeedPasswordFields(passwordSetAt) {
+    return {
+        authMethod: 'PASSWORD',
+        lastPasswordChangeAt: passwordSetAt,
+        passwordHash: await hash(seededUserPassword, passwordHashOptions),
+        passwordSetAt,
+    }
+}
+
 async function resetDatabase() {
     await prisma.auditLog.deleteMany()
     await prisma.notificationDelivery.deleteMany()
@@ -264,17 +284,23 @@ async function resetDatabase() {
     await prisma.participantChallengeSource.deleteMany()
     await prisma.campaignParticipant.deleteMany()
     await prisma.challenge.deleteMany()
+    await prisma.account.deleteMany()
     await prisma.roleAssignment.deleteMany()
     await prisma.campaign.deleteMany()
+    await prisma.session.deleteMany()
     await prisma.user.deleteMany()
+    await prisma.verificationToken.deleteMany()
 }
 
 async function seed() {
     await resetDatabase()
 
+    const adminPasswordSetAt = new Date('2026-04-20T12:00:00.000Z')
+
     const admin = await prisma.user.create({
         data: {
             ...adminUser,
+            ...(await buildSeedPasswordFields(adminPasswordSetAt)),
             emailVerified: new Date('2026-04-20T12:00:00.000Z'),
             lastSignedInAt: new Date('2026-05-08T13:30:00.000Z'),
             roleAssignments: {
@@ -286,9 +312,12 @@ async function seed() {
     const competitors = []
 
     for (const competitorUser of competitorUsers) {
+        const competitorPasswordSetAt = new Date('2026-04-21T15:00:00.000Z')
+
         const competitor = await prisma.user.create({
             data: {
                 ...competitorUser,
+                ...(await buildSeedPasswordFields(competitorPasswordSetAt)),
                 emailVerified: new Date('2026-04-21T15:00:00.000Z'),
                 lastSignedInAt: new Date('2026-05-08T12:00:00.000Z'),
                 roleAssignments: {
@@ -300,9 +329,12 @@ async function seed() {
         competitors.push(competitor)
     }
 
+    const pendingPasswordSetAt = new Date('2026-05-08T14:05:00.000Z')
+
     const pendingCompetitor = await prisma.user.create({
         data: {
             ...pendingInviteUser,
+            ...(await buildSeedPasswordFields(pendingPasswordSetAt)),
             emailVerified: new Date('2026-05-08T14:05:00.000Z'),
             roleAssignments: {
                 create: [{ role: 'COMPETITOR' }],

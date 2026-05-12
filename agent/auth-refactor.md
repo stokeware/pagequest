@@ -73,8 +73,8 @@ Switch from JWT sessions to database-backed sessions.
 Recommended settings:
 
 - session.strategy = 'database'
-- session.maxAge = 14 * 24 * 60 * 60
-- session.updateAge = 24 * 60 * 60
+- session.maxAge = 14 _ 24 _ 60 \* 60
+- session.updateAge = 24 _ 60 _ 60
 
 This creates rolling sessions that stay alive for up to 14 days since the last
 use of the site. That matches the requested behavior more closely than the
@@ -138,20 +138,20 @@ email matches the account being created.
 2. Invitee opens /accept-invitation?token=...
 3. The page loads the invitation, validates token state, and renders a single
    form card with:
-   - email read-only
-   - name
-   - password
-   - confirm password
+    - email read-only
+    - name
+    - password
+    - confirm password
 4. Server action validates:
-   - token format and existence
-   - invitation state is pending and not expired or revoked
-   - email is not already bound to a password account
-   - password strength and password confirmation
+    - token format and existence
+    - invitation state is pending and not expired or revoked
+    - email is not already bound to a password account
+    - password strength and password confirmation
 5. Server action creates:
-   - User
-   - RoleAssignment for COMPETITOR
-   - CampaignParticipant when the invite is campaign-scoped
-   - Invitation acceptance audit updates
+    - User
+    - RoleAssignment for COMPETITOR
+    - CampaignParticipant when the invite is campaign-scoped
+    - Invitation acceptance audit updates
 6. The action redirects to /sign-in with the invited email prefilled and a
    success notice.
 7. The user signs in and is redirected to /dashboard.
@@ -287,7 +287,7 @@ Main changes:
 Update:
 
 - prisma/schema.prisma
-- prisma/migrations/*
+- prisma/migrations/\*
 - prisma/seed.mjs
 
 Main changes:

@@ -1,5 +1,10 @@
 import { timingSafeEqual } from 'node:crypto'
 
+import {
+    assertPasswordConfirmation,
+    assertValidPassword,
+} from '@/lib/auth/password'
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const localDatabaseHosts = new Set(['0.0.0.0', '127.0.0.1', 'localhost'])
 
@@ -123,9 +128,11 @@ export function validateCreateAdminInput({
         throw new Error('Password is required.')
     }
 
-    if (password !== passwordRepeat) {
-        throw new Error('Passwords do not match.')
-    }
+    assertValidPassword(password)
+    assertPasswordConfirmation({
+        password,
+        passwordConfirmation: passwordRepeat,
+    })
 
     return {
         email: normalizedEmail,
