@@ -40,6 +40,8 @@ export function SignInForm({ localDemoEmails }: SignInFormProps) {
         getServerHydrationSnapshot
     )
     const callbackUrl = searchParams.get('callbackUrl')?.trim() || ''
+    const defaultEmail = searchParams.get('email')?.trim() || ''
+    const invitationWasCreated = searchParams.get('invitation') === 'created'
 
     function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -63,10 +65,17 @@ export function SignInForm({ localDemoEmails }: SignInFormProps) {
     return (
         <FormCard
             title='Sign in'
-            description='Use a seeded local reader or a password-backed invited account before continuing into a private campaign.'
+            description='Use a seeded local reader or your invited Page Quest account to continue into private campaigns and member features.'
         >
             <form onSubmit={handleSubmit} method='post' className='space-y-4'>
                 <input type='hidden' name='callbackUrl' value={callbackUrl} />
+
+                {invitationWasCreated ? (
+                    <div className='rounded-lg border border-emerald-600/30 bg-emerald-50 px-4 py-3 text-sm text-emerald-900'>
+                        Your account is ready. Sign in with the invited email to
+                        open your dashboard.
+                    </div>
+                ) : null}
 
                 <FormField label='Email address' htmlFor='email'>
                     <Input
@@ -76,6 +85,7 @@ export function SignInForm({ localDemoEmails }: SignInFormProps) {
                         inputMode='email'
                         placeholder='reader@example.com'
                         autoComplete='email'
+                        defaultValue={defaultEmail}
                         disabled={!isHydrated || isPending}
                         required
                     />

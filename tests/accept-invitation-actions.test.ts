@@ -11,6 +11,7 @@ const acceptInvitationActionMocks = vi.hoisted(() => {
         throw error
     })
     const deriveInvitationAcceptanceProfile = vi.fn()
+    const provisionInvitationAccount = vi.fn()
     const recordInvitationAcceptance = vi.fn()
     const consumeRateLimit = vi.fn()
     const resetRateLimit = vi.fn()
@@ -22,6 +23,9 @@ const acceptInvitationActionMocks = vi.hoisted(() => {
         invitation: {
             findUnique: vi.fn(),
         },
+        user: {
+            findUnique: vi.fn(),
+        },
     }
 
     return {
@@ -29,6 +33,7 @@ const acceptInvitationActionMocks = vi.hoisted(() => {
         deriveInvitationAcceptanceProfile,
         getServerSession,
         prisma,
+        provisionInvitationAccount,
         recordInvitationAcceptance,
         redirect,
         resetRateLimit,
@@ -58,6 +63,8 @@ vi.mock('@/lib/invitation-acceptance', () => ({
 }))
 
 vi.mock('@/lib/invitation-service', () => ({
+    provisionInvitationAccount:
+        acceptInvitationActionMocks.provisionInvitationAccount,
     recordInvitationAcceptance:
         acceptInvitationActionMocks.recordInvitationAcceptance,
 }))
@@ -71,7 +78,10 @@ vi.mock('@/lib/security/rate-limit', () => ({
     resetRateLimit: acceptInvitationActionMocks.resetRateLimit,
 }))
 
-import { acceptInvitationAction } from '@/app/(public)/accept-invitation/actions'
+import {
+    acceptInvitationAction,
+    createInvitationAccountAction,
+} from '@/app/(public)/accept-invitation/actions'
 
 describe('acceptInvitationAction security hardening', () => {
     beforeEach(() => {
@@ -113,8 +123,17 @@ describe('acceptInvitationAction security hardening', () => {
             async (callback: (transaction: object) => Promise<void>) =>
                 callback({})
         )
+        acceptInvitationActionMocks.prisma.user.findUnique.mockResolvedValue(
+            null
+        )
         acceptInvitationActionMocks.prisma.auditLog.create.mockResolvedValue(
             undefined
+        )
+        acceptInvitationActionMocks.provisionInvitationAccount.mockResolvedValue(
+            {
+                participantId: 'participant-new',
+                userId: 'user-new',
+            }
         )
         acceptInvitationActionMocks.recordInvitationAcceptance.mockResolvedValue(
             undefined
@@ -138,7 +157,7 @@ describe('acceptInvitationAction security hardening', () => {
         ).not.toHaveBeenCalled()
     })
 
-    it('redirects signed-out invitees through hosted signup with the invited email prefilled', async () => {
+    it('redirects signed-out invitees to password sign-in with callback and invited email', async () => {
         acceptInvitationActionMocks.getServerSession.mockResolvedValue(null)
 
         const formData = new FormData()
@@ -151,11 +170,7 @@ describe('acceptInvitationAction security hardening', () => {
         })
 
         await expect(acceptInvitationAction(formData)).rejects.toMatchObject({
-            digest: expect.stringContaining('screen_hint=signup'),
-        })
-
-        await expect(acceptInvitationAction(formData)).rejects.toMatchObject({
-            digest: expect.stringContaining('login_hint=reader%40example.com'),
+            digest: expect.stringContaining('email=reader%40example.com'),
         })
     })
 
@@ -266,5 +281,154 @@ describe('acceptInvitationAction security hardening', () => {
                 },
             },
         })
+    })
+})
+
+describe('createInvitationAccountAction', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        acceptInvitationActionMocks.consumeRateLimit.mockReturnValue({
+            allowed: true,
+            remaining: 4,
+            retryAfterSeconds: 0,
+        })
+        acceptInvitationActionMocks.deriveInvitationAcceptanceProfile.mockReturnValue(
+            {
+                canAccept: false,
+                expectedEmail: 'reader@example.com',
+                state: 'sign-in-required',
+                summary: 'Create your Page Quest account.',
+            }
+        )
+        acceptInvitationActionMocks.prisma.invitation.findUnique.mockResolvedValue(
+            {
+                acceptedByUserId: null,
+                campaign: {
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint 2026',
+                    status: 'ACTIVE',
+                    visibility: 'INVITE_ONLY',
+                },
+                email: 'reader@example.com',
+                expiresAt: new Date('2026-05-15T12:00:00.000Z'),
+                id: 'invite-1',
+                revokedAt: null,
+                status: 'PENDING',
+            }
+        )
+        acceptInvitationActionMocks.prisma.user.findUnique.mockResolvedValue(
+            null
+        )
+        acceptInvitationActionMocks.prisma.$transaction.mockImplementation(
+            async (callback: (transaction: object) => Promise<void>) =>
+                callback({})
+        )
+        acceptInvitationActionMocks.prisma.auditLog.create.mockResolvedValue(
+            undefined
+        )
+        acceptInvitationActionMocks.provisionInvitationAccount.mockResolvedValue(
+            {
+                participantId: 'participant-new',
+                userId: 'user-new',
+            }
+        )
+    })
+
+    it('rejects password mismatches before writing the invited account', async () => {
+        const formData = new FormData()
+        formData.set('token', 'x'.repeat(32))
+        formData.set('name', 'Reader One')
+        formData.set('password', 'correct horse battery staple')
+        formData.set('passwordConfirmation', 'different password value')
+
+        await expect(
+            createInvitationAccountAction(formData)
+        ).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=password-mismatch'),
+        })
+
+        expect(
+            acceptInvitationActionMocks.provisionInvitationAccount
+        ).not.toHaveBeenCalled()
+    })
+
+    it('redirects back when the invited email already has a password account', async () => {
+        acceptInvitationActionMocks.prisma.user.findUnique.mockResolvedValue({
+            id: 'user-1',
+            passwordHash: 'stored-hash',
+        })
+
+        const formData = new FormData()
+        formData.set('token', 'x'.repeat(32))
+        formData.set('name', 'Reader One')
+        formData.set('password', 'correct horse battery staple')
+        formData.set('passwordConfirmation', 'correct horse battery staple')
+
+        await expect(
+            createInvitationAccountAction(formData)
+        ).rejects.toMatchObject({
+            digest: expect.stringContaining('detail=account-exists'),
+        })
+
+        expect(
+            acceptInvitationActionMocks.prisma.auditLog.create
+        ).toHaveBeenCalledWith({
+            data: {
+                action: 'invitation.signup_blocked',
+                actorUserId: 'user-1',
+                campaignId: 'campaign-1',
+                entityId: 'invite-1',
+                entityType: 'Invitation',
+                invitationId: 'invite-1',
+                metadata: {
+                    attemptedEmail: 'reader@example.com',
+                    campaignName: 'Spring Story Sprint 2026',
+                    detail: 'account-exists',
+                    invitationEmail: 'reader@example.com',
+                },
+            },
+        })
+    })
+
+    it('creates the account, accepts the invitation, and redirects to sign-in with the invited email', async () => {
+        const formData = new FormData()
+        formData.set('token', 'x'.repeat(32))
+        formData.set('name', 'Reader One')
+        formData.set('password', 'correct horse battery staple')
+        formData.set('passwordConfirmation', 'correct horse battery staple')
+
+        await expect(
+            createInvitationAccountAction(formData)
+        ).rejects.toMatchObject({
+            digest: expect.stringContaining(
+                '/sign-in?email=reader%40example.com&invitation=created'
+            ),
+        })
+
+        expect(
+            acceptInvitationActionMocks.provisionInvitationAccount
+        ).toHaveBeenCalledWith(
+            {},
+            {
+                existingUserId: null,
+                invitation: {
+                    acceptedByUserId: null,
+                    campaign: {
+                        id: 'campaign-1',
+                        name: 'Spring Story Sprint 2026',
+                        status: 'ACTIVE',
+                        visibility: 'INVITE_ONLY',
+                    },
+                    email: 'reader@example.com',
+                    expiresAt: new Date('2026-05-15T12:00:00.000Z'),
+                    id: 'invite-1',
+                    revokedAt: null,
+                    status: 'PENDING',
+                },
+                name: 'Reader One',
+                now: expect.any(Date),
+                passwordHash: expect.any(String),
+            }
+        )
     })
 })

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { recordInvitationAcceptance } from '@/lib/invitation-service'
+import {
+    provisionInvitationAccount,
+    recordInvitationAcceptance,
+} from '@/lib/invitation-service'
 
 function buildTransaction({
     existingParticipant = null,
@@ -14,8 +17,18 @@ function buildTransaction({
         auditLog: {
             create: vi.fn(async () => undefined),
         },
+        roleAssignment: {
+            findUnique: vi.fn(async () => null),
+            create: vi.fn(async () => undefined),
+        },
         invitation: {
             update: vi.fn(async () => undefined),
+        },
+        user: {
+            create: vi.fn(async () => ({ id: 'user-new' })),
+            update: vi.fn(async () => ({
+                id: existingParticipant?.id ?? 'user-existing',
+            })),
         },
         campaignParticipant: {
             create: vi.fn(async () => ({ id: 'participant-new' })),
@@ -160,6 +173,90 @@ describe('recordInvitationAcceptance', () => {
         })
         expect(result).toEqual({
             participantId: null,
+        })
+    })
+})
+
+describe('provisionInvitationAccount', () => {
+    it('creates a new password-backed competitor account and accepts the invitation', async () => {
+        const transaction = buildTransaction({})
+
+        const result = await provisionInvitationAccount(transaction, {
+            invitation: baseInput.invitation,
+            name: 'Reader One',
+            now: baseInput.now,
+            passwordHash: 'hash-1',
+        })
+
+        expect(transaction.user.create).toHaveBeenCalledWith({
+            data: {
+                authMethod: 'PASSWORD',
+                email: 'reader@example.com',
+                lastPasswordChangeAt: baseInput.now,
+                name: 'Reader One',
+                passwordHash: 'hash-1',
+                passwordSetAt: baseInput.now,
+            },
+        })
+        expect(transaction.roleAssignment.create).toHaveBeenCalledWith({
+            data: {
+                role: 'COMPETITOR',
+                userId: 'user-new',
+            },
+        })
+        expect(transaction.invitation.update).toHaveBeenCalledWith({
+            data: {
+                acceptedAt: baseInput.now,
+                acceptedByUserId: 'user-new',
+                acceptedParticipantId: 'participant-new',
+                status: 'ACCEPTED',
+            },
+            where: {
+                id: 'invite-1',
+            },
+        })
+        expect(result).toEqual({
+            participantId: 'participant-new',
+            userId: 'user-new',
+        })
+    })
+
+    it('reuses an existing passwordless user and preserves an existing competitor role', async () => {
+        const transaction = buildTransaction({})
+
+        transaction.roleAssignment.findUnique = vi.fn(async () => ({
+            id: 'role-1',
+        }))
+        transaction.user.update = vi.fn(async () => ({ id: 'user-existing' }))
+
+        const result = await provisionInvitationAccount(transaction, {
+            existingUserId: 'user-existing',
+            invitation: {
+                ...baseInput.invitation,
+                campaign: null,
+            },
+            name: 'Existing Reader',
+            now: baseInput.now,
+            passwordHash: 'hash-2',
+        })
+
+        expect(transaction.user.create).not.toHaveBeenCalled()
+        expect(transaction.user.update).toHaveBeenCalledWith({
+            data: {
+                authMethod: 'PASSWORD',
+                lastPasswordChangeAt: baseInput.now,
+                name: 'Existing Reader',
+                passwordHash: 'hash-2',
+                passwordSetAt: baseInput.now,
+            },
+            where: {
+                id: 'user-existing',
+            },
+        })
+        expect(transaction.roleAssignment.create).not.toHaveBeenCalled()
+        expect(result).toEqual({
+            participantId: null,
+            userId: 'user-existing',
         })
     })
 })
