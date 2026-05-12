@@ -45,6 +45,7 @@ function getSessionCallback() {
 describe('password authentication helpers', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.unstubAllEnvs()
     })
 
     it('authenticates a user with a matching password hash', async () => {
@@ -193,7 +194,10 @@ describe('password authentication helpers', () => {
         })
     })
 
-    it('configures database sessions and the auth session cookie', () => {
+    it('configures database sessions and the local auth session cookie', () => {
+        vi.stubEnv('APP_URL', 'http://127.0.0.1:3000')
+        vi.stubEnv('NEXTAUTH_URL', 'http://127.0.0.1:3000')
+
         expect(authOptions.providers).toEqual([])
         expect(authOptions.session).toEqual({
             maxAge: authSessionSettings.maxAge,
@@ -208,6 +212,22 @@ describe('password authentication helpers', () => {
                 path: '/',
                 sameSite: 'lax',
                 secure: false,
+            },
+        })
+    })
+
+    it('uses the secure session cookie name for https app urls', () => {
+        vi.stubEnv('APP_URL', 'https://ci.pagequest.example')
+        vi.stubEnv('NEXTAUTH_URL', 'https://ci.pagequest.example')
+
+        expect(getAuthSessionCookie()).toEqual({
+            maxAge: authSessionSettings.maxAge,
+            name: '__Secure-next-auth.session-token',
+            options: {
+                httpOnly: true,
+                path: '/',
+                sameSite: 'lax',
+                secure: true,
             },
         })
     })
