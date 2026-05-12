@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useId, useState, useTransition } from 'react'
 
 import { Button, Card, CardContent, FormField, Input } from '@/components/ui'
+import { calculateCampaignWorkspaceRowPoints } from '@/lib/campaign-workspace'
 import { sortChallengesForCompetitorView } from '@/lib/challenge-config'
 import { cn } from '@/lib/utils'
 
@@ -992,32 +993,12 @@ export function calculateProgressRowPoints({
     pointsPerPage: number
     row: ProgressRow
 }) {
-    const pages = toNonNegativeNumber(row.pages)
-    const minutes = toNonNegativeNumber(row.minutes)
-    const basePoints = pages * pointsPerPage + minutes * pointsPerMinute
-    const selectedChallenge = campaignChallenges.find(
-        (challenge) => challenge.id === row.challengeId
-    )
-
-    if (!row.completed || !selectedChallenge) {
-        return basePoints
-    }
-
-    if (selectedChallenge.pageMinuteMultiplier > 0) {
-        return basePoints * selectedChallenge.pageMinuteMultiplier
-    }
-
-    return basePoints + selectedChallenge.pointValue
-}
-
-function toNonNegativeNumber(value: string) {
-    const numericValue = Number(value)
-
-    if (!Number.isFinite(numericValue) || numericValue < 0) {
-        return 0
-    }
-
-    return numericValue
+    return calculateCampaignWorkspaceRowPoints({
+        campaignChallenges,
+        pointsPerMinute,
+        pointsPerPage,
+        row,
+    })
 }
 
 function formatProgressPoints(value: number) {
