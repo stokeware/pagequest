@@ -534,7 +534,7 @@ function toCompetitorCampaignRecord(
     }
 }
 
-function isCompetitorCampaignStatus(
+export function isCompetitorCampaignStatus(
     status: CampaignStatus
 ): status is CompetitorCampaignStatus {
     return currentCampaignStatuses.includes(status as CompetitorCampaignStatus)

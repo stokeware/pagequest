@@ -7,7 +7,10 @@ import {
     sortChallengesForCompetitorView,
 } from '@/lib/challenge-config'
 import { synchronizeDerivedCampaignStatuses } from '@/lib/campaign-status'
-import { selectVisibleCompetitorCampaign } from '@/lib/competitor-queries'
+import {
+    isCompetitorCampaignStatus,
+    selectVisibleCompetitorCampaign,
+} from '@/lib/competitor-queries'
 import { prisma } from '@/lib/prisma'
 
 import {
@@ -101,11 +104,16 @@ async function getLogProgressViewModel(
 
     const campaign = selectVisibleCompetitorCampaign(
         campaigns.flatMap((entry) => {
-            if (!loggableCampaignStatuses.includes(entry.status)) {
+            if (!isCompetitorCampaignStatus(entry.status)) {
                 return []
             }
 
-            return [entry]
+            return [
+                {
+                    ...entry,
+                    status: entry.status,
+                },
+            ]
         })
     )
 
