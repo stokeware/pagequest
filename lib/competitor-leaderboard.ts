@@ -28,6 +28,7 @@ export type CompetitorLeaderboardViewModel = {
     hasQuest: boolean
     highlights: LeaderboardHighlight[]
     campaignDescription: string
+    campaignDateRange: string | null
     campaignName: string
     campaignStatusLabel: string
     rows: LeaderboardRow[]
@@ -41,6 +42,7 @@ export const defaultCompetitorLeaderboardViewModel: CompetitorLeaderboardViewMod
         hasQuest: false,
         highlights: [],
         campaignDescription: defaultCampaignDescription,
+        campaignDateRange: null,
         campaignName: 'Campaign assignment pending',
         campaignStatusLabel: 'Awaiting invitation',
         rows: [],
@@ -98,6 +100,11 @@ export function buildCompetitorLeaderboardViewModel(
         campaignDescription: getCampaignDescription(
             context,
             rankedStandings.length
+        ),
+        campaignDateRange: formatCampaignDateRange(
+            context.campaign.startAt,
+            context.campaign.endAt,
+            context.campaign.timezone
         ),
         campaignName: context.campaign.name,
         campaignStatusLabel: getCampaignStatusLabel(context.campaign.status),
@@ -177,6 +184,16 @@ function formatCalendarDate(value: Date, timezone: string) {
         dateStyle: 'medium',
         timeZone: timezone,
     }).format(value)
+}
+
+function formatCampaignDateRange(startAt: Date, endAt: Date, timezone: string) {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        day: 'numeric',
+        month: 'long',
+        timeZone: timezone,
+    })
+
+    return `${formatter.format(startAt)} - ${formatter.format(endAt)}`
 }
 
 function formatCount(value: number) {

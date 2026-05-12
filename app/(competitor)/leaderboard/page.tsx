@@ -38,6 +38,17 @@ export default async function LeaderboardPage() {
 
     return (
         <div className='auth-page-stack'>
+            <header className='surface-card rounded-[calc(var(--radius-xl)+4px)] border border-(--line-strong) bg-card/72 px-6 py-8 shadow-[0_1.25rem_3rem_rgba(64,105,124,0.12)]'>
+                <h1 className='text-center text-2xl font-semibold tracking-[-0.02em] text-balance sm:text-3xl'>
+                    {viewModel.campaignName}
+                </h1>
+                {viewModel.campaignDateRange ? (
+                    <p className='mt-2 text-center text-xl text-muted-foreground'>
+                        {viewModel.campaignDateRange}
+                    </p>
+                ) : null}
+            </header>
+
             <Card className='surface-warm'>
                 <CardContent className='space-y-3'>
                     <div className='hidden rounded-2xl bg-muted/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground md:grid md:grid-cols-[4rem_minmax(0,1.5fr)_7.5rem] md:gap-3'>

@@ -86,6 +86,7 @@ describe('competitor leaderboard view model', () => {
         )
 
         expect(viewModel.hasQuest).toBe(true)
+        expect(viewModel.campaignDateRange).toBe('April 20 - May 20')
         expect(viewModel.campaignStatusLabel).toBe('Active leaderboard')
         expect(viewModel.highlights[0]).toMatchObject({
             label: 'Your rank',
@@ -143,6 +144,7 @@ describe('competitor leaderboard view model', () => {
         )
 
         expect(viewModel.hasQuest).toBe(true)
+        expect(viewModel.campaignDateRange).toBe('April 20 - May 20')
         expect(viewModel.campaignName).toBe('Spring Story Sprint')
         expect(viewModel.highlights[0]).toMatchObject({
             label: 'Your rank',
