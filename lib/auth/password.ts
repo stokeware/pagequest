@@ -1,12 +1,13 @@
-import { Algorithm, hash, verify } from '@node-rs/argon2'
+import { hash, verify } from '@node-rs/argon2'
+import type { Options as Argon2Options } from '@node-rs/argon2'
 
 export const passwordPolicy = {
     maxLength: 128,
     minLength: 12,
 } as const
 
-const passwordHashOptions = {
-    algorithm: Algorithm.Argon2id,
+const passwordHashOptions: Argon2Options = {
+    algorithm: 2,
     memoryCost: 19456,
     outputLen: 32,
     parallelism: 1,
