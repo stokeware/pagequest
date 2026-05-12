@@ -1,29 +1,29 @@
 import type { AppRole } from '@prisma/client'
-import type { JWT } from 'next-auth/jwt'
 
+import type { AuthSessionIdentity } from '@/lib/auth'
 import {
     dedupeRoles,
     getDefaultProtectedPath,
     resolveGrantedRoles,
 } from '@/lib/auth/access'
 
-function hasSessionIdentity(token: JWT | null) {
-    return Boolean(token?.sub || token?.email || token?.userId)
+function hasSessionIdentity(identity: AuthSessionIdentity | null) {
+    return Boolean(identity?.email || identity?.userId)
 }
 
 function getProtectedMiddlewareRedirectPath({
     callbackUrl,
     expectedRole,
-    token,
+    identity,
 }: {
     callbackUrl: string
     expectedRole: AppRole
-    token: JWT | null
+    identity: AuthSessionIdentity | null
 }) {
-    const isAuthenticated = hasSessionIdentity(token)
+    const isAuthenticated = hasSessionIdentity(identity)
     const roles = resolveGrantedRoles({
-        grantedRoles: Array.isArray(token?.roles)
-            ? dedupeRoles(token.roles as AppRole[])
+        grantedRoles: Array.isArray(identity?.roles)
+            ? dedupeRoles(identity.roles)
             : [],
         isAuthenticated,
     })
@@ -41,28 +41,28 @@ function getProtectedMiddlewareRedirectPath({
 
 export function getAdminMiddlewareRedirectPath({
     callbackUrl,
-    token,
+    identity,
 }: {
     callbackUrl: string
-    token: JWT | null
+    identity: AuthSessionIdentity | null
 }) {
     return getProtectedMiddlewareRedirectPath({
         callbackUrl,
         expectedRole: 'ADMIN',
-        token,
+        identity,
     })
 }
 
 export function getCompetitorMiddlewareRedirectPath({
     callbackUrl,
-    token,
+    identity,
 }: {
     callbackUrl: string
-    token: JWT | null
+    identity: AuthSessionIdentity | null
 }) {
     return getProtectedMiddlewareRedirectPath({
         callbackUrl,
         expectedRole: 'COMPETITOR',
-        token,
+        identity,
     })
 }

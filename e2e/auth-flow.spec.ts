@@ -1,10 +1,9 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
-const localAuthPassphrase =
-    process.env.LOCAL_AUTH_PASSPHRASE ?? 'pagequest-local'
+const localAuthPassword = process.env.LOCAL_AUTH_PASSWORD ?? 'pagequest-local'
 
-async function signInWithLocalCredentials({
+async function signInWithPassword({
     email,
     page,
     startPath,
@@ -18,19 +17,19 @@ async function signInWithLocalCredentials({
 
     await expect(page.getByLabel('Email address')).toBeEnabled()
     await page.getByLabel('Email address').fill(email)
-    await page.getByLabel('Shared passphrase').fill(localAuthPassphrase)
+    await page.getByLabel('Password').fill(localAuthPassword)
     await signInForm.getByRole('button', { name: 'Sign in' }).click()
 }
 
-test.describe('local auth flow', () => {
-    test('shows a user-friendly error when local sign-in fails', async ({
+test.describe('password auth flow', () => {
+    test('shows a user-friendly error when password sign-in fails', async ({
         page,
     }) => {
         await page.goto('/sign-in')
 
         await expect(page.getByLabel('Email address')).toBeEnabled()
         await page.getByLabel('Email address').fill('alice@pagequest.local')
-        await page.getByLabel('Shared passphrase').fill('not-the-passphrase')
+        await page.getByLabel('Password').fill('not-the-password')
         await page
             .locator('form')
             .getByRole('button', { name: 'Sign in' })
@@ -44,7 +43,7 @@ test.describe('local auth flow', () => {
             page
                 .getByRole('alert')
                 .getByText(
-                    'Sign-in failed. Use one of the seeded local emails and the shared passphrase.'
+                    'Sign-in failed. Check your email and password and try again.'
                 )
         ).toBeVisible()
     })
@@ -52,7 +51,7 @@ test.describe('local auth flow', () => {
     test('signs a competitor in from a protected route and signs out cleanly', async ({
         page,
     }) => {
-        await signInWithLocalCredentials({
+        await signInWithPassword({
             email: 'alice@pagequest.local',
             page,
             startPath: '/dashboard',
@@ -85,7 +84,7 @@ test.describe('local auth flow', () => {
     test('lets an admin reach the admin shell through the protected route callback', async ({
         page,
     }) => {
-        await signInWithLocalCredentials({
+        await signInWithPassword({
             email: 'admin@pagequest.local',
             page,
             startPath: '/admin',
@@ -101,7 +100,7 @@ test.describe('local auth flow', () => {
     test('redirects signed-in competitors away from admin routes', async ({
         page,
     }) => {
-        await signInWithLocalCredentials({
+        await signInWithPassword({
             email: 'alice@pagequest.local',
             page,
             startPath: '/sign-in',
@@ -127,7 +126,7 @@ test.describe('local auth flow', () => {
     test('lands an admin on the admin shell when signing in from the public sign-in page', async ({
         page,
     }) => {
-        await signInWithLocalCredentials({
+        await signInWithPassword({
             email: 'admin@pagequest.local',
             page,
             startPath: '/sign-in',

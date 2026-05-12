@@ -4,8 +4,7 @@ import { Prisma } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
 
-const localAuthPassphrase =
-    process.env.LOCAL_AUTH_PASSPHRASE ?? 'pagequest-local'
+const localAuthPassword = process.env.LOCAL_AUTH_PASSWORD ?? 'pagequest-local'
 
 const competitorEmail = 'ben@pagequest.local'
 
@@ -108,7 +107,7 @@ async function signInWithLocalCredentials({
 
     await expect(page.getByLabel('Email address')).toBeEnabled()
     await page.getByLabel('Email address').fill(email)
-    await page.getByLabel('Shared passphrase').fill(localAuthPassphrase)
+    await page.getByLabel('Password').fill(localAuthPassword)
     await signInForm.getByRole('button', { name: 'Sign in' }).click()
 }
 

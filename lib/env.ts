@@ -1,14 +1,11 @@
 export type EnvSource = Partial<Record<string, string | undefined>>
 
-export type AuthMode = 'auth0' | 'local'
-
 export type EmailDeliveryMode = 'smtp'
 
 export type EnvironmentTarget = 'local' | 'production'
 
 export type EnvironmentValidationResult = {
     appUrl: string
-    authMode: AuthMode
     emailMode: EmailDeliveryMode
     nextAuthUrl: string
     target: EnvironmentTarget
@@ -43,27 +40,6 @@ export function readRequiredEnv(
     }
 
     return value
-}
-
-export function readEnumEnv<TValue extends string>(
-    name: string,
-    env: EnvSource,
-    supportedValues: readonly TValue[],
-    fallback: TValue
-): TValue {
-    const value = readOptionalEnv(name, env)
-
-    if (!value) {
-        return fallback
-    }
-
-    if (supportedValues.includes(value as TValue)) {
-        return value as TValue
-    }
-
-    throw new Error(
-        `Environment variable ${name} must be one of: ${supportedValues.join(', ')}`
-    )
 }
 
 export function readBooleanEnv(
@@ -130,17 +106,6 @@ function parseAbsoluteUrl(name: string, value: string): URL {
 
 function normalizeUrl(value: string): string {
     return value.endsWith('/') ? value.slice(0, -1) : value
-}
-
-function validateRequiredHttpsUrl(name: string, env: EnvSource): string {
-    const value = readRequiredEnv(name, env)
-    const parsedValue = parseAbsoluteUrl(name, value)
-
-    if (parsedValue.protocol !== 'https:') {
-        throw new Error(`Environment variable ${name} must use https.`)
-    }
-
-    return value
 }
 
 export function getAppUrl(env: EnvSource = process.env): string {
@@ -236,19 +201,6 @@ export function validateEnvironment({
         errors.push('Missing required environment variable: NEXTAUTH_SECRET')
     }
 
-    let authMode: AuthMode = 'local'
-
-    try {
-        authMode = readEnumEnv(
-            'PAGEQUEST_AUTH_MODE',
-            env,
-            ['auth0', 'local'],
-            'local'
-        )
-    } catch (error) {
-        collectError(errors, error)
-    }
-
     let emailMode: EmailDeliveryMode = 'smtp'
 
     try {
@@ -272,17 +224,6 @@ export function validateEnvironment({
         readRequiredEnv('EMAIL_FROM', env)
     } catch (error) {
         collectError(errors, error)
-    }
-
-    if (authMode === 'auth0') {
-        collectRequiredEnvError(errors, 'AUTH0_CLIENT_ID', env)
-        collectRequiredEnvError(errors, 'AUTH0_CLIENT_SECRET', env)
-
-        try {
-            validateRequiredHttpsUrl('AUTH0_ISSUER', env)
-        } catch (error) {
-            collectError(errors, error)
-        }
     }
 
     if (emailMode === 'smtp') {
@@ -309,12 +250,6 @@ export function validateEnvironment({
 
         if (!configuredNextAuthUrl) {
             errors.push('Missing required environment variable: NEXTAUTH_URL')
-        }
-
-        if (authMode !== 'auth0') {
-            errors.push(
-                'PAGEQUEST_AUTH_MODE must be set to "auth0" for production.'
-            )
         }
 
         if (emailMode !== 'smtp') {
@@ -378,7 +313,6 @@ export function validateEnvironment({
 
     return {
         appUrl,
-        authMode,
         emailMode,
         nextAuthUrl,
         target,

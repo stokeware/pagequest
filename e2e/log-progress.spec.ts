@@ -3,8 +3,7 @@ import { expect, test } from '@playwright/test'
 
 import { prisma } from '../lib/prisma'
 
-const localAuthPassphrase =
-    process.env.LOCAL_AUTH_PASSPHRASE ?? 'pagequest-local'
+const localAuthPassword = process.env.LOCAL_AUTH_PASSWORD ?? 'pagequest-local'
 
 const competitorEmail = 'alice@pagequest.local'
 
@@ -256,7 +255,7 @@ async function signInToLogProgress(page: Page) {
 
     await expect(page.getByLabel('Email address')).toBeEnabled()
     await page.getByLabel('Email address').fill(competitorEmail)
-    await page.getByLabel('Shared passphrase').fill(localAuthPassphrase)
+    await page.getByLabel('Password').fill(localAuthPassword)
     await signInForm.getByRole('button', { name: 'Sign in' }).click()
 
     await expect(page).toHaveURL(/\/log-progress$/)

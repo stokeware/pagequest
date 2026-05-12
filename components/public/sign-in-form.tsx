@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getSession, signIn } from 'next-auth/react'
 import { useState, useSyncExternalStore, useTransition } from 'react'
 
 import {
@@ -12,19 +11,20 @@ import {
     FormField,
     Input,
 } from '@/components/ui'
-import {
-    getHostedAuthRequest,
-    getHostedAuthSignInOptions,
-    type HostedAuthFlow,
-} from '@/lib/auth/hosted-sign-in'
-import { getSignedInLandingPath } from '@/lib/auth/access'
-import type { AuthMode } from '@/lib/auth/config'
+import { signInWithPasswordAction } from '@/app/(public)/sign-in/actions'
 
 type SignInFormProps = {
-    authMode: AuthMode
     localDemoEmails: readonly string[]
-    localPassphraseHint: string | null
-    providerLabel: string
+}
+
+type PasswordSignInCardProps = {
+    defaultEmail: string
+    errorMessage: string | null
+    invitationWasCreated: boolean
+    isHydrated: boolean
+    isPending: boolean
+    localDemoEmails: readonly string[]
+    onSubmit: React.FormEventHandler<HTMLFormElement>
 }
 
 function subscribeToHydration() {
@@ -39,143 +39,30 @@ function getServerHydrationSnapshot() {
     return false
 }
 
-export function SignInForm({
-    authMode,
+export function PasswordSignInCard({
+    defaultEmail,
+    errorMessage,
+    invitationWasCreated,
+    isHydrated,
+    isPending,
     localDemoEmails,
-    localPassphraseHint,
-    providerLabel,
-}: SignInFormProps) {
-    const router = useRouter()
-    const searchParams = useSearchParams()
-    const [errorMessage, setErrorMessage] = useState<string | null>(null)
-    const [isPending, startTransition] = useTransition()
-    const isHydrated = useSyncExternalStore(
-        subscribeToHydration,
-        getClientHydrationSnapshot,
-        getServerHydrationSnapshot
-    )
-    const hostedAuthRequest = getHostedAuthRequest(searchParams)
-    const callbackUrl = hostedAuthRequest.callbackUrl
-    const isHostedSignup = hostedAuthRequest.flow === 'signup'
-
-    async function handleLocalSubmit(formData: FormData) {
-        const email = String(formData.get('email') ?? '').trim()
-        const password = String(formData.get('password') ?? '').trim()
-
-        const result = await signIn('credentials', {
-            callbackUrl,
-            email,
-            password,
-            redirect: false,
-        })
-
-        if (!result || result.error) {
-            setErrorMessage(
-                'Sign-in failed. Use one of the seeded local emails and the shared passphrase.'
-            )
-
-            return
-        }
-
-        const session = await getSession()
-        const redirectPath = getSignedInLandingPath({
-            callbackUrl: result.url ?? callbackUrl,
-            grantedRoles: Array.isArray(session?.user?.roles)
-                ? session.user.roles
-                : [],
-            isAuthenticated: Boolean(session?.user),
-        })
-
-        router.push(redirectPath ?? callbackUrl)
-        router.refresh()
-    }
-
-    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault()
-        setErrorMessage(null)
-
-        const formData = new FormData(event.currentTarget)
-
-        startTransition(async () => {
-            await handleLocalSubmit(formData)
-        })
-    }
-
-    function handleHostedSignIn(flow: HostedAuthFlow = hostedAuthRequest.flow) {
-        setErrorMessage(null)
-
-        startTransition(async () => {
-            await signIn(
-                authMode,
-                getHostedAuthSignInOptions({
-                    callbackUrl,
-                    flow,
-                    loginHint: hostedAuthRequest.loginHint,
-                })
-            )
-        })
-    }
-
-    if (authMode !== 'local') {
-        return (
-            <FormCard
-                title={isHostedSignup ? 'Welcome to Page Quest' : 'Sign in'}
-                description={
-                    isHostedSignup
-                        ? 'Create your account to accept the invitation. Auth0 will ask you to choose a password and then return you to Page Quest.'
-                        : 'Use the hosted Auth0 identity flow configured for this environment.'
-                }
-            >
-                {hostedAuthRequest.loginHint ? (
-                    <FormField
-                        label='Email address'
-                        htmlFor='hosted-auth-email'
-                        hint='This email is prefilled so the hosted flow returns to the correct invitation.'
-                    >
-                        <Input
-                            id='hosted-auth-email'
-                            value={hostedAuthRequest.loginHint}
-                            readOnly
-                        />
-                    </FormField>
-                ) : null}
-
-                <FormActions
-                    note={
-                        isHostedSignup
-                            ? 'If this email is new, choose a password in Auth0. If the account already exists, you can switch to sign-in on the next screen.'
-                            : 'The local credentials form stays disabled whenever the app runs in hosted auth mode, so preview deploys may still require a stable Auth0 callback URL for full sign-in validation.'
-                    }
-                >
-                    <Button
-                        onClick={() => handleHostedSignIn()}
-                        disabled={isPending}
-                    >
-                        {isHostedSignup
-                            ? 'Create account'
-                            : `Continue with ${providerLabel}`}
-                    </Button>
-
-                    {isHostedSignup ? (
-                        <Button
-                            variant='outline'
-                            onClick={() => handleHostedSignIn('login')}
-                            disabled={isPending}
-                        >
-                            I already have an account
-                        </Button>
-                    ) : null}
-                </FormActions>
-            </FormCard>
-        )
-    }
+    onSubmit,
+}: PasswordSignInCardProps) {
+    const showLocalDevNote = localDemoEmails.length > 0
 
     return (
         <FormCard
             title='Sign in'
-            description='Use one of the seeded local readers or an invited account before continuing into a private campaign.'
+            description='Enter your Page Quest email and password to continue.'
         >
-            <form onSubmit={handleSubmit} method='post' className='space-y-4'>
+            <form onSubmit={onSubmit} method='post' className='space-y-4'>
+                {invitationWasCreated ? (
+                    <div className='rounded-lg border border-emerald-600/30 bg-emerald-50 px-4 py-3 text-sm text-emerald-900'>
+                        Your account is ready. Sign in with the invited email to
+                        open your dashboard.
+                    </div>
+                ) : null}
+
                 <FormField label='Email address' htmlFor='email'>
                     <Input
                         id='email'
@@ -184,27 +71,30 @@ export function SignInForm({
                         inputMode='email'
                         placeholder='reader@example.com'
                         autoComplete='email'
+                        defaultValue={defaultEmail}
                         disabled={!isHydrated || isPending}
                         required
                     />
                 </FormField>
 
-                <FormField label='Shared passphrase' htmlFor='password'>
+                <FormField label='Password' htmlFor='password'>
                     <Input
                         id='password'
                         name='password'
                         type='password'
-                        placeholder='Enter the local shared passphrase'
+                        placeholder='Enter your password'
                         autoComplete='current-password'
                         disabled={!isHydrated || isPending}
                         required
                     />
                 </FormField>
 
-                <div className='rounded-lg border border-border/70 bg-muted/40 p-3 text-sm text-muted-foreground'>
-                    <p>Local demo emails: {localDemoEmails.join(', ')}</p>
-                    <p>Shared passphrase: {localPassphraseHint}</p>
-                </div>
+                {showLocalDevNote ? (
+                    <p className='text-sm text-muted-foreground'>
+                        Local development uses seeded accounts with the password
+                        pagequest-local.
+                    </p>
+                ) : null}
 
                 {errorMessage ? (
                     <ErrorState
@@ -225,5 +115,51 @@ export function SignInForm({
                 </FormActions>
             </form>
         </FormCard>
+    )
+}
+
+export function SignInForm({ localDemoEmails }: SignInFormProps) {
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
+    const [isPending, startTransition] = useTransition()
+    const isHydrated = useSyncExternalStore(
+        subscribeToHydration,
+        getClientHydrationSnapshot,
+        getServerHydrationSnapshot
+    )
+    const callbackUrl = searchParams.get('callbackUrl')?.trim() || ''
+    const defaultEmail = searchParams.get('email')?.trim() || ''
+    const invitationWasCreated = searchParams.get('invitation') === 'created'
+
+    function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        setErrorMessage(null)
+
+        const formData = new FormData(event.currentTarget)
+        formData.set('callbackUrl', callbackUrl)
+
+        startTransition(async () => {
+            const result = await signInWithPasswordAction(formData)
+
+            if (result?.error) {
+                setErrorMessage(result.error)
+                return
+            }
+
+            router.refresh()
+        })
+    }
+
+    return (
+        <PasswordSignInCard
+            defaultEmail={defaultEmail}
+            errorMessage={errorMessage}
+            invitationWasCreated={invitationWasCreated}
+            isHydrated={isHydrated}
+            isPending={isPending}
+            localDemoEmails={localDemoEmails}
+            onSubmit={handleSubmit}
+        />
     )
 }

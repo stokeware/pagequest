@@ -1,24 +1,18 @@
-import type { AppRole } from '@prisma/client'
-import type { NextAuthOptions, Profile } from 'next-auth'
-import Auth0Provider from 'next-auth/providers/auth0'
-import CredentialsProvider from 'next-auth/providers/credentials'
+import { randomUUID } from 'node:crypto'
 
-import {
-    getAuth0Config,
-    getAuthMode,
-    getLocalAuthPassphrase,
-} from '@/lib/auth/config'
+import { PrismaAdapter } from '@auth/prisma-adapter'
+import type { AppRole } from '@prisma/client'
+import type { NextAuthOptions } from 'next-auth'
+
 import { resolveGrantedRoles } from '@/lib/auth/access'
+import { verifyPassword } from '@/lib/auth/password'
+import { getAppUrl } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
 
-type HostedIdentityProfile = Profile & {
-    email?: string
-    emails?: string[]
-    name?: string
-    picture?: string
-    preferred_username?: string
-    sub?: string
-}
+export const authSessionSettings = {
+    maxAge: 14 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
+} as const
 
 type PersistedUser = {
     email: string
@@ -36,6 +30,16 @@ type PersistedUserRecord = {
     roleAssignments: Array<{
         role: AppRole
     }>
+}
+
+type CredentialUserRecord = PersistedUserRecord & {
+    passwordHash: string | null
+}
+
+export type AuthSessionIdentity = {
+    email: string
+    roles: AppRole[]
+    userId: string
 }
 
 function normalizeEmail(email: string | null | undefined) {
@@ -69,8 +73,27 @@ async function toPersistedUser(
     }
 }
 
-async function loadUserByEmail(email: string): Promise<PersistedUser | null> {
+async function loadUserById(userId: string): Promise<PersistedUser | null> {
     const user = await prisma.user.findUnique({
+        include: {
+            roleAssignments: {
+                select: {
+                    role: true,
+                },
+            },
+        },
+        where: {
+            id: userId,
+        },
+    })
+
+    return user ? await toPersistedUser(user) : null
+}
+
+async function loadCredentialUserByEmail(
+    email: string
+): Promise<CredentialUserRecord | null> {
+    return prisma.user.findUnique({
         include: {
             roleAssignments: {
                 select: {
@@ -82,8 +105,6 @@ async function loadUserByEmail(email: string): Promise<PersistedUser | null> {
             email,
         },
     })
-
-    return user ? await toPersistedUser(user) : null
 }
 
 async function touchUserLastSignedInAt(userId: string) {
@@ -97,210 +118,151 @@ async function touchUserLastSignedInAt(userId: string) {
     })
 }
 
-function getProfileEmail(profile: HostedIdentityProfile) {
-    const candidateEmail = normalizeEmail(profile.email)
-
-    if (candidateEmail) {
-        return candidateEmail
-    }
-
-    if (typeof profile.preferred_username === 'string') {
-        return normalizeEmail(profile.preferred_username)
-    }
-
-    if (Array.isArray(profile.emails)) {
-        const firstEmail = profile.emails.find(
-            (value) => typeof value === 'string' && value.trim().length > 0
-        )
-
-        return normalizeEmail(firstEmail)
-    }
-
-    return null
-}
-
-async function syncExternalIdentityUser({
+export async function authenticatePasswordUser({
     email,
-    image,
-    name,
+    password,
 }: {
     email: string
-    image: string | null
-    name: string | null
-}): Promise<PersistedUser> {
-    const user = await prisma.user.upsert({
-        create: {
-            email,
-            image,
-            lastSignedInAt: new Date(),
-            name,
-        },
-        include: {
-            roleAssignments: {
-                select: {
-                    role: true,
-                },
-            },
-        },
-        update: {
-            image,
-            lastSignedInAt: new Date(),
-            name,
-        },
-        where: {
-            email,
-        },
+    password: string
+}): Promise<PersistedUser | null> {
+    const normalizedEmail = normalizeEmail(email)
+
+    if (!normalizedEmail || !password.trim()) {
+        return null
+    }
+
+    const user = await loadCredentialUserByEmail(normalizedEmail)
+
+    if (!user) {
+        return null
+    }
+
+    const passwordIsValid = await verifyPassword({
+        password,
+        passwordHash: user.passwordHash,
     })
+
+    if (!passwordIsValid) {
+        return null
+    }
+
+    await touchUserLastSignedInAt(user.id)
 
     return toPersistedUser(user)
 }
 
-function createLocalCredentialsProvider() {
-    return CredentialsProvider({
-        authorize: async (credentials) => {
-            const email = normalizeEmail(credentials?.email)
-            const password = credentials?.password?.trim()
-
-            if (!email || !password) {
-                return null
-            }
-
-            if (password !== getLocalAuthPassphrase()) {
-                return null
-            }
-
-            const user = await loadUserByEmail(email)
-
-            if (!user) {
-                return null
-            }
-
-            await touchUserLastSignedInAt(user.id)
-
-            return user
-        },
-        credentials: {
-            email: {
-                label: 'Email address',
-                type: 'email',
-            },
-            password: {
-                label: 'Shared passphrase',
-                type: 'password',
-            },
-        },
-        id: 'credentials',
-        name: 'Local development sign-in',
-    })
+function getSessionExpiry(now = new Date()) {
+    return new Date(now.getTime() + authSessionSettings.maxAge * 1000)
 }
 
-function createAuth0Provider() {
-    const config = getAuth0Config()
+function getSessionCookieName() {
+    const appUrl = getAppUrl()
 
-    return Auth0Provider({
-        authorization: {
-            params: {
-                ...(config.audience ? { audience: config.audience } : {}),
-                scope: config.scope,
-            },
-        },
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        issuer: config.issuer,
-        profile(profile) {
-            const email = getProfileEmail(profile as HostedIdentityProfile)
-
-            if (!email) {
-                throw new Error('Auth0 did not return an email address.')
-            }
-
-            return {
-                email,
-                id: profile.sub ?? email,
-                image: profile.picture ?? null,
-                name: profile.name ?? email,
-                roles: [],
-            }
-        },
-    })
+    return appUrl.startsWith('https://')
+        ? '__Secure-next-auth.session-token'
+        : 'next-auth.session-token'
 }
 
-function getAuthProviders() {
-    const mode = getAuthMode()
+export function getAuthSessionCookie() {
+    return {
+        maxAge: authSessionSettings.maxAge,
+        name: getSessionCookieName(),
+        options: {
+            httpOnly: true,
+            path: '/',
+            sameSite: 'lax' as const,
+            secure: getSessionCookieName().startsWith('__Secure-'),
+        },
+    }
+}
 
-    if (mode === 'auth0') {
-        return [createAuth0Provider()]
+export async function createAuthSession(userId: string) {
+    const session = await prisma.session.create({
+        data: {
+            expires: getSessionExpiry(),
+            sessionToken: randomUUID(),
+            userId,
+        },
+    })
+
+    return session
+}
+
+export async function deleteAuthSession(sessionToken: string) {
+    try {
+        await prisma.session.delete({
+            where: {
+                sessionToken,
+            },
+        })
+    } catch {
+        return
+    }
+}
+
+export async function loadSessionIdentity(
+    sessionToken: string | null | undefined
+): Promise<AuthSessionIdentity | null> {
+    const normalizedSessionToken = sessionToken?.trim()
+
+    if (!normalizedSessionToken) {
+        return null
     }
 
-    return [createLocalCredentialsProvider()]
+    const session = await prisma.session.findUnique({
+        include: {
+            user: {
+                include: {
+                    roleAssignments: {
+                        select: {
+                            role: true,
+                        },
+                    },
+                },
+            },
+        },
+        where: {
+            sessionToken: normalizedSessionToken,
+        },
+    })
+
+    if (!session || session.expires <= new Date()) {
+        return null
+    }
+
+    const persistedUser = await toPersistedUser(session.user)
+
+    return {
+        email: persistedUser.email,
+        roles: persistedUser.roles,
+        userId: persistedUser.id,
+    }
 }
 
 export const authOptions: NextAuthOptions = {
+    adapter: PrismaAdapter(prisma),
     callbacks: {
-        async jwt({ token, user }) {
-            if (user) {
-                token.roles = user.roles
-                token.userId = user.id
-            }
+        async session({ session, user }) {
+            const persistedUser = await loadUserById(user.id)
 
-            if (typeof token.email === 'string') {
-                const persistedUser = await loadUserByEmail(token.email)
-
-                if (persistedUser) {
-                    token.roles = persistedUser.roles
-                    token.userId = persistedUser.id
-                } else {
-                    token.roles = []
-                    delete token.userId
-                }
-            }
-
-            return token
-        },
-        async session({ session, token }) {
             if (session.user) {
-                session.user.id =
-                    typeof token.userId === 'string' ? token.userId : ''
-                session.user.roles = Array.isArray(token.roles)
-                    ? token.roles
-                    : []
+                session.user.email = persistedUser?.email ?? user.email ?? null
+                session.user.id = persistedUser?.id ?? user.id
+                session.user.image = persistedUser?.image ?? user.image ?? null
+                session.user.name = persistedUser?.name ?? user.name ?? null
+                session.user.roles = persistedUser?.roles ?? []
             }
 
             return session
-        },
-        async signIn({ account, profile, user }) {
-            if (account?.provider === 'credentials') {
-                return true
-            }
-
-            const hostedProfile = profile as HostedIdentityProfile
-            const email =
-                normalizeEmail(user.email) || getProfileEmail(hostedProfile)
-
-            if (!email) {
-                return false
-            }
-
-            const persistedUser = await syncExternalIdentityUser({
-                email,
-                image: user.image ?? hostedProfile.picture ?? null,
-                name: user.name ?? hostedProfile.name ?? email,
-            })
-
-            user.email = persistedUser.email
-            user.id = persistedUser.id
-            user.image = persistedUser.image
-            user.name = persistedUser.name
-            user.roles = persistedUser.roles
-
-            return true
         },
     },
     pages: {
         signIn: '/sign-in',
     },
-    providers: getAuthProviders(),
+    providers: [],
     session: {
-        strategy: 'jwt',
+        maxAge: authSessionSettings.maxAge,
+        strategy: 'database',
+        updateAge: authSessionSettings.updateAge,
     },
 }

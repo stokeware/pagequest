@@ -1,4 +1,6 @@
-type InvitationAcceptanceTransaction = {
+import { normalizeInvitationEmail } from '@/lib/invitation-admin'
+
+type InvitationMutationTransaction = {
     auditLog: {
         create: (args: {
             data: {
@@ -17,6 +19,24 @@ type InvitationAcceptanceTransaction = {
             }
         }) => Promise<unknown>
     }
+    roleAssignment: {
+        findUnique: (args: {
+            where: {
+                userId_role: {
+                    role: 'COMPETITOR'
+                    userId: string
+                }
+            }
+        }) => Promise<{
+            id: string
+        } | null>
+        create: (args: {
+            data: {
+                role: 'COMPETITOR'
+                userId: string
+            }
+        }) => Promise<unknown>
+    }
     invitation: {
         update: (args: {
             data: {
@@ -29,6 +49,34 @@ type InvitationAcceptanceTransaction = {
                 id: string
             }
         }) => Promise<unknown>
+    }
+    user: {
+        create: (args: {
+            data: {
+                authMethod: 'PASSWORD'
+                email: string
+                lastPasswordChangeAt: Date
+                name: string
+                passwordHash: string
+                passwordSetAt: Date
+            }
+        }) => Promise<{
+            id: string
+        }>
+        update: (args: {
+            data: {
+                authMethod: 'PASSWORD'
+                lastPasswordChangeAt: Date
+                name: string
+                passwordHash: string
+                passwordSetAt: Date
+            }
+            where: {
+                id: string
+            }
+        }) => Promise<{
+            id: string
+        }>
     }
     campaignParticipant: {
         create: (args: {
@@ -88,8 +136,46 @@ export type InvitationAcceptanceWriteInput = {
     userId: string
 }
 
+export type InvitationAccountProvisionInput = {
+    existingUserId?: string | null
+    invitation: {
+        email: string
+        id: string
+        campaign?: {
+            id: string
+            name: string
+        } | null
+    }
+    name: string
+    now: Date
+    passwordHash: string
+}
+
+async function ensureCompetitorRole(
+    transaction: InvitationMutationTransaction,
+    userId: string
+) {
+    const roleAssignment = await transaction.roleAssignment.findUnique({
+        where: {
+            userId_role: {
+                role: 'COMPETITOR',
+                userId,
+            },
+        },
+    })
+
+    if (!roleAssignment) {
+        await transaction.roleAssignment.create({
+            data: {
+                role: 'COMPETITOR',
+                userId,
+            },
+        })
+    }
+}
+
 export async function recordInvitationAcceptance(
-    transaction: InvitationAcceptanceTransaction,
+    transaction: InvitationMutationTransaction,
     { invitation, now, userId }: InvitationAcceptanceWriteInput
 ) {
     const campaign = invitation.campaign
@@ -167,5 +253,53 @@ export async function recordInvitationAcceptance(
 
     return {
         participantId: participant?.id ?? null,
+    }
+}
+
+export async function provisionInvitationAccount(
+    transaction: InvitationMutationTransaction,
+    {
+        existingUserId,
+        invitation,
+        name,
+        now,
+        passwordHash,
+    }: InvitationAccountProvisionInput
+) {
+    const user = existingUserId
+        ? await transaction.user.update({
+              data: {
+                  authMethod: 'PASSWORD',
+                  lastPasswordChangeAt: now,
+                  name,
+                  passwordHash,
+                  passwordSetAt: now,
+              },
+              where: {
+                  id: existingUserId,
+              },
+          })
+        : await transaction.user.create({
+              data: {
+                  authMethod: 'PASSWORD',
+                  email: normalizeInvitationEmail(invitation.email),
+                  lastPasswordChangeAt: now,
+                  name,
+                  passwordHash,
+                  passwordSetAt: now,
+              },
+          })
+
+    await ensureCompetitorRole(transaction, user.id)
+
+    const acceptance = await recordInvitationAcceptance(transaction, {
+        invitation,
+        now,
+        userId: user.id,
+    })
+
+    return {
+        ...acceptance,
+        userId: user.id,
     }
 }

@@ -45,6 +45,24 @@ describe('deriveInvitationAcceptanceProfile', () => {
         expect(profile.summary).toContain('other@example.com')
     })
 
+    it('blocks expired invitations before account setup can continue', () => {
+        const profile = deriveInvitationAcceptanceProfile({
+            invitation: {
+                ...baseInvitation,
+                expiresAt: new Date('2026-05-01T12:00:00.000Z'),
+            },
+            now,
+            viewer: {
+                userEmail: null,
+                userId: null,
+            },
+        })
+
+        expect(profile.state).toBe('expired')
+        expect(profile.canAccept).toBe(false)
+        expect(profile.summary).toContain('expired')
+    })
+
     it('allows acceptance when the invited account is signed in', () => {
         const profile = deriveInvitationAcceptanceProfile({
             invitation: baseInvitation,

@@ -2,8 +2,7 @@ import type { Locator, Page } from '@playwright/test'
 import { devices, expect, test } from '@playwright/test'
 
 const iPhone13 = devices['iPhone 13']
-const localAuthPassphrase =
-    process.env.LOCAL_AUTH_PASSPHRASE ?? 'pagequest-local'
+const localAuthPassword = process.env.LOCAL_AUTH_PASSWORD ?? 'pagequest-local'
 
 async function signInWithLocalCredentials({
     email,
@@ -19,7 +18,7 @@ async function signInWithLocalCredentials({
 
     await expect(page.getByLabel('Email address')).toBeEnabled()
     await page.getByLabel('Email address').fill(email)
-    await page.getByLabel('Shared passphrase').fill(localAuthPassphrase)
+    await page.getByLabel('Password').fill(localAuthPassword)
     await signInForm.getByRole('button', { name: 'Sign in' }).click()
 }
 

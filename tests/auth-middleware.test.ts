@@ -1,4 +1,3 @@
-import type { JWT } from 'next-auth/jwt'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,18 +5,19 @@ import {
     getCompetitorMiddlewareRedirectPath,
 } from '@/lib/auth/middleware'
 
-function buildToken(
-    overrides: Partial<JWT> & {
+function buildIdentity(
+    overrides: Partial<{
+        email: string
         roles?: Array<'ADMIN' | 'COMPETITOR'>
-    } = {}
-): JWT {
+        userId: string
+    }> = {}
+) {
     return {
         email: 'reader@example.com',
         roles: [],
-        sub: 'user-1',
         userId: 'user-1',
         ...overrides,
-    }
+    } as const
 }
 
 describe('getAdminMiddlewareRedirectPath', () => {
@@ -25,7 +25,7 @@ describe('getAdminMiddlewareRedirectPath', () => {
         expect(
             getAdminMiddlewareRedirectPath({
                 callbackUrl: '/admin/reports?view=weekly',
-                token: null,
+                identity: null,
             })
         ).toBe('/sign-in?callbackUrl=%2Fadmin%2Freports%3Fview%3Dweekly')
     })
@@ -34,7 +34,7 @@ describe('getAdminMiddlewareRedirectPath', () => {
         expect(
             getAdminMiddlewareRedirectPath({
                 callbackUrl: '/admin',
-                token: buildToken({
+                identity: buildIdentity({
                     roles: ['COMPETITOR'],
                 }),
             })
@@ -45,7 +45,7 @@ describe('getAdminMiddlewareRedirectPath', () => {
         expect(
             getAdminMiddlewareRedirectPath({
                 callbackUrl: '/admin',
-                token: buildToken({
+                identity: buildIdentity({
                     roles: ['ADMIN'],
                 }),
             })
@@ -58,7 +58,7 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
                 callbackUrl: '/log-progress?tab=audio',
-                token: null,
+                identity: null,
             })
         ).toBe('/sign-in?callbackUrl=%2Flog-progress%3Ftab%3Daudio')
     })
@@ -67,7 +67,7 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
                 callbackUrl: '/log-progress',
-                token: buildToken({
+                identity: buildIdentity({
                     roles: ['ADMIN'],
                 }),
             })
@@ -78,7 +78,7 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
                 callbackUrl: '/log-progress',
-                token: buildToken({
+                identity: buildIdentity({
                     roles: [],
                 }),
             })
@@ -89,7 +89,7 @@ describe('getCompetitorMiddlewareRedirectPath', () => {
         expect(
             getCompetitorMiddlewareRedirectPath({
                 callbackUrl: '/log-progress',
-                token: buildToken({
+                identity: buildIdentity({
                     roles: ['COMPETITOR'],
                 }),
             })

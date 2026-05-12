@@ -27,6 +27,7 @@ export type InvitationAcceptanceViewer = {
 
 export type InvitationAcceptanceState =
     | 'accepted'
+    | 'expired'
     | 'invalid'
     | 'ready'
     | 'revoked'
@@ -80,6 +81,19 @@ export function deriveInvitationAcceptanceProfile({
             state: 'invalid',
             summary:
                 'This invitation is no longer available for onboarding. Ask an administrator for an updated invite if the campaign is still open.',
+        }
+    }
+
+    if (invitation.status === 'EXPIRED' || invitation.expiresAt <= now) {
+        return {
+            canAccept: false,
+            expectedEmail: invitation.email,
+            campaignName: invitation.campaign?.name ?? null,
+            state: 'expired',
+            summary: `${describeInvitationScope(
+                invitation.campaign?.name ?? null,
+                'This invitation has expired'
+            )}. Ask an administrator to send a fresh invite before continuing.`,
         }
     }
 

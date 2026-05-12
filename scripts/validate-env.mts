@@ -54,7 +54,7 @@ async function main() {
     })
 
     console.log(
-        `Environment validation passed for ${result.target} mode (${result.authMode} auth, ${result.emailMode} email).`
+        `Environment validation passed for ${result.target} mode (${result.emailMode} email).`
     )
 }
 
