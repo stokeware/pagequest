@@ -3,7 +3,7 @@ import type { Options as Argon2Options } from '@node-rs/argon2'
 
 export const passwordPolicy = {
     maxLength: 128,
-    minLength: 12,
+    minLength: 6,
 } as const
 
 const passwordHashOptions: Argon2Options = {
