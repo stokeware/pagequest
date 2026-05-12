@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next'
 import { redirect } from 'next/navigation'
 
 import { HomeCountdown } from '@/components/public/home-countdown'
+import { SkipLink } from '@/components/ui'
 import { authOptions } from '@/lib/auth'
 import { getSignedInLandingPath } from '@/lib/auth/access'
 import { getHomePageCountdownTarget } from '@/lib/home-page'
@@ -18,12 +19,15 @@ const backgroundImageUrl =
 
 export default async function HomePage() {
     const session = await getServerSession(authOptions)
-    const redirectPath = getSignedInLandingPath({
-        grantedRoles: Array.isArray(session?.user?.roles)
-            ? session.user.roles
-            : [],
-        isAuthenticated: Boolean(session?.user),
-    })
+    const isAuthenticated = Boolean(session?.user)
+    const redirectPath = isAuthenticated
+        ? getSignedInLandingPath({
+              grantedRoles: Array.isArray(session?.user?.roles)
+                  ? session.user.roles
+                  : [],
+              isAuthenticated,
+          })
+        : null
 
     if (redirectPath) {
         redirect(redirectPath)
@@ -33,63 +37,71 @@ export default async function HomePage() {
     const renderedAt = new Date()
 
     return (
-        <main className='relative isolate flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-8 lg:px-12'>
-            <div
-                aria-hidden='true'
-                className='absolute inset-0 bg-cover bg-center bg-no-repeat'
-                style={{ backgroundImage: `url(${backgroundImageUrl})` }}
-            />
-            <div
-                aria-hidden='true'
-                className='absolute inset-0 bg-[linear-gradient(180deg,rgba(12,10,8,0.52)_0%,rgba(37,22,12,0.34)_40%,rgba(12,10,8,0.68)_100%)]'
-            />
-            <div
-                aria-hidden='true'
-                className='absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(223,198,140,0.26),transparent_34%),radial-gradient(circle_at_bottom,rgba(202,89,47,0.24),transparent_34%)]'
-            />
-
-            <div className='relative flex h-screen w-full items-center justify-center overflow-hidden p-8'>
+        <>
+            <SkipLink targetId='main-content'>Skip to main content</SkipLink>
+            <main
+                id='main-content'
+                tabIndex={-1}
+                className='relative isolate flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-8 lg:px-12'
+            >
                 <div
-                    className='relative h-[620px] w-full max-w-[900px] p-[3rem_3.5rem] text-center outline outline-1 outline-offset-[6px] outline-[#d4aa50] max-[520px]:p-[2rem_1.5rem]'
-                    style={{
-                        backgroundColor: '#f5e9c4',
-                        backgroundImage:
-                            'radial-gradient(ellipse at 18% 25%, rgba(180, 130, 55, 0.18) 0%, transparent 55%), radial-gradient(ellipse at 82% 75%, rgba(120, 75, 15, 0.12) 0%, transparent 50%), linear-gradient(160deg, rgba(255, 248, 225, 0.5) 0%, transparent 45%, rgba(195, 155, 70, 0.18) 100%)',
-                        border: '2px solid #b8902a',
-                        boxShadow:
-                            '0 10px 50px rgba(0, 0, 0, 0.55), inset 0 0 40px rgba(175, 125, 35, 0.18)',
-                        fontFamily:
-                            "var(--font-fell), 'Palatino Linotype', Georgia, serif",
-                    }}
-                >
-                    <p className='mb-6 text-[1.45rem] italic leading-[1.65] text-[#5a3010]'>
-                        {proclamation[0]}
-                    </p>
-                    <p className='mb-5 text-[1.2rem] leading-[1.8] text-[#3a2008] indent-[2em]'>
-                        {proclamation[1]}
-                    </p>
-                    <p className='mb-5 text-[1.2rem] leading-[1.8] text-[#3a2008] indent-[2em]'>
-                        {proclamation[2]}
-                    </p>
-                    <p className='mb-5 mt-8 text-[1.45rem] italic tracking-[0.04em] text-[#7a3818]'>
-                        The quest begins in
-                    </p>
-                    <HomeCountdown
-                        initialNowIso={renderedAt.toISOString()}
-                        targetIso={countdownTarget.toISOString()}
-                    />
-                    <Link
-                        href='/sign-in'
-                        className='mt-8 inline-block border-b border-[#b8902a] pb-[2px] text-[1.15rem] tracking-[0.08em] text-[#7a2a08] transition-[color,border-color] duration-200 hover:border-[#ca592f] hover:text-[#ca592f]'
+                    aria-hidden='true'
+                    className='absolute inset-0 bg-cover bg-center bg-no-repeat'
+                    style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+                />
+                <div
+                    aria-hidden='true'
+                    className='absolute inset-0 bg-[linear-gradient(180deg,rgba(12,10,8,0.52)_0%,rgba(37,22,12,0.34)_40%,rgba(12,10,8,0.68)_100%)]'
+                />
+                <div
+                    aria-hidden='true'
+                    className='absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(223,198,140,0.26),transparent_34%),radial-gradient(circle_at_bottom,rgba(202,89,47,0.24),transparent_34%)]'
+                />
+
+                <div className='relative flex h-screen w-full items-center justify-center overflow-hidden p-8'>
+                    <div
+                        className='relative h-[620px] w-full max-w-[900px] p-[3rem_3.5rem] text-center outline outline-1 outline-offset-[6px] outline-[#d4aa50] max-[520px]:p-[2rem_1.5rem]'
                         style={{
+                            backgroundColor: '#f5e9c4',
+                            backgroundImage:
+                                'radial-gradient(ellipse at 18% 25%, rgba(180, 130, 55, 0.18) 0%, transparent 55%), radial-gradient(ellipse at 82% 75%, rgba(120, 75, 15, 0.12) 0%, transparent 50%), linear-gradient(160deg, rgba(255, 248, 225, 0.5) 0%, transparent 45%, rgba(195, 155, 70, 0.18) 100%)',
+                            border: '2px solid #b8902a',
+                            boxShadow:
+                                '0 10px 50px rgba(0, 0, 0, 0.55), inset 0 0 40px rgba(175, 125, 35, 0.18)',
                             fontFamily:
-                                "var(--font-cinzel), 'Trajan Pro', 'Palatino Linotype', serif",
+                                "var(--font-fell), 'Palatino Linotype', Georgia, serif",
                         }}
                     >
-                        Join the Quest
-                    </Link>
+                        <h1 className='sr-only'>Page Quest</h1>
+                        <p className='mb-6 text-[1.45rem] italic leading-[1.65] text-[#5a3010]'>
+                            {proclamation[0]}
+                        </p>
+                        <p className='mb-5 text-[1.2rem] leading-[1.8] text-[#3a2008] indent-[2em]'>
+                            {proclamation[1]}
+                        </p>
+                        <p className='mb-5 text-[1.2rem] leading-[1.8] text-[#3a2008] indent-[2em]'>
+                            {proclamation[2]}
+                        </p>
+                        <p className='mb-5 mt-8 text-[1.45rem] italic tracking-[0.04em] text-[#7a3818]'>
+                            The quest begins in
+                        </p>
+                        <HomeCountdown
+                            initialNowIso={renderedAt.toISOString()}
+                            targetIso={countdownTarget.toISOString()}
+                        />
+                        <Link
+                            href='/sign-in'
+                            className='mt-8 inline-block border-b border-[#b8902a] pb-[2px] text-[1.15rem] tracking-[0.08em] text-[#7a2a08] transition-[color,border-color] duration-200 hover:border-[#ca592f] hover:text-[#ca592f]'
+                            style={{
+                                fontFamily:
+                                    "var(--font-cinzel), 'Trajan Pro', 'Palatino Linotype', serif",
+                            }}
+                        >
+                            Join the Quest
+                        </Link>
+                    </div>
                 </div>
-            </div>
-        </main>
+            </main>
+        </>
     )
 }

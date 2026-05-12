@@ -17,6 +17,16 @@ type SignInFormProps = {
     localDemoEmails: readonly string[]
 }
 
+type PasswordSignInCardProps = {
+    defaultEmail: string
+    errorMessage: string | null
+    invitationWasCreated: boolean
+    isHydrated: boolean
+    isPending: boolean
+    localDemoEmails: readonly string[]
+    onSubmit: React.FormEventHandler<HTMLFormElement>
+}
+
 function subscribeToHydration() {
     return () => undefined
 }
@@ -27,6 +37,85 @@ function getClientHydrationSnapshot() {
 
 function getServerHydrationSnapshot() {
     return false
+}
+
+export function PasswordSignInCard({
+    defaultEmail,
+    errorMessage,
+    invitationWasCreated,
+    isHydrated,
+    isPending,
+    localDemoEmails,
+    onSubmit,
+}: PasswordSignInCardProps) {
+    const showLocalDevNote = localDemoEmails.length > 0
+
+    return (
+        <FormCard
+            title='Sign in'
+            description='Enter your Page Quest email and password to continue.'
+        >
+            <form onSubmit={onSubmit} method='post' className='space-y-4'>
+                {invitationWasCreated ? (
+                    <div className='rounded-lg border border-emerald-600/30 bg-emerald-50 px-4 py-3 text-sm text-emerald-900'>
+                        Your account is ready. Sign in with the invited email to
+                        open your dashboard.
+                    </div>
+                ) : null}
+
+                <FormField label='Email address' htmlFor='email'>
+                    <Input
+                        id='email'
+                        name='email'
+                        type='email'
+                        inputMode='email'
+                        placeholder='reader@example.com'
+                        autoComplete='email'
+                        defaultValue={defaultEmail}
+                        disabled={!isHydrated || isPending}
+                        required
+                    />
+                </FormField>
+
+                <FormField label='Password' htmlFor='password'>
+                    <Input
+                        id='password'
+                        name='password'
+                        type='password'
+                        placeholder='Enter your password'
+                        autoComplete='current-password'
+                        disabled={!isHydrated || isPending}
+                        required
+                    />
+                </FormField>
+
+                {showLocalDevNote ? (
+                    <p className='text-sm text-muted-foreground'>
+                        Local development uses seeded accounts with the password
+                        pagequest-local.
+                    </p>
+                ) : null}
+
+                {errorMessage ? (
+                    <ErrorState
+                        eyebrow='Sign-in error'
+                        title='Sign-in failed.'
+                        description={errorMessage}
+                    />
+                ) : null}
+
+                <FormActions>
+                    <Button type='submit' disabled={!isHydrated || isPending}>
+                        {isPending
+                            ? 'Signing in...'
+                            : !isHydrated
+                              ? 'Preparing sign-in...'
+                              : 'Sign in'}
+                    </Button>
+                </FormActions>
+            </form>
+        </FormCard>
+    )
 }
 
 export function SignInForm({ localDemoEmails }: SignInFormProps) {
@@ -63,69 +152,14 @@ export function SignInForm({ localDemoEmails }: SignInFormProps) {
     }
 
     return (
-        <FormCard
-            title='Sign in'
-            description='Use a seeded local reader or your invited Page Quest account to continue into private campaigns and member features.'
-        >
-            <form onSubmit={handleSubmit} method='post' className='space-y-4'>
-                <input type='hidden' name='callbackUrl' value={callbackUrl} />
-
-                {invitationWasCreated ? (
-                    <div className='rounded-lg border border-emerald-600/30 bg-emerald-50 px-4 py-3 text-sm text-emerald-900'>
-                        Your account is ready. Sign in with the invited email to
-                        open your dashboard.
-                    </div>
-                ) : null}
-
-                <FormField label='Email address' htmlFor='email'>
-                    <Input
-                        id='email'
-                        name='email'
-                        type='email'
-                        inputMode='email'
-                        placeholder='reader@example.com'
-                        autoComplete='email'
-                        defaultValue={defaultEmail}
-                        disabled={!isHydrated || isPending}
-                        required
-                    />
-                </FormField>
-
-                <FormField label='Password' htmlFor='password'>
-                    <Input
-                        id='password'
-                        name='password'
-                        type='password'
-                        placeholder='Enter your password'
-                        autoComplete='current-password'
-                        disabled={!isHydrated || isPending}
-                        required
-                    />
-                </FormField>
-
-                <div className='rounded-lg border border-border/70 bg-muted/40 p-3 text-sm text-muted-foreground'>
-                    <p>Seeded local emails: {localDemoEmails.join(', ')}</p>
-                    <p>Seeded local password: pagequest-local</p>
-                </div>
-
-                {errorMessage ? (
-                    <ErrorState
-                        eyebrow='Sign-in error'
-                        title='Sign-in failed.'
-                        description={errorMessage}
-                    />
-                ) : null}
-
-                <FormActions>
-                    <Button type='submit' disabled={!isHydrated || isPending}>
-                        {isPending
-                            ? 'Signing in...'
-                            : !isHydrated
-                              ? 'Preparing sign-in...'
-                              : 'Sign in'}
-                    </Button>
-                </FormActions>
-            </form>
-        </FormCard>
+        <PasswordSignInCard
+            defaultEmail={defaultEmail}
+            errorMessage={errorMessage}
+            invitationWasCreated={invitationWasCreated}
+            isHydrated={isHydrated}
+            isPending={isPending}
+            localDemoEmails={localDemoEmails}
+            onSubmit={handleSubmit}
+        />
     )
 }

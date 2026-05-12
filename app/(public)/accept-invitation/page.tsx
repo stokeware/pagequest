@@ -70,13 +70,13 @@ function getInvitationMutationNotice(
         case 'acceptance-failed':
             return {
                 description:
-                    'The invitation stayed unchanged because the acceptance step failed. Reload the secure link and try again. If it keeps failing, ask an administrator to confirm the invitation is still active.',
+                    'The invitation stayed unchanged because the acceptance step failed. Reload the invitation and try again. If it keeps failing, ask an administrator to confirm it is still active.',
                 title: 'Invitation acceptance failed.',
             }
         case 'invalid-token':
             return {
                 description:
-                    'This invitation token does not match the secure format issued by Page Quest. Reopen the original invitation link or ask an administrator for a new one.',
+                    'This invitation token is not valid. Reopen the original invitation email or ask an administrator for a new invite.',
                 title: 'Invitation link is not valid.',
             }
         case 'account-exists':
@@ -94,7 +94,7 @@ function getInvitationMutationNotice(
         case 'invitation-unavailable':
             return {
                 description:
-                    'This secure link can no longer be accepted in its current state. Review the invitation details below and request a fresh invite if needed.',
+                    'This invitation can no longer be accepted in its current state. Review the details below and request a fresh invite if needed.',
                 title: 'This invitation is no longer ready to accept.',
             }
         case 'invalid-password':
@@ -117,25 +117,25 @@ function getInvitationMutationNotice(
         case 'rate-limit-exceeded':
             return {
                 description:
-                    'Too many acceptance attempts were made in a short window. Wait a few minutes, then try this secure link again.',
+                    'Too many acceptance attempts were made in a short window. Wait a few minutes, then try this invitation again.',
                 title: 'Invitation attempts temporarily limited.',
             }
         case 'signup-failed':
             return {
                 description:
-                    'Page Quest could not create the invited account. Reload the secure link and try again. If it keeps failing, ask an administrator to confirm the invitation is still active.',
+                    'Page Quest could not create the invited account. Reload the invitation and try again. If it keeps failing, ask an administrator to confirm it is still active.',
                 title: 'Account creation failed.',
             }
         case 'signup-rate-limit-exceeded':
             return {
                 description:
-                    'Too many account creation attempts were made in a short window. Wait a few minutes, then try this secure link again.',
+                    'Too many account creation attempts were made in a short window. Wait a few minutes, then try this invitation again.',
                 title: 'Account creation temporarily limited.',
             }
         case 'missing-token':
             return {
                 description:
-                    'Open the full invitation link from the email again so Page Quest can verify the secure token before accepting the campaign.',
+                    'Open the full invitation email again so Page Quest can verify the token before accepting the campaign.',
                 title: 'Invitation link missing.',
             }
         default:
@@ -147,7 +147,7 @@ function getInvitationMutationNotice(
     }
 }
 
-function InvitationExistingAccountCard({
+export function InvitationExistingAccountCard({
     access,
     token,
 }: {
@@ -157,7 +157,11 @@ function InvitationExistingAccountCard({
     return (
         <FormCard
             title='This invited email already has a Page Quest account.'
-            description={access.summary}
+            description={
+                access.state === 'wrong-account'
+                    ? access.summary
+                    : 'Sign in with the invited email to finish accepting this invitation.'
+            }
         >
             <FormField
                 label='Invited email'
@@ -185,7 +189,7 @@ function InvitationExistingAccountCard({
                 </FormField>
             ) : null}
 
-            <FormActions note='Use the invited email to continue. Page Quest will send you back to this secure link after sign-in.'>
+            <FormActions note='Use the invited email to continue. Page Quest will return you to this invitation after sign-in.'>
                 <Button
                     render={
                         <Link
@@ -203,7 +207,7 @@ function InvitationExistingAccountCard({
     )
 }
 
-function InvitationSignupCard({
+export function InvitationSignupCard({
     access,
     token,
 }: {
@@ -237,7 +241,7 @@ function InvitationSignupCard({
                     <FormField
                         label='Campaign'
                         htmlFor='secure-invite-campaign'
-                        hint='This invite will add the new account to the campaign immediately.'
+                        hint='The new account will join this campaign immediately.'
                     >
                         <Input
                             id='secure-invite-campaign'
@@ -282,7 +286,7 @@ function InvitationSignupCard({
                     />
                 </FormField>
 
-                <FormActions note='Page Quest will create the account, finalize the invitation, then send you to sign in.'>
+                <FormActions note='Page Quest will create the account, accept the invitation, then send you to sign in.'>
                     <Button nativeButton type='submit'>
                         Create account
                     </Button>
@@ -292,7 +296,7 @@ function InvitationSignupCard({
     )
 }
 
-function InvitationTokenCard({
+export function InvitationTokenCard({
     access,
     hasExistingPasswordAccount,
     token,
@@ -304,7 +308,7 @@ function InvitationTokenCard({
     if (access.state === 'invalid') {
         return (
             <EmptyState
-                eyebrow='Secure invite link'
+                eyebrow='Invitation'
                 title='This invite link is not valid.'
                 description={access.summary}
                 action={
@@ -319,7 +323,7 @@ function InvitationTokenCard({
     if (access.state === 'expired') {
         return (
             <EmptyState
-                eyebrow='Secure invite link'
+                eyebrow='Invitation'
                 title='This invite link expired.'
                 description={access.summary}
             />
@@ -329,7 +333,7 @@ function InvitationTokenCard({
     if (access.state === 'accepted') {
         return (
             <EmptyState
-                eyebrow='Secure invite link'
+                eyebrow='Invitation'
                 title='This invite link has already been used.'
                 description={access.summary}
                 action={
@@ -344,7 +348,7 @@ function InvitationTokenCard({
     if (access.state === 'revoked') {
         return (
             <EmptyState
-                eyebrow='Secure invite link'
+                eyebrow='Invitation'
                 title='This invite link was revoked.'
                 description={access.summary}
             />
@@ -385,7 +389,7 @@ function InvitationTokenCard({
                 <FormField
                     label='Campaign'
                     htmlFor='secure-invite-campaign'
-                    hint='This legacy invite still links the invited account to this campaign.'
+                    hint='Accepting this invitation adds your account to this campaign.'
                 >
                     <Input
                         id='secure-invite-campaign'
@@ -407,7 +411,7 @@ function InvitationTokenCard({
     )
 }
 
-function InvitationAccessCard({
+export function InvitationAccessCard({
     access,
 }: {
     access: Awaited<ReturnType<typeof getInvitationAccessProfile>>
@@ -487,7 +491,7 @@ function InvitationAccessCard({
                 <FormField
                     label='Campaign'
                     htmlFor='invite-campaign'
-                    hint='This legacy invitation is recognized for the signed-in account and can be completed through the secure link in the email.'
+                    hint='This invitation is recognized for the signed-in account and can be completed from the invitation email.'
                 >
                     <Input
                         id='invite-campaign'
@@ -497,7 +501,7 @@ function InvitationAccessCard({
                 </FormField>
             ) : null}
 
-            <FormActions note='Invitation access is active. Use the secure link from the invitation email to complete your Page Quest account setup.'>
+            <FormActions note='Invitation access is active. Use the invitation email to finish setting up your Page Quest account.'>
                 <Button disabled>
                     {access.state === 'pending'
                         ? 'Check your invitation email'
@@ -573,11 +577,8 @@ export default async function AcceptInvitationPage({
         : false
 
     return (
-        <PublicShell
-            eyebrow='Invitation access'
-            title='Welcome to Page Quest.'
-            description='Use your invitation to create or connect your account, then finish acceptance to unlock Page Quest member access.'
-        >
+        <PublicShell headerVariant='brand-only' contentVariant='compact'>
+            <h1 className='sr-only'>Accept invitation</h1>
             {mutationNotice ? (
                 <ErrorState
                     eyebrow='Invitation update'
@@ -591,8 +592,9 @@ export default async function AcceptInvitationPage({
                     hasExistingPasswordAccount={hasExistingPasswordAccount}
                     token={token}
                 />
-            ) : null}
-            <InvitationAccessCard access={invitationAccess} />
+            ) : (
+                <InvitationAccessCard access={invitationAccess} />
+            )}
         </PublicShell>
     )
 }
