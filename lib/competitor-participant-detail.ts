@@ -1,17 +1,16 @@
 import { cache } from 'react'
 
 import {
+    buildCompletedBookActivityItems,
+    buildDashboardSnapshotCards,
+    type DashboardRecentActivityItem,
+    type DashboardSnapshotCard,
     rankStandings,
     type CompetitorCampaignContext,
-    type CompetitorCampaignStatus,
 } from '@/lib/competitor-dashboard'
 import {
-    formatCalendarDate,
-    formatCompetitorHistoryEntries,
     formatCount,
-    formatPoints,
     pluralize,
-    type CompetitorHistoryItem,
     type CompetitorHistoryEntryRecord,
 } from '@/lib/competitor-history-format'
 import {
@@ -19,12 +18,6 @@ import {
     getParticipantReadingEntries,
 } from '@/lib/competitor-queries'
 import { type CampaignScoringRules } from '@/lib/campaign-domain'
-
-type ParticipantDetailMetric = {
-    detail: string
-    label: string
-    value: string
-}
 
 type ParticipantDetailInput = {
     context: CompetitorCampaignContext
@@ -35,30 +28,26 @@ type ParticipantDetailInput = {
 
 export type CompetitorParticipantDetailViewModel = {
     hasParticipant: boolean
-    historyEntries: CompetitorHistoryItem[]
     isViewer: boolean
+    participantId: string | null
+    campaignName: string
     participantLabel: string
     participantSummary: string
-    participantId: string | null
-    rankLabel: string
-    campaignName: string
-    campaignStatusLabel: string
-    summaryMetrics: ParticipantDetailMetric[]
+    recentActivity: DashboardRecentActivityItem[]
+    snapshotCards: DashboardSnapshotCard[]
 }
 
 export const defaultCompetitorParticipantDetailViewModel: CompetitorParticipantDetailViewModel =
     {
         hasParticipant: false,
-        historyEntries: [],
         isViewer: false,
         participantId: null,
+        campaignName: 'Campaign assignment pending',
         participantLabel: 'Reader not found',
         participantSummary:
             'This participant is not available on the current leaderboard.',
-        rankLabel: 'Unranked',
-        campaignName: 'Campaign assignment pending',
-        campaignStatusLabel: 'Awaiting invitation',
-        summaryMetrics: [],
+        recentActivity: [],
+        snapshotCards: [],
     }
 
 export const getCompetitorParticipantDetailViewModel = cache(
@@ -111,72 +100,32 @@ export function buildCompetitorParticipantDetailViewModel(
 
     const participantLabel = getReaderLabel(participant)
     const isViewer = participant.id === context.participant?.id
-    const historyItems = formatCompetitorHistoryEntries({
+    const leader = rankedStandings[0] ?? null
+    const participantPoints = Number(participant.totalPoints.toString())
+    const leaderPoints = leader ? Number(leader.totalPoints.toString()) : 0
+    const recentActivity = buildCompletedBookActivityItems({
         entries: historyEntries,
         scoringRules,
         timezone: context.campaign.timezone,
     })
+    const snapshotCards = buildDashboardSnapshotCards({
+        pointsBehindLeader: Math.max(leaderPoints - participantPoints, 0),
+        rankNumber: participant.rankNumber,
+        totals: participant,
+    })
 
     return {
         hasParticipant: true,
-        historyEntries: historyItems,
         isViewer,
         participantId: participant.id,
+        campaignName: context.campaign.name,
         participantLabel,
         participantSummary:
-            historyItems.length > 0
-                ? `${participantLabel} has ${formatCount(historyItems.length)} ${pluralize('entry', historyItems.length)} recorded for this campaign.`
+            historyEntries.length > 0
+                ? `${participantLabel} has ${formatCount(historyEntries.length)} ${pluralize('entry', historyEntries.length)} recorded for this campaign.`
                 : `${participantLabel} has not logged any reading for this campaign yet.`,
-        rankLabel: `#${participant.rankNumber}`,
-        campaignName: context.campaign.name,
-        campaignStatusLabel: getCampaignStatusLabel(context.campaign.status),
-        summaryMetrics: [
-            {
-                detail: 'Current placement on this campaign leaderboard.',
-                label: 'Rank',
-                value: `#${participant.rankNumber}`,
-            },
-            {
-                detail: 'Total scored points for this campaign.',
-                label: 'Points',
-                value: formatPoints(participant.totalPoints),
-            },
-            {
-                detail: 'Combined raw progress totals recorded so far.',
-                label: 'Raw totals',
-                value: [
-                    `${formatCount(participant.totalPages)} pages`,
-                    `${formatCount(participant.totalAudiobookMinutes)} minutes`,
-                    `${formatCount(participant.totalBooks)} ${pluralize('book', participant.totalBooks)}`,
-                    `${formatCount(participant.totalChallenges)} ${pluralize('challenge', participant.totalChallenges)}`,
-                ].join(' • '),
-            },
-            {
-                detail: participant.lastActivityAt
-                    ? 'Most recent activity captured for this campaign.'
-                    : 'No activity has been logged for this participant yet.',
-                label: 'Last activity',
-                value: participant.lastActivityAt
-                    ? formatCalendarDate(
-                          participant.lastActivityAt,
-                          context.campaign.timezone
-                      )
-                    : 'No activity yet',
-            },
-        ],
-    }
-}
-
-function getCampaignStatusLabel(status: CompetitorCampaignStatus) {
-    switch (status) {
-        case 'ACTIVE':
-            return 'Participant detail'
-        case 'SCHEDULED':
-            return 'Upcoming participant detail'
-        case 'COMPLETED':
-            return 'Final participant detail'
-        default:
-            return assertNever(status)
+        recentActivity,
+        snapshotCards,
     }
 }
 
@@ -184,8 +133,4 @@ function getReaderLabel(
     standing: CompetitorCampaignContext['standings'][number]
 ) {
     return standing.user.name || standing.user.email
-}
-
-function assertNever(value: never): never {
-    throw new Error(`Unhandled value: ${String(value)}`)
 }

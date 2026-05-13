@@ -1,15 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import {
-    Button,
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    StatCard,
-} from '@/components/ui'
+import { CompetitorDashboardSummary } from '@/components/authenticated/competitor-dashboard-summary'
+import { Button } from '@/components/ui'
 import { getRoleAwareSession } from '@/lib/auth/session'
 import { getCompetitorParticipantDetailViewModel } from '@/lib/competitor-participant-detail'
 
@@ -35,89 +28,37 @@ export default async function ParticipantDetailPage({
 
     return (
         <div className='auth-page-stack'>
-            <Card className='surface-card'>
-                <CardHeader>
-                    <CardTitle>{viewModel.participantLabel}</CardTitle>
-                    <CardDescription>
-                        {viewModel.campaignStatusLabel}.{' '}
-                        {viewModel.campaignName}. {viewModel.participantSummary}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className='auth-inline-actions'>
-                    <Button render={<Link href='/leaderboard' />}>
-                        Back to leaderboard
-                    </Button>
-                    <Button
-                        variant='outline'
-                        render={<Link href='/dashboard' />}
-                    >
-                        Return to dashboard
-                    </Button>
-                </CardContent>
-            </Card>
+            <header className='surface-card rounded-[calc(var(--radius-xl)+4px)] border border-(--line-strong) bg-card/72 px-6 py-8 shadow-[0_1.25rem_3rem_rgba(64,105,124,0.12)]'>
+                <h1 className='text-center text-2xl font-semibold tracking-[-0.02em] text-balance sm:text-3xl'>
+                    {formatCampaignHeading(viewModel.participantLabel)}
+                </h1>
+                <p className='mt-2 text-center text-xl text-muted-foreground'>
+                    {viewModel.campaignName}
+                </p>
+                <p className='mt-3 text-center text-sm text-muted-foreground'>
+                    {viewModel.participantSummary}
+                </p>
+            </header>
 
-            <div className='auth-card-grid'>
-                {viewModel.summaryMetrics.map((metric) => (
-                    <StatCard
-                        key={metric.label}
-                        eyebrow='Participant snapshot'
-                        title={metric.label}
-                        value={metric.value}
-                        description={metric.detail}
-                    />
-                ))}
+            <div className='auth-inline-actions'>
+                <Button render={<Link href='/leaderboard' />}>
+                    Back to leaderboard
+                </Button>
+                <Button variant='outline' render={<Link href='/dashboard' />}>
+                    Return to dashboard
+                </Button>
             </div>
 
-            <Card className='surface-warm'>
-                <CardHeader>
-                    <CardTitle>Campaign reading history</CardTitle>
-                    <CardDescription>
-                        Every non-deleted entry for this participant in the
-                        selected campaign, ordered from newest to oldest.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className='space-y-4'>
-                    {viewModel.historyEntries.length > 0 ? (
-                        viewModel.historyEntries.map((entry) => (
-                            <div
-                                key={entry.id}
-                                className='rounded-3xl border border-border/70 bg-background/80 px-4 py-4'
-                            >
-                                <div className='flex flex-wrap items-start justify-between gap-3'>
-                                    <div className='space-y-2'>
-                                        <p className='font-medium'>
-                                            {entry.title}
-                                        </p>
-                                        <p className='text-sm text-muted-foreground'>
-                                            {entry.description}
-                                        </p>
-                                    </div>
-                                    <div className='text-left md:text-right'>
-                                        <p className='text-sm font-semibold text-foreground'>
-                                            {entry.pointsLabel}
-                                        </p>
-                                        {entry.statusLabel ? (
-                                            <p className='text-xs font-semibold uppercase tracking-[0.16em] text-primary'>
-                                                {entry.statusLabel}
-                                            </p>
-                                        ) : null}
-                                    </div>
-                                </div>
-                                {entry.note ? (
-                                    <p className='mt-3 text-sm text-muted-foreground'>
-                                        Note: {entry.note}
-                                    </p>
-                                ) : null}
-                            </div>
-                        ))
-                    ) : (
-                        <p className='text-sm text-muted-foreground'>
-                            No reading history has been logged for this
-                            participant yet.
-                        </p>
-                    )}
-                </CardContent>
-            </Card>
+            <CompetitorDashboardSummary
+                snapshotCards={viewModel.snapshotCards}
+                recentActivity={viewModel.recentActivity}
+                recentActivityTitle='Recent activities'
+                emptyStateMessage='Completed books will appear here after this reader logs a book completion.'
+            />
         </div>
     )
+}
+
+function formatCampaignHeading(participantLabel: string) {
+    return `${participantLabel}${participantLabel.endsWith('s') ? "'" : "'s"} Campaign`
 }

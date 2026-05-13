@@ -6,7 +6,7 @@ import {
 } from '@/lib/competitor-participant-detail'
 
 describe('competitor participant detail view model', () => {
-    it('builds a full campaign history view for a participant on the current leaderboard', () => {
+    it('builds dashboard-style cards and recent activity for a participant on the current leaderboard', () => {
         const viewModel = buildCompetitorParticipantDetailViewModel({
             context: {
                 campaign: {
@@ -70,6 +70,16 @@ describe('competitor participant detail view model', () => {
             },
             historyEntries: [
                 {
+                    activityDate: new Date('2026-05-07T12:00:00Z'),
+                    bookAuthor: 'Kate DiCamillo',
+                    bookTitle: 'Because of Winn-Dixie',
+                    challengeCompletion: null,
+                    id: 'entry-0',
+                    notes: null,
+                    type: 'BOOK_COMPLETION',
+                    value: 1,
+                },
+                {
                     activityDate: new Date('2026-05-06T12:00:00Z'),
                     bookAuthor: 'Kate DiCamillo',
                     bookTitle: 'Because of Winn-Dixie',
@@ -130,29 +140,23 @@ describe('competitor participant detail view model', () => {
             participantId: 'participant-2',
             participantLabel: 'Avery',
             campaignName: 'Spring Story Sprint',
-            rankLabel: '#2',
         })
-        expect(viewModel.summaryMetrics[0]).toMatchObject({
-            label: 'Rank',
+        expect(viewModel.snapshotCards[0]).toMatchObject({
+            title: 'Current rank',
             value: '#2',
+            description: '14 points behind first place.',
         })
-        expect(viewModel.historyEntries[0]).toMatchObject({
-            title: 'Audiobook minutes · 45 minutes',
+        expect(viewModel.snapshotCards[1]).toMatchObject({
+            title: 'Total points',
+            value: '418.25 points',
             description:
-                'Because of Winn-Dixie by Kate DiCamillo. Logged May 6, 2026.',
-            pointsLabel: '33.75 points',
-            note: 'Listened in the carpool line.',
-            statusLabel: null,
+                '320 pages • 95 audiobook minutes • 3 books • 1 challenge',
         })
-        expect(viewModel.historyEntries[1]).toMatchObject({
-            title: 'Challenge completion · Read outside',
-            pointsLabel: '25 points',
-            statusLabel: 'Approved',
-        })
-        expect(viewModel.historyEntries[2]).toMatchObject({
-            title: 'Challenge completion · Recommend a book',
-            pointsLabel: 'Pending review',
-            statusLabel: 'Pending review',
+        expect(viewModel.recentActivity[0]).toMatchObject({
+            title: 'Because of Winn-Dixie',
+            completedAtLabel: 'May 7, 2026',
+            progressLabel: '45 audiobook minutes',
+            pointsLabel: '34.75 points',
         })
     })
 

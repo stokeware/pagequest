@@ -1,14 +1,13 @@
 import Link from 'next/link'
 
+import { CompetitorDashboardSummary } from '@/components/authenticated/competitor-dashboard-summary'
 import {
     Button,
     Card,
-    CardContent,
     CardDescription,
     CardHeader,
     CardTitle,
     EmptyState,
-    StatCard,
 } from '@/components/ui'
 import {
     defaultCompetitorDashboardViewModel,
@@ -60,59 +59,11 @@ export default async function DashboardPage({
 
             {viewModel.hasQuest ? (
                 <>
-                    <div className='auth-card-grid'>
-                        {viewModel.snapshotCards.map((card) => (
-                            <StatCard
-                                key={card.title}
-                                title={card.title}
-                                value={card.value}
-                                description={card.description}
-                            />
-                        ))}
-                    </div>
-
-                    <Card className='surface-card'>
-                        <CardHeader>
-                            <CardTitle>Recent activity</CardTitle>
-                        </CardHeader>
-                        <CardContent className='space-y-4'>
-                            {viewModel.recentActivity.length > 0 ? (
-                                viewModel.recentActivity.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className='rounded-2xl border border-border/70 bg-background/80 px-4 py-3'
-                                    >
-                                        <div className='space-y-2'>
-                                            <p className='font-medium'>
-                                                {item.title}
-                                            </p>
-                                            <p className='text-sm text-muted-foreground'>
-                                                Completed{' '}
-                                                {item.completedAtLabel}
-                                            </p>
-                                            {item.challengeLabel ? (
-                                                <p className='text-sm text-muted-foreground'>
-                                                    Challenge:{' '}
-                                                    {item.challengeLabel}
-                                                </p>
-                                            ) : null}
-                                            <div className='flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground'>
-                                                <span>
-                                                    {item.progressLabel}
-                                                </span>
-                                                <span>{item.pointsLabel}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className='text-sm text-muted-foreground'>
-                                    Completed books will appear here after you
-                                    log a book completion.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <CompetitorDashboardSummary
+                        snapshotCards={viewModel.snapshotCards}
+                        recentActivity={viewModel.recentActivity}
+                        emptyStateMessage='Completed books will appear here after you log a book completion.'
+                    />
                 </>
             ) : (
                 <EmptyState

@@ -41,6 +41,8 @@ type DashboardRecentActivityItem = {
     title: string
 }
 
+export type { DashboardRecentActivityItem, DashboardSnapshotCard }
+
 type DashboardShellMetric = {
     detail: string
     label: string
@@ -139,21 +141,11 @@ export function buildCompetitorDashboardViewModel(
     const participantPoints = toDisplayNumber(participant.totalPoints)
     const leaderPoints = leader ? toDisplayNumber(leader.totalPoints) : 0
     const pointsBehindLeader = Math.max(leaderPoints - participantPoints, 0)
-    const snapshotCards: DashboardSnapshotCard[] = [
-        {
-            description: getRankDescription({
-                pointsBehindLeader,
-                rankNumber,
-            }),
-            title: 'Current rank',
-            value: rankNumber ? `#${rankNumber}` : 'Unranked',
-        },
-        {
-            description: getPointsDescription(participant),
-            title: 'Total points',
-            value: formatPoints(participant.totalPoints),
-        },
-    ]
+    const snapshotCards = buildDashboardSnapshotCards({
+        pointsBehindLeader,
+        rankNumber,
+        totals: participant,
+    })
 
     return {
         hasQuest: true,
@@ -280,8 +272,47 @@ function getCampaignStatusLabel(status: CompetitorCampaignStatus) {
     }
 }
 
+export function buildDashboardSnapshotCards({
+    pointsBehindLeader,
+    rankNumber,
+    totals,
+}: {
+    pointsBehindLeader: number
+    rankNumber: number | null
+    totals: Pick<
+        CompetitorCampaignParticipantRecord,
+        | 'totalAudiobookMinutes'
+        | 'totalBooks'
+        | 'totalChallenges'
+        | 'totalPages'
+        | 'totalPoints'
+    >
+}) {
+    return [
+        {
+            description: getRankDescription({
+                pointsBehindLeader,
+                rankNumber,
+            }),
+            title: 'Current rank',
+            value: rankNumber ? `#${rankNumber}` : 'Unranked',
+        },
+        {
+            description: getPointsDescription(totals),
+            title: 'Total points',
+            value: formatPoints(totals.totalPoints),
+        },
+    ] satisfies DashboardSnapshotCard[]
+}
+
 function getPointsDescription(
-    participant: CompetitorCampaignParticipantRecord
+    participant: Pick<
+        CompetitorCampaignParticipantRecord,
+        | 'totalAudiobookMinutes'
+        | 'totalBooks'
+        | 'totalChallenges'
+        | 'totalPages'
+    >
 ) {
     const parts = [
         `${formatCount(participant.totalPages)} pages`,
@@ -330,7 +361,7 @@ function getShellCampaignDetail(campaign: CompetitorCampaignRecord, now: Date) {
     }
 }
 
-function buildCompletedBookActivityItems({
+export function buildCompletedBookActivityItems({
     entries,
     scoringRules,
     timezone,
