@@ -1,8 +1,6 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { CompetitorDashboardSummary } from '@/components/authenticated/competitor-dashboard-summary'
-import { Button } from '@/components/ui'
 import { getRoleAwareSession } from '@/lib/auth/session'
 import { getCompetitorParticipantDetailViewModel } from '@/lib/competitor-participant-detail'
 
@@ -35,19 +33,7 @@ export default async function ParticipantDetailPage({
                 <p className='mt-2 text-center text-xl text-muted-foreground'>
                     {viewModel.campaignName}
                 </p>
-                <p className='mt-3 text-center text-sm text-muted-foreground'>
-                    {viewModel.participantSummary}
-                </p>
             </header>
-
-            <div className='auth-inline-actions'>
-                <Button render={<Link href='/leaderboard' />}>
-                    Back to leaderboard
-                </Button>
-                <Button variant='outline' render={<Link href='/dashboard' />}>
-                    Return to dashboard
-                </Button>
-            </div>
 
             <CompetitorDashboardSummary
                 snapshotCards={viewModel.snapshotCards}
