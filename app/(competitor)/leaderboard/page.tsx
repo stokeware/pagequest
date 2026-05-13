@@ -6,6 +6,7 @@ import {
     getCompetitorLeaderboardViewModel,
 } from '@/lib/competitor-leaderboard'
 import { getRoleAwareSession } from '@/lib/auth/session'
+import { cn } from '@/lib/utils'
 
 export default async function LeaderboardPage() {
     const viewer = await getRoleAwareSession('COMPETITOR')
@@ -61,23 +62,19 @@ export default async function LeaderboardPage() {
                         <Link
                             key={row.participantId}
                             href={row.participantHref}
-                            className='grid gap-3 rounded-3xl border border-border/70 bg-background/75 px-4 py-4 shadow-sm transition-colors hover:border-primary/40 hover:bg-background md:grid-cols-[4rem_minmax(0,1.5fr)_7.5rem] md:items-start'
+                            className={cn(
+                                'grid gap-3 rounded-3xl border border-border/70 px-4 py-4 shadow-sm transition-colors md:grid-cols-[4rem_minmax(0,1.5fr)_7.5rem] md:items-start',
+                                row.isViewer
+                                    ? 'border-primary/25 bg-(--surface-highlight) hover:border-primary/45 hover:bg-(--surface-highlight)'
+                                    : 'bg-background/75 hover:border-primary/40 hover:bg-background'
+                            )}
                             aria-label={`Open details for ${row.readerLabel}`}
                         >
                             <div className='text-sm font-semibold text-muted-foreground'>
                                 {row.rankLabel}
                             </div>
                             <div className='space-y-2'>
-                                <div className='flex flex-wrap items-center gap-2'>
-                                    <p className='font-medium'>
-                                        {row.readerLabel}
-                                    </p>
-                                    {row.isViewer ? (
-                                        <span className='rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground'>
-                                            Your row
-                                        </span>
-                                    ) : null}
-                                </div>
+                                <p className='font-medium'>{row.readerLabel}</p>
                                 <p className='text-sm text-muted-foreground'>
                                     {row.metricsLabel}
                                 </p>
