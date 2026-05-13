@@ -89,6 +89,12 @@ test.describe('leaderboard navigation and refresh', () => {
         await expect(
             page.getByText('Ben Sparrow', { exact: true })
         ).toBeVisible()
+        await expect(
+            page.getByRole('button', { name: 'Back to leaderboard' })
+        ).toHaveCount(0)
+        await expect(
+            page.getByRole('button', { name: 'Return to dashboard' })
+        ).toHaveCount(0)
         await expect(page.getByText(`Note: ${notes}`)).toBeVisible()
     })
 })
