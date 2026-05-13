@@ -124,10 +124,7 @@ export function buildCompetitorLeaderboardViewModel(
             participantHref: `/leaderboard/${standing.id}`,
             pointsLabel: formatPoints(standing.totalPoints),
             rankLabel: `#${standing.rankNumber}`,
-            readerLabel:
-                standing.id === context.participant?.id
-                    ? `${getReaderLabel(standing)} (You)`
-                    : getReaderLabel(standing),
+            readerLabel: getReaderLabel(standing),
         })),
     }
 }

@@ -99,11 +99,11 @@ describe('competitor leaderboard view model', () => {
         ])
         expect(viewModel.rows.map((row) => row.readerLabel)).toEqual([
             'Morgan',
-            'Avery (You)',
+            'Avery',
             'Jordan',
         ])
         expect(viewModel.rows[1]).toMatchObject({
-            readerLabel: 'Avery (You)',
+            readerLabel: 'Avery',
             participantHref: '/leaderboard/participant-2',
             pointsLabel: '450 points',
             metricsLabel: '350 pages • 120 minutes • 4 books • 2 challenges',

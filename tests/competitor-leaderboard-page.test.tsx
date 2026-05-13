@@ -55,7 +55,7 @@ describe('competitor leaderboard page', () => {
                     participantId: 'participant-1',
                     pointsLabel: '450 points',
                     rankLabel: '#1',
-                    readerLabel: 'Avery (You)',
+                    readerLabel: 'Avery',
                 },
             ],
         })
@@ -64,7 +64,9 @@ describe('competitor leaderboard page', () => {
 
         expect(html).toContain('Spring Story Sprint')
         expect(html).toContain('April 20 - May 20')
-        expect(html).toContain('Avery (You)')
+        expect(html).toContain('Avery')
         expect(html).toContain('450 points')
+        expect(html).toContain('bg-(--surface-highlight)')
+        expect(html).not.toContain('Your row')
     })
 })
