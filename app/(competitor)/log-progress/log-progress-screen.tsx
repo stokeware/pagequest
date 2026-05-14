@@ -770,6 +770,8 @@ export function LogProgressScreen({
                                                                 calculateProgressRowPoints(
                                                                     {
                                                                         campaignChallenges,
+                                                                        pointsPerBook:
+                                                                            progressScoring.pointsPerBook,
                                                                         pointsPerMinute:
                                                                             progressScoring.pointsPerMinute,
                                                                         pointsPerPage:
