@@ -30,9 +30,10 @@ For hosted admin provisioning, keep `PAGEQUEST_ADMIN_BOOTSTRAP_SECRET` in your p
 ## Quality checks
 
 - `./scripts/lint`: run ESLint.
+- `./scripts/typecheck`: generate Next route types and run the build-aligned TypeScript check without doing a full production build.
 - `./scripts/format`: apply Prettier formatting.
 - `./scripts/format-check`: check formatting without writing changes.
 - `./scripts/test`: run Vitest once.
 - `./scripts/test-watch`: run Vitest in watch mode.
 - `./scripts/test-e2e`: run Playwright tests.
-- `./scripts/check`: validate the local environment, then run format check, lint, and unit tests in sequence.
+- `./scripts/check`: validate the local environment, then run format check, lint, typecheck, and unit tests in sequence.

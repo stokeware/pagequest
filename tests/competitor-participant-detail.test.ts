@@ -51,6 +51,7 @@ describe('competitor participant detail view model', () => {
                             email: 'leader@example.com',
                             name: 'Morgan',
                         },
+                        workspaceCompletedBooks: [],
                     },
                     {
                         createdAt: new Date('2026-04-02T12:00:00Z'),
@@ -65,6 +66,7 @@ describe('competitor participant detail view model', () => {
                             email: 'reader@example.com',
                             name: 'Avery',
                         },
+                        workspaceCompletedBooks: [],
                     },
                 ],
             },
@@ -156,7 +158,91 @@ describe('competitor participant detail view model', () => {
             title: 'Because of Winn-Dixie',
             completedAtLabel: 'May 7, 2026',
             progressLabel: '45 audiobook minutes',
+            isViewer: true,
             pointsLabel: '34.75 points',
+        })
+    })
+
+    it('falls back to workspace completed books when no reading entries exist', () => {
+        const viewModel = buildCompetitorParticipantDetailViewModel({
+            context: {
+                campaign: {
+                    endAt: new Date('2026-05-20T23:00:00Z'),
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint',
+                    startAt: new Date('2026-04-20T12:00:00Z'),
+                    status: 'ACTIVE',
+                    timezone: 'UTC',
+                },
+                participant: {
+                    createdAt: new Date('2026-04-01T12:00:00Z'),
+                    id: 'participant-2',
+                    joinedAt: new Date('2026-04-01T12:00:00Z'),
+                    lastActivityAt: new Date('2026-05-06T12:00:00Z'),
+                    campaign: {
+                        endAt: new Date('2026-05-20T23:00:00Z'),
+                        id: 'campaign-1',
+                        name: 'Spring Story Sprint',
+                        startAt: new Date('2026-04-20T12:00:00Z'),
+                        status: 'ACTIVE',
+                        timezone: 'UTC',
+                    },
+                    totalAudiobookMinutes: 95,
+                    totalBooks: 3,
+                    totalChallenges: 1,
+                    totalPages: 320,
+                    totalPoints: { toString: () => '418.25' },
+                },
+                recentEntries: [],
+                standings: [
+                    {
+                        createdAt: new Date('2026-04-01T12:00:00Z'),
+                        id: 'participant-2',
+                        lastActivityAt: new Date('2026-05-06T12:00:00Z'),
+                        totalAudiobookMinutes: 95,
+                        totalBooks: 3,
+                        totalChallenges: 1,
+                        totalPages: 320,
+                        totalPoints: { toString: () => '418.25' },
+                        user: {
+                            email: 'reader@example.com',
+                            name: 'Avery',
+                        },
+                        workspaceCompletedBooks: [
+                            {
+                                activityDate: new Date('2026-05-06T12:00:00Z'),
+                                challengeLabel: 'Read outside',
+                                id: 'participant-2:progress-row-1',
+                                participantId: 'participant-2',
+                                pointsAwarded: 650,
+                                readerLabel: 'Avery',
+                                totalAudiobookMinutes: 0,
+                                totalPages: 500,
+                                title: 'Matilda',
+                            },
+                        ],
+                    },
+                ],
+            },
+            historyEntries: [],
+            participantId: 'participant-2',
+            scoringRules: {
+                pointsPerAudiobookMinute: '0.75',
+                pointsPerBook: '50',
+                pointsPerChallengeCompletion: '20',
+                pointsPerPage: '1',
+            },
+        })
+
+        expect(viewModel.participantSummary).toBe(
+            'Avery has 1 completed book tracked for this campaign.'
+        )
+        expect(viewModel.recentActivity[0]).toMatchObject({
+            title: 'Matilda',
+            completedAtLabel: 'May 6, 2026',
+            progressLabel: '500 pages',
+            pointsLabel: '650 points',
+            readerLabel: null,
         })
     })
 

@@ -23,6 +23,15 @@ export type CampaignWorkspaceChallenge = {
     id: string
     pageMinuteMultiplier: number
     pointValue: number
+    title: string
+}
+
+export type CampaignWorkspaceCompletedBook = {
+    challengeId: string
+    id: string
+    minutes: number
+    pages: number
+    title: string
 }
 
 export type CampaignWorkspaceTotals = {
@@ -83,11 +92,13 @@ export function parseCampaignWorkspaceState(
 
 export function calculateCampaignWorkspaceRowPoints({
     campaignChallenges,
+    pointsPerBook,
     pointsPerMinute,
     pointsPerPage,
     row,
 }: {
     campaignChallenges: CampaignWorkspaceChallenge[]
+    pointsPerBook: number
     pointsPerMinute: number
     pointsPerPage: number
     row: PersistedProgressRow
@@ -95,28 +106,54 @@ export function calculateCampaignWorkspaceRowPoints({
     const pages = toNonNegativeNumber(row.pages)
     const minutes = toNonNegativeNumber(row.minutes)
     const basePoints = pages * pointsPerPage + minutes * pointsPerMinute
+    const completedBookPoints = row.completed ? pointsPerBook : 0
     const selectedChallenge = campaignChallenges.find(
         (challenge) => challenge.id === row.challengeId
     )
 
     if (!row.completed || !selectedChallenge) {
-        return basePoints
+        return basePoints + completedBookPoints
     }
 
     if (selectedChallenge.pageMinuteMultiplier > 0) {
-        return basePoints * selectedChallenge.pageMinuteMultiplier
+        return (
+            basePoints * selectedChallenge.pageMinuteMultiplier +
+            completedBookPoints
+        )
     }
 
-    return basePoints + selectedChallenge.pointValue
+    return basePoints + completedBookPoints + selectedChallenge.pointValue
+}
+
+export function getCompletedCampaignWorkspaceBooks(
+    workspaceState: CampaignWorkspaceState
+): CampaignWorkspaceCompletedBook[] {
+    return workspaceState.progressRows.flatMap((row) => {
+        if (!isCompletedBookRow(row)) {
+            return []
+        }
+
+        return [
+            {
+                challengeId: row.challengeId,
+                id: row.id,
+                minutes: toNonNegativeNumber(row.minutes),
+                pages: toNonNegativeNumber(row.pages),
+                title: row.bookName.trim() || 'Completed book',
+            } satisfies CampaignWorkspaceCompletedBook,
+        ]
+    })
 }
 
 export function calculateCampaignWorkspaceTotals({
     campaignChallenges,
+    pointsPerBook,
     pointsPerMinute,
     pointsPerPage,
     workspaceState,
 }: {
     campaignChallenges: CampaignWorkspaceChallenge[]
+    pointsPerBook: number
     pointsPerMinute: number
     pointsPerPage: number
     workspaceState: CampaignWorkspaceState
@@ -124,6 +161,7 @@ export function calculateCampaignWorkspaceTotals({
     const meaningfulRows = workspaceState.progressRows.filter(
         isMeaningfulProgressRow
     )
+    const completedBooks = getCompletedCampaignWorkspaceBooks(workspaceState)
     const challengeIds = new Set(
         meaningfulRows.flatMap((row) =>
             row.completed && row.challengeId ? [row.challengeId] : []
@@ -136,7 +174,7 @@ export function calculateCampaignWorkspaceTotals({
             (sum, row) => sum + toNonNegativeNumber(row.minutes),
             0
         ),
-        totalBooks: meaningfulRows.filter(isCompletedBookRow).length,
+        totalBooks: completedBooks.length,
         totalChallenges: challengeIds.size,
         totalPages: meaningfulRows.reduce(
             (sum, row) => sum + toNonNegativeNumber(row.pages),
@@ -147,6 +185,7 @@ export function calculateCampaignWorkspaceTotals({
                 sum.plus(
                     calculateCampaignWorkspaceRowPoints({
                         campaignChallenges,
+                        pointsPerBook,
                         pointsPerMinute,
                         pointsPerPage,
                         row,

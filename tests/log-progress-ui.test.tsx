@@ -51,6 +51,7 @@ describe('log progress competitor UI', () => {
                 campaignName='Spring Story Sprint'
                 initialActiveTab='challenges'
                 progressScoring={{
+                    pointsPerBook: 0,
                     pointsPerMinute: 0.75,
                     pointsPerPage: 1,
                 }}
@@ -88,6 +89,7 @@ describe('log progress competitor UI', () => {
                 campaignName='Campaign assignment pending'
                 initialActiveTab='challenges'
                 progressScoring={{
+                    pointsPerBook: 0,
                     pointsPerMinute: 0.75,
                     pointsPerPage: 1,
                 }}
@@ -135,6 +137,7 @@ describe('log progress competitor UI', () => {
                 campaignParticipantId='participant-1'
                 campaignName='Spring Story Sprint'
                 progressScoring={{
+                    pointsPerBook: 0,
                     pointsPerMinute: 0.75,
                     pointsPerPage: 1,
                 }}
@@ -277,6 +280,7 @@ describe('log progress competitor UI', () => {
                     title: 'Friend recommendation',
                 },
             ],
+            pointsPerBook: 0,
             pointsPerMinute: 0.75,
             pointsPerPage: 1,
             row: {
@@ -307,6 +311,7 @@ describe('log progress competitor UI', () => {
                     title: 'Epic read',
                 },
             ],
+            pointsPerBook: 50,
             pointsPerMinute: 0,
             pointsPerPage: 1,
             row: {
@@ -320,7 +325,7 @@ describe('log progress competitor UI', () => {
             },
         })
 
-        expect(totalPoints).toBe(1500)
+        expect(totalPoints).toBe(1550)
     })
 
     it('keeps base reading points when the row is not marked complete', () => {
@@ -337,6 +342,7 @@ describe('log progress competitor UI', () => {
                     title: 'Epic read',
                 },
             ],
+            pointsPerBook: 50,
             pointsPerMinute: 0,
             pointsPerPage: 1,
             row: {

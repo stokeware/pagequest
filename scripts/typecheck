@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+source "$(cd "$(dirname "$0")" && pwd)/_shared.sh"
+
+run pnpm exec next typegen
+run pnpm exec tsc --noEmit --project tsconfig.typecheck.json

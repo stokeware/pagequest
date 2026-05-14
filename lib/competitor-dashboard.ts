@@ -7,6 +7,7 @@ import {
     type CompetitorCampaignParticipantRecord,
     type CompetitorCampaignStatus,
     type CompetitorRecentEntryRecord,
+    type CompetitorWorkspaceCompletedBookRecord,
 } from '@/lib/competitor-queries'
 import { calculateEntryPoints } from '@/lib/campaign-domain'
 import { getReadingEntryMetadataSummary } from '@/lib/log-progress'
@@ -36,8 +37,10 @@ type DashboardRecentActivityItem = {
     challengeLabel: string | null
     completedAtLabel: string
     id: string
+    isViewer: boolean
     pointsLabel: string
     progressLabel: string
+    readerLabel: string | null
     title: string
 }
 
@@ -128,11 +131,22 @@ export function buildCompetitorDashboardViewModel(
 
     const { participant, recentEntries, scoringRules, standings } = selection
     const rankedStandings = rankStandings(standings)
-    const recentActivity = buildCompletedBookActivityItems({
-        entries: recentEntries,
-        scoringRules,
+    const workspaceRecentActivity = buildWorkspaceCompletedBookActivityItems({
+        completions: rankedStandings.flatMap(
+            (standing) => standing.workspaceCompletedBooks ?? []
+        ),
         timezone: participant.campaign.timezone,
+        viewerParticipantId: participant.id,
     })
+    const recentActivity =
+        workspaceRecentActivity.length > 0
+            ? workspaceRecentActivity
+            : buildCompletedBookActivityItems({
+                  entries: recentEntries,
+                  isViewer: true,
+                  scoringRules,
+                  timezone: participant.campaign.timezone,
+              })
     const participantStanding = rankedStandings.find(
         (entry) => entry.id === participant.id
     )
@@ -363,10 +377,12 @@ function getShellCampaignDetail(campaign: CompetitorCampaignRecord, now: Date) {
 
 export function buildCompletedBookActivityItems({
     entries,
+    isViewer = false,
     scoringRules,
     timezone,
 }: {
     entries: CompetitorRecentEntryRecord[]
+    isViewer?: boolean
     scoringRules: CompetitorCampaignContextWithScoring['scoringRules']
     timezone: string
 }) {
@@ -379,22 +395,58 @@ export function buildCompletedBookActivityItems({
             allEntries: entries,
             completionEntries,
             entry,
+            isViewer,
             scoringRules,
             timezone,
         })
     )
 }
 
+export function buildWorkspaceCompletedBookActivityItems({
+    completions,
+    timezone,
+    viewerParticipantId,
+}: {
+    completions: CompetitorWorkspaceCompletedBookRecord[]
+    timezone: string
+    viewerParticipantId: string | null
+}) {
+    return [...completions]
+        .sort(
+            (left, right) =>
+                right.activityDate.getTime() - left.activityDate.getTime()
+        )
+        .slice(0, 10)
+        .map((completion) => ({
+            challengeLabel: completion.challengeLabel,
+            completedAtLabel: formatActivityDate(
+                completion.activityDate,
+                timezone
+            ),
+            id: completion.id,
+            isViewer: completion.participantId === viewerParticipantId,
+            pointsLabel: formatPointsFromNumber(completion.pointsAwarded),
+            progressLabel: getCompletedBookProgressLabel({
+                totalMinutes: completion.totalAudiobookMinutes,
+                totalPages: completion.totalPages,
+            }),
+            readerLabel: completion.readerLabel,
+            title: completion.title,
+        }))
+}
+
 function toCompletedBookActivityItem({
     allEntries,
     completionEntries,
     entry,
+    isViewer,
     scoringRules,
     timezone,
 }: {
     allEntries: CompetitorRecentEntryRecord[]
     completionEntries: CompetitorRecentEntryRecord[]
     entry: CompetitorRecentEntryRecord
+    isViewer: boolean
     scoringRules: CompetitorCampaignContextWithScoring['scoringRules']
     timezone: string
 }): DashboardRecentActivityItem {
@@ -423,11 +475,13 @@ function toCompletedBookActivityItem({
         challengeLabel: entry.challengeCompletion?.challenge.title ?? null,
         completedAtLabel: formatActivityDate(entry.activityDate, timezone),
         id: entry.id,
+        isViewer,
         pointsLabel: formatPoints(pointsAchieved),
         progressLabel: getCompletedBookProgressLabel({
             totalMinutes,
             totalPages,
         }),
+        readerLabel: null,
         title: getCompletedBookTitle(entry),
     }
 }

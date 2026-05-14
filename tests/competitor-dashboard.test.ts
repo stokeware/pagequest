@@ -91,6 +91,19 @@ describe('competitor dashboard view model', () => {
                             email: 'leader@example.com',
                             name: 'Morgan',
                         },
+                        workspaceCompletedBooks: [
+                            {
+                                activityDate: new Date('2026-05-07T12:00:00Z'),
+                                challengeLabel: 'Read outside',
+                                id: 'participant-1:progress-row-1',
+                                participantId: 'participant-1',
+                                pointsAwarded: 390,
+                                readerLabel: 'Morgan',
+                                totalAudiobookMinutes: 0,
+                                totalPages: 340,
+                                title: 'The Penderwicks',
+                            },
+                        ],
                     },
                     {
                         createdAt: new Date('2026-04-01T12:00:00Z'),
@@ -105,6 +118,19 @@ describe('competitor dashboard view model', () => {
                             email: 'reader@example.com',
                             name: 'Avery',
                         },
+                        workspaceCompletedBooks: [
+                            {
+                                activityDate: new Date('2026-05-06T12:00:00Z'),
+                                challengeLabel: null,
+                                id: 'participant-2:progress-row-2',
+                                participantId: 'participant-2',
+                                pointsAwarded: 205,
+                                readerLabel: 'Avery',
+                                totalAudiobookMinutes: 0,
+                                totalPages: 180,
+                                title: 'Because of Winn-Dixie',
+                            },
+                        ],
                     },
                 ],
             },
@@ -124,7 +150,17 @@ describe('competitor dashboard view model', () => {
         })
         expect(viewModel.summaryMetrics).toEqual([])
         expect(viewModel.recentActivity[0]).toMatchObject({
+            readerLabel: 'Morgan',
+            isViewer: false,
+            title: 'The Penderwicks',
+            completedAtLabel: 'May 7, 2026',
+            progressLabel: '340 pages',
+            pointsLabel: '390 points',
+        })
+        expect(viewModel.recentActivity[1]).toMatchObject({
             title: 'Because of Winn-Dixie',
+            readerLabel: 'Avery',
+            isViewer: true,
             completedAtLabel: 'May 6, 2026',
             progressLabel: '180 pages',
             pointsLabel: '205 points',
@@ -133,6 +169,84 @@ describe('competitor dashboard view model', () => {
             label: 'Current standing',
             value: '#2',
         })
+    })
+
+    it('limits dashboard recent activity to the 10 most recent completions', () => {
+        const viewModel = buildCompetitorDashboardViewModel(
+            {
+                campaign: {
+                    endAt: new Date('2026-05-20T23:00:00Z'),
+                    id: 'campaign-1',
+                    name: 'Spring Story Sprint',
+                    startAt: new Date('2026-04-20T12:00:00Z'),
+                    status: 'ACTIVE',
+                    timezone: 'UTC',
+                },
+                participant: {
+                    createdAt: new Date('2026-04-01T12:00:00Z'),
+                    id: 'participant-1',
+                    joinedAt: new Date('2026-04-01T12:00:00Z'),
+                    lastActivityAt: new Date('2026-05-12T12:00:00Z'),
+                    campaign: {
+                        endAt: new Date('2026-05-20T23:00:00Z'),
+                        id: 'campaign-1',
+                        name: 'Spring Story Sprint',
+                        startAt: new Date('2026-04-20T12:00:00Z'),
+                        status: 'ACTIVE',
+                        timezone: 'UTC',
+                    },
+                    totalAudiobookMinutes: 0,
+                    totalBooks: 12,
+                    totalChallenges: 0,
+                    totalPages: 1200,
+                    totalPoints: { toString: () => '1200' },
+                },
+                recentEntries: [],
+                scoringRules: {
+                    pointsPerAudiobookMinute: '0.75',
+                    pointsPerBook: '25',
+                    pointsPerChallengeCompletion: '40',
+                    pointsPerPage: '1',
+                },
+                standings: [
+                    {
+                        createdAt: new Date('2026-04-01T12:00:00Z'),
+                        id: 'participant-1',
+                        lastActivityAt: new Date('2026-05-12T12:00:00Z'),
+                        totalAudiobookMinutes: 0,
+                        totalBooks: 12,
+                        totalChallenges: 0,
+                        totalPages: 1200,
+                        totalPoints: { toString: () => '1200' },
+                        user: {
+                            email: 'reader@example.com',
+                            name: 'Avery',
+                        },
+                        workspaceCompletedBooks: Array.from(
+                            { length: 12 },
+                            (_, index) => ({
+                                activityDate: new Date(
+                                    `2026-05-${String(12 - index).padStart(2, '0')}T12:00:00Z`
+                                ),
+                                challengeLabel: null,
+                                id: `participant-1:progress-row-${index + 1}`,
+                                participantId: 'participant-1',
+                                pointsAwarded: 100 + index,
+                                readerLabel: 'Avery',
+                                totalAudiobookMinutes: 0,
+                                totalPages: 100 + index,
+                                title: `Book ${index + 1}`,
+                            })
+                        ),
+                    },
+                ],
+            },
+            new Date('2026-05-13T12:00:00Z')
+        )
+
+        expect(viewModel.recentActivity).toHaveLength(10)
+        expect(viewModel.recentActivity[0].title).toBe('Book 1')
+        expect(viewModel.recentActivity.at(-1)?.title).toBe('Book 10')
     })
 
     it('shows the visible campaign even when the viewer is not linked yet', () => {
@@ -168,6 +282,7 @@ describe('competitor dashboard view model', () => {
                             email: 'leader@example.com',
                             name: 'Morgan',
                         },
+                        workspaceCompletedBooks: [],
                     },
                 ],
             },

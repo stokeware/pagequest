@@ -6,8 +6,10 @@ import type {
 import { cache } from 'react'
 
 import {
+    calculateCampaignWorkspaceRowPoints,
     calculateCampaignWorkspaceTotals,
     campaignWorkspaceAuditAction,
+    getCompletedCampaignWorkspaceBooks,
     parseCampaignWorkspaceState,
     type CampaignWorkspaceChallenge,
 } from '@/lib/campaign-workspace'
@@ -64,6 +66,19 @@ export type CompetitorStandingRecord = {
         email: string
         name: string | null
     }
+    workspaceCompletedBooks?: CompetitorWorkspaceCompletedBookRecord[]
+}
+
+export type CompetitorWorkspaceCompletedBookRecord = {
+    activityDate: Date
+    challengeLabel: string | null
+    id: string
+    participantId: string
+    pointsAwarded: number
+    readerLabel: string
+    totalAudiobookMinutes: number
+    totalPages: number
+    title: string
 }
 
 export type CompetitorRecentEntryRecord = {
@@ -422,6 +437,7 @@ async function getVisibleCompetitorCampaign() {
                     kind: true,
                     pageMinuteMultiplier: true,
                     pointValue: true,
+                    title: true,
                     templateChallenge: {
                         select: {
                             pageMinuteMultiplier: true,
@@ -471,6 +487,7 @@ async function getVisibleCompetitorCampaign() {
                         pointValue: Number(
                             resolveChallengePointValue(challenge)
                         ),
+                        title: challenge.title,
                     })),
                     endAt: campaign.endAt,
                     id: campaign.id,
@@ -658,6 +675,13 @@ async function getCampaignStandings(campaign: CompetitorVisibleCampaign) {
                 totalPages: derivedMetrics.totalPages,
                 totalPoints: derivedMetrics.totalPoints,
                 user: participant.user,
+                workspaceCompletedBooks: getWorkspaceCompletedBooks({
+                    campaign,
+                    latestWorkspaceAudit: participant.auditLogs[0] ?? null,
+                    participantId: participant.id,
+                    readerLabel:
+                        participant.user.name || participant.user.email,
+                }),
             }
         })
         .sort(compareStandings)
@@ -736,6 +760,7 @@ function resolveParticipantProgressMetrics(
 
     const workspaceTotals = calculateCampaignWorkspaceTotals({
         campaignChallenges: campaign.challenges,
+        pointsPerBook: Number(campaign.scoringRules.pointsPerBook),
         pointsPerMinute: Number(campaign.scoringRules.pointsPerAudiobookMinute),
         pointsPerPage: Number(campaign.scoringRules.pointsPerPage),
         workspaceState: parseCampaignWorkspaceState(
@@ -762,6 +787,67 @@ function resolveParticipantProgressMetrics(
         totalPages: workspaceTotals.totalPages,
         totalPoints: workspaceTotals.totalPoints,
     }
+}
+
+function getWorkspaceCompletedBooks({
+    campaign,
+    latestWorkspaceAudit,
+    participantId,
+    readerLabel,
+}: {
+    campaign: CompetitorVisibleCampaign
+    latestWorkspaceAudit: {
+        createdAt: Date
+        metadata: unknown
+    } | null
+    participantId: string
+    readerLabel: string
+}) {
+    if (!latestWorkspaceAudit) {
+        return []
+    }
+
+    const workspaceState = parseCampaignWorkspaceState(
+        latestWorkspaceAudit.metadata
+    )
+
+    return getCompletedCampaignWorkspaceBooks(workspaceState).map((book) => {
+        const challenge = campaign.challenges.find(
+            (candidate) => candidate.id === book.challengeId
+        )
+
+        return {
+            activityDate: latestWorkspaceAudit.createdAt,
+            challengeLabel: challenge ? getChallengeLabel(challenge) : null,
+            id: `${participantId}:${book.id}`,
+            participantId,
+            pointsAwarded: calculateCampaignWorkspaceRowPoints({
+                campaignChallenges: campaign.challenges,
+                pointsPerBook: Number(campaign.scoringRules.pointsPerBook),
+                pointsPerMinute: Number(
+                    campaign.scoringRules.pointsPerAudiobookMinute
+                ),
+                pointsPerPage: Number(campaign.scoringRules.pointsPerPage),
+                row: {
+                    bookName: book.title,
+                    challengeId: book.challengeId,
+                    completed: true,
+                    id: book.id,
+                    minutes: String(book.minutes),
+                    pages: String(book.pages),
+                    rowType: 'STANDARD',
+                },
+            }),
+            readerLabel,
+            totalAudiobookMinutes: book.minutes,
+            totalPages: book.pages,
+            title: book.title,
+        } satisfies CompetitorWorkspaceCompletedBookRecord
+    })
+}
+
+function getChallengeLabel(challenge: CampaignWorkspaceChallenge) {
+    return challenge.title || null
 }
 
 function compareStandings(

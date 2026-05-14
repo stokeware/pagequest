@@ -55,6 +55,7 @@ describe('campaign workspace totals', () => {
                 ],
                 recommendationTitle: '',
             },
+            pointsPerBook: 10,
             pointsPerPage: 1,
         })
 
@@ -63,12 +64,13 @@ describe('campaign workspace totals', () => {
         expect(totals.totalAudiobookMinutes).toBe(35)
         expect(totals.totalBooks).toBe(2)
         expect(totals.totalChallenges).toBe(2)
-        expect(totals.totalPoints.toString()).toBe('191.25')
+        expect(totals.totalPoints.toString()).toBe('211.25')
     })
 
     it('treats an empty personal goal shell as no meaningful progress', () => {
         const totals = calculateCampaignWorkspaceTotals({
             campaignChallenges: [],
+            pointsPerBook: 10,
             pointsPerMinute: 0.75,
             pointsPerPage: 1,
             workspaceState: {

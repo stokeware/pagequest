@@ -39,6 +39,7 @@ const defaultViewModel: LogProgressViewModel = {
     campaignChallenges: [],
     campaignName: 'Campaign assignment pending',
     progressScoring: {
+        pointsPerBook: 0,
         pointsPerMinute: 0.75,
         pointsPerPage: 1,
     },
@@ -87,6 +88,7 @@ async function getLogProgressViewModel(
             id: true,
             name: true,
             pointsPerAudiobookMinute: true,
+            pointsPerBook: true,
             pointsPerPage: true,
             startAt: true,
             status: true,
@@ -219,6 +221,7 @@ async function getLogProgressViewModel(
         campaignParticipantId: participant?.id ?? null,
         campaignName: campaign.name,
         progressScoring: {
+            pointsPerBook: Number(campaign.pointsPerBook.toString()),
             pointsPerMinute: Number(
                 campaign.pointsPerAudiobookMinute.toString()
             ),
