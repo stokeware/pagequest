@@ -581,10 +581,10 @@ function getCompletedBookProgressLabel({
     }
 
     if (totalMinutes > 0) {
-        return `${formatCount(totalMinutes)} audiobook ${pluralize('minute', totalMinutes)}`
+        return `${formatCount(totalMinutes)} ${pluralize('minute', totalMinutes)}`
     }
 
-    return 'No page or audiobook totals linked'
+    return 'No page or minute totals linked'
 }
 
 function getReadingEntryBookKey(entry: CompetitorRecentEntryRecord) {
