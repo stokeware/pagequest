@@ -419,7 +419,7 @@ export function buildWorkspaceCompletedBookActivityItems({
         .slice(0, 10)
         .map((completion) => ({
             challengeLabel: completion.challengeLabel,
-            completedAtLabel: formatActivityDate(
+            completedAtLabel: formatRecentActivityDate(
                 completion.activityDate,
                 timezone
             ),
@@ -473,7 +473,10 @@ function toCompletedBookActivityItem({
 
     return {
         challengeLabel: entry.challengeCompletion?.challenge.title ?? null,
-        completedAtLabel: formatActivityDate(entry.activityDate, timezone),
+        completedAtLabel: formatRecentActivityDate(
+            entry.activityDate,
+            timezone
+        ),
         id: entry.id,
         isViewer,
         pointsLabel: formatPoints(pointsAchieved),
@@ -616,6 +619,14 @@ function getDurationLabel(target: Date, now: Date) {
 function formatActivityDate(value: Date, timezone: string) {
     return new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
+        timeZone: timezone,
+    }).format(value)
+}
+
+function formatRecentActivityDate(value: Date, timezone: string) {
+    return new Intl.DateTimeFormat('en-US', {
+        day: 'numeric',
+        month: 'short',
         timeZone: timezone,
     }).format(value)
 }

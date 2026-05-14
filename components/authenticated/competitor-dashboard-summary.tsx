@@ -55,14 +55,29 @@ export function CompetitorDashboardSummary({
                             >
                                 <div className='space-y-2'>
                                     {item.readerLabel ? (
-                                        <p className='text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
-                                            {item.readerLabel}
-                                        </p>
-                                    ) : null}
-                                    <p className='font-medium'>{item.title}</p>
-                                    <p className='text-sm text-muted-foreground'>
-                                        Completed {item.completedAtLabel}
-                                    </p>
+                                        <>
+                                            <div className='flex items-start justify-between gap-4'>
+                                                <p className='text-lg font-semibold tracking-[0.01em] text-[color:var(--blue-slate)] sm:text-xl'>
+                                                    {item.readerLabel}
+                                                </p>
+                                                <p className='shrink-0 text-base text-muted-foreground sm:text-lg'>
+                                                    {item.completedAtLabel}
+                                                </p>
+                                            </div>
+                                            <p className='text-lg font-semibold sm:text-xl'>
+                                                {item.title}
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <div className='flex items-start justify-between gap-4'>
+                                            <p className='min-w-0 text-lg font-semibold sm:text-xl'>
+                                                {item.title}
+                                            </p>
+                                            <p className='shrink-0 text-base text-muted-foreground sm:text-lg'>
+                                                {item.completedAtLabel}
+                                            </p>
+                                        </div>
+                                    )}
                                     {item.challengeLabel ? (
                                         <p className='text-sm text-muted-foreground'>
                                             Challenge: {item.challengeLabel}

@@ -153,7 +153,7 @@ describe('competitor dashboard view model', () => {
             readerLabel: 'Morgan',
             isViewer: false,
             title: 'The Penderwicks',
-            completedAtLabel: 'May 7, 2026',
+            completedAtLabel: 'May 7',
             progressLabel: '340 pages',
             pointsLabel: '390 points',
         })
@@ -161,7 +161,7 @@ describe('competitor dashboard view model', () => {
             title: 'Because of Winn-Dixie',
             readerLabel: 'Avery',
             isViewer: true,
-            completedAtLabel: 'May 6, 2026',
+            completedAtLabel: 'May 6',
             progressLabel: '180 pages',
             pointsLabel: '205 points',
         })
