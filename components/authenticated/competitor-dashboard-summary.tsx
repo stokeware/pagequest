@@ -54,14 +54,20 @@ export function CompetitorDashboardSummary({
                                 )}
                             >
                                 <div className='space-y-2'>
-                                    {item.readerLabel ? (
-                                        <p className='text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
-                                            {item.readerLabel}
+                                    <div className='flex items-start justify-between gap-4'>
+                                        {item.readerLabel ? (
+                                            <p className='text-base font-semibold tracking-[0.01em] text-foreground sm:text-lg'>
+                                                {item.readerLabel}
+                                            </p>
+                                        ) : (
+                                            <span />
+                                        )}
+                                        <p className='shrink-0 text-base text-muted-foreground sm:text-lg'>
+                                            {item.completedAtLabel}
                                         </p>
-                                    ) : null}
-                                    <p className='font-medium'>{item.title}</p>
-                                    <p className='text-sm text-muted-foreground'>
-                                        Completed {item.completedAtLabel}
+                                    </div>
+                                    <p className='text-lg font-semibold sm:text-xl'>
+                                        {item.title}
                                     </p>
                                     {item.challengeLabel ? (
                                         <p className='text-sm text-muted-foreground'>
