@@ -10,6 +10,7 @@
         "start": "./scripts/start",
         "env:validate": "./scripts/validate-env",
         "lint": "./scripts/lint",
+        "typecheck": "./scripts/typecheck",
         "format": "./scripts/format",
         "format:check": "./scripts/format-check",
         "test": "./scripts/test",
