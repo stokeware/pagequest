@@ -157,7 +157,7 @@ describe('competitor participant detail view model', () => {
         expect(viewModel.recentActivity[0]).toMatchObject({
             title: 'Because of Winn-Dixie',
             completedAtLabel: 'May 7',
-            progressLabel: '45 audiobook minutes',
+            progressLabel: '45 minutes',
             isViewer: true,
             pointsLabel: '34.75 points',
         })
