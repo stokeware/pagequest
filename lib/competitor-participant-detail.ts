@@ -3,6 +3,7 @@ import { cache } from 'react'
 import {
     buildCompletedBookActivityItems,
     buildDashboardSnapshotCards,
+    buildWorkspaceCompletedBookActivityItems,
     type DashboardRecentActivityItem,
     type DashboardSnapshotCard,
     rankStandings,
@@ -103,11 +104,23 @@ export function buildCompetitorParticipantDetailViewModel(
     const leader = rankedStandings[0] ?? null
     const participantPoints = Number(participant.totalPoints.toString())
     const leaderPoints = leader ? Number(leader.totalPoints.toString()) : 0
-    const recentActivity = buildCompletedBookActivityItems({
+    const entryRecentActivity = buildCompletedBookActivityItems({
         entries: historyEntries,
+        isViewer,
         scoringRules,
         timezone: context.campaign.timezone,
     })
+    const recentActivity =
+        entryRecentActivity.length > 0
+            ? entryRecentActivity
+            : buildWorkspaceCompletedBookActivityItems({
+                  completions: participant.workspaceCompletedBooks ?? [],
+                  timezone: context.campaign.timezone,
+                  viewerParticipantId: context.participant?.id ?? null,
+              }).map((item) => ({
+                  ...item,
+                  readerLabel: null,
+              }))
     const snapshotCards = buildDashboardSnapshotCards({
         pointsBehindLeader: Math.max(leaderPoints - participantPoints, 0),
         rankNumber: participant.rankNumber,
@@ -123,7 +136,9 @@ export function buildCompetitorParticipantDetailViewModel(
         participantSummary:
             historyEntries.length > 0
                 ? `${participantLabel} has ${formatCount(historyEntries.length)} ${pluralize('entry', historyEntries.length)} recorded for this campaign.`
-                : `${participantLabel} has not logged any reading for this campaign yet.`,
+                : recentActivity.length > 0
+                  ? `${participantLabel} has ${formatCount(recentActivity.length)} completed ${pluralize('book', recentActivity.length)} tracked for this campaign.`
+                  : `${participantLabel} has not logged any reading for this campaign yet.`,
         recentActivity,
         snapshotCards,
     }

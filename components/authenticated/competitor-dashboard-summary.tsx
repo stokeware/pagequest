@@ -5,6 +5,7 @@ import {
     CardTitle,
     StatCard,
 } from '@/components/ui'
+import { cn } from '@/lib/utils'
 import type {
     DashboardRecentActivityItem,
     DashboardSnapshotCard,
@@ -45,9 +46,19 @@ export function CompetitorDashboardSummary({
                         recentActivity.map((item) => (
                             <div
                                 key={item.id}
-                                className='rounded-2xl border border-border/70 bg-background/80 px-4 py-3'
+                                className={cn(
+                                    'rounded-2xl border px-4 py-3',
+                                    item.isViewer
+                                        ? 'border-primary/25 bg-(--surface-highlight)'
+                                        : 'border-border/70 bg-background/80'
+                                )}
                             >
                                 <div className='space-y-2'>
+                                    {item.readerLabel ? (
+                                        <p className='text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
+                                            {item.readerLabel}
+                                        </p>
+                                    ) : null}
                                     <p className='font-medium'>{item.title}</p>
                                     <p className='text-sm text-muted-foreground'>
                                         Completed {item.completedAtLabel}

@@ -31,6 +31,7 @@ export type LogProgressViewModel = {
     campaignChallenges: LogProgressCampaignChallenge[]
     campaignName: string
     progressScoring: {
+        pointsPerBook: number
         pointsPerMinute: number
         pointsPerPage: number
     }
@@ -984,17 +985,20 @@ function getPersonalGoalChallenge(
 
 export function calculateProgressRowPoints({
     campaignChallenges,
+    pointsPerBook,
     pointsPerMinute,
     pointsPerPage,
     row,
 }: {
     campaignChallenges: LogProgressCampaignChallenge[]
+    pointsPerBook: number
     pointsPerMinute: number
     pointsPerPage: number
     row: ProgressRow
 }) {
     return calculateCampaignWorkspaceRowPoints({
         campaignChallenges,
+        pointsPerBook,
         pointsPerMinute,
         pointsPerPage,
         row,
