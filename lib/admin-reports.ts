@@ -1192,7 +1192,7 @@ function formatAuditEntryUnit(type: string, value: number) {
         case 'PAGES_READ':
             return 'pages'
         case 'AUDIOBOOK_MINUTES':
-            return 'audiobook minutes'
+            return 'minutes'
         case 'CHALLENGE_COMPLETION':
             return pluralize('challenge completion', value)
         default:
