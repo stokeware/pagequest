@@ -437,6 +437,7 @@ async function getVisibleCompetitorCampaign() {
                     kind: true,
                     pageMinuteMultiplier: true,
                     pointValue: true,
+                    title: true,
                     templateChallenge: {
                         select: {
                             pageMinuteMultiplier: true,
