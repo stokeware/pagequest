@@ -46,7 +46,7 @@ describe('public auth ui', () => {
         expect(html).toContain('Email address')
         expect(html).toContain('reader@example.com')
         expect(html).toContain('If a Page Quest account matches that email')
-        expect(html).toContain('Send email')
+        expect(html).not.toContain('Send email')
     })
 
     it('renders the password reset confirmation form with a read-only email', () => {

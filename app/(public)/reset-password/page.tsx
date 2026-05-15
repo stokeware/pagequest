@@ -70,11 +70,13 @@ export function ResetPasswordRequestCard({
                     />
                 ) : null}
 
-                <FormActions>
-                    <Button nativeButton type='submit'>
-                        Send email
-                    </Button>
-                </FormActions>
+                {!sent ? (
+                    <FormActions>
+                        <Button nativeButton type='submit'>
+                            Send email
+                        </Button>
+                    </FormActions>
+                ) : null}
             </form>
         </FormCard>
     )
