@@ -25,6 +25,11 @@ export type InactivityNudgeEmailInput = {
     recipientEmail: string
 }
 
+export type PasswordResetEmailInput = {
+    passwordResetUrl: string
+    recipientEmail: string
+}
+
 function formatBoundaryDate(value: Date) {
     return new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
@@ -185,6 +190,33 @@ export function buildInactivityNudgeEmailMessage({
     })
 }
 
+export function buildPasswordResetEmailMessage({
+    passwordResetUrl,
+    recipientEmail,
+}: PasswordResetEmailInput): EmailDeliveryMessage {
+    const safePasswordResetUrl = escapeHtml(passwordResetUrl)
+
+    return buildEmailMessage({
+        htmlParts: [
+            '<p>We received a request to reset the password for your <strong>Page Quest</strong> account.</p>',
+            `<p><a href="${safePasswordResetUrl}">Open your secure password reset link</a></p>`,
+            '<p>This link lets you choose a new password and then sign back in.</p>',
+            '<p>If you did not request a password reset, you can ignore this email.</p>',
+        ],
+        plainTextLines: [
+            'We received a request to reset the password for your Page Quest account.',
+            '',
+            `Open your secure password reset link: ${passwordResetUrl}`,
+            '',
+            'Use it to choose a new password and then sign back in.',
+            '',
+            'If you did not request a password reset, you can ignore this email.',
+        ],
+        recipientEmail,
+        subject: 'Reset your Page Quest password',
+    })
+}
+
 export async function sendInvitationEmail(input: InvitationEmailInput) {
     return sendEmail(buildInvitationEmailMessage(input))
 }
@@ -199,4 +231,8 @@ export async function sendInactivityNudgeEmail(
     input: InactivityNudgeEmailInput
 ) {
     return sendEmail(buildInactivityNudgeEmailMessage(input))
+}
+
+export async function sendPasswordResetEmail(input: PasswordResetEmailInput) {
+    return sendEmail(buildPasswordResetEmailMessage(input))
 }

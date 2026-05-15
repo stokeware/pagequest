@@ -7,9 +7,11 @@ import {
     InvitationSignupCard,
     InvitationTokenCard,
 } from '@/app/(public)/accept-invitation/page'
+import { ResetPasswordRequestCard } from '@/app/(public)/reset-password/page'
+import { PasswordResetConfirmCard } from '@/app/(public)/reset-password/confirm/page'
 
 describe('public auth ui', () => {
-    it('renders the simplified password sign-in card with labels and notice state', () => {
+    it('renders the password sign-in card with labels and reset entry point', () => {
         const html = renderToStaticMarkup(
             <PasswordSignInCard
                 defaultEmail='reader@example.com'
@@ -17,18 +19,51 @@ describe('public auth ui', () => {
                 invitationWasCreated={true}
                 isHydrated={true}
                 isPending={false}
-                localDemoEmails={['admin@pagequest.local']}
                 onSubmit={() => undefined}
+                passwordResetWasCompleted={true}
             />
         )
 
-        expect(html).toContain('Enter your Page Quest email and password')
         expect(html).toContain('Your account is ready.')
+        expect(html).toContain('Your password has been reset.')
         expect(html).toContain('Email address')
         expect(html).toContain('Password')
         expect(html).toContain('reader@example.com')
-        expect(html).toContain('Local development uses seeded accounts')
+        expect(html).toContain('Reset Password')
         expect(html).toContain('Sign-in failed.')
+    })
+
+    it('renders the password reset request form with a single email field', () => {
+        const html = renderToStaticMarkup(
+            <ResetPasswordRequestCard
+                defaultEmail='reader@example.com'
+                errorMessage={null}
+                sent={true}
+            />
+        )
+
+        expect(html).toContain('Reset password')
+        expect(html).toContain('Email address')
+        expect(html).toContain('reader@example.com')
+        expect(html).toContain('If a Page Quest account matches that email')
+        expect(html).toContain('Send email')
+    })
+
+    it('renders the password reset confirmation form with a read-only email', () => {
+        const html = renderToStaticMarkup(
+            <PasswordResetConfirmCard
+                email='reader@example.com'
+                errorMessage='Passwords do not match.'
+                token={'x'.repeat(32)}
+            />
+        )
+
+        expect(html).toContain('Reset password')
+        expect(html).toContain('reader@example.com')
+        expect(html).toContain('Password')
+        expect(html).toContain('Repeat password')
+        expect(html).toContain('Reset Password')
+        expect(html).toContain('Passwords do not match.')
     })
 
     it('renders the invitation signup form with the read-only email and password fields', () => {

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useSyncExternalStore, useTransition } from 'react'
 
@@ -13,18 +14,14 @@ import {
 } from '@/components/ui'
 import { signInWithPasswordAction } from '@/app/(public)/sign-in/actions'
 
-type SignInFormProps = {
-    localDemoEmails: readonly string[]
-}
-
 type PasswordSignInCardProps = {
     defaultEmail: string
     errorMessage: string | null
     invitationWasCreated: boolean
     isHydrated: boolean
     isPending: boolean
-    localDemoEmails: readonly string[]
     onSubmit: React.FormEventHandler<HTMLFormElement>
+    passwordResetWasCompleted: boolean
 }
 
 function subscribeToHydration() {
@@ -45,21 +42,25 @@ export function PasswordSignInCard({
     invitationWasCreated,
     isHydrated,
     isPending,
-    localDemoEmails,
     onSubmit,
+    passwordResetWasCompleted,
 }: PasswordSignInCardProps) {
-    const showLocalDevNote = localDemoEmails.length > 0
-
     return (
         <FormCard
-            title='Sign in'
-            description='Enter your Page Quest email and password to continue.'
+            title={<span className='text-3xl tracking-tight'>Sign in</span>}
         >
             <form onSubmit={onSubmit} method='post' className='space-y-4'>
                 {invitationWasCreated ? (
                     <div className='rounded-lg border border-emerald-600/30 bg-emerald-50 px-4 py-3 text-sm text-emerald-900'>
                         Your account is ready. Sign in with the invited email to
                         open your dashboard.
+                    </div>
+                ) : null}
+
+                {passwordResetWasCompleted ? (
+                    <div className='rounded-lg border border-emerald-600/30 bg-emerald-50 px-4 py-3 text-sm text-emerald-900'>
+                        Your password has been reset. Sign in with your new
+                        password.
                     </div>
                 ) : null}
 
@@ -89,13 +90,6 @@ export function PasswordSignInCard({
                     />
                 </FormField>
 
-                {showLocalDevNote ? (
-                    <p className='text-sm text-muted-foreground'>
-                        Local development uses seeded accounts with the password
-                        pagequest-local.
-                    </p>
-                ) : null}
-
                 {errorMessage ? (
                     <ErrorState
                         eyebrow='Sign-in error'
@@ -110,7 +104,13 @@ export function PasswordSignInCard({
                             ? 'Signing in...'
                             : !isHydrated
                               ? 'Preparing sign-in...'
-                              : 'Sign in'}
+                              : 'Sign In'}
+                    </Button>
+                    <Button
+                        variant='outline'
+                        render={<Link href='/reset-password' />}
+                    >
+                        Reset Password
                     </Button>
                 </FormActions>
             </form>
@@ -118,7 +118,7 @@ export function PasswordSignInCard({
     )
 }
 
-export function SignInForm({ localDemoEmails }: SignInFormProps) {
+export function SignInForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -131,6 +131,7 @@ export function SignInForm({ localDemoEmails }: SignInFormProps) {
     const callbackUrl = searchParams.get('callbackUrl')?.trim() || ''
     const defaultEmail = searchParams.get('email')?.trim() || ''
     const invitationWasCreated = searchParams.get('invitation') === 'created'
+    const passwordResetWasCompleted = searchParams.get('passwordReset') === '1'
 
     function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -158,8 +159,8 @@ export function SignInForm({ localDemoEmails }: SignInFormProps) {
             invitationWasCreated={invitationWasCreated}
             isHydrated={isHydrated}
             isPending={isPending}
-            localDemoEmails={localDemoEmails}
             onSubmit={handleSubmit}
+            passwordResetWasCompleted={passwordResetWasCompleted}
         />
     )
 }
