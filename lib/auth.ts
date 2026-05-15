@@ -5,6 +5,7 @@ import type { AppRole } from '@prisma/client'
 import type { NextAuthOptions } from 'next-auth'
 
 import { resolveGrantedRoles } from '@/lib/auth/access'
+import { normalizeAuthEmail } from '@/lib/auth/email'
 import { verifyPassword } from '@/lib/auth/password'
 import { getAppUrl } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
@@ -40,10 +41,6 @@ export type AuthSessionIdentity = {
     email: string
     roles: AppRole[]
     userId: string
-}
-
-function normalizeEmail(email: string | null | undefined) {
-    return email?.trim().toLowerCase() || null
 }
 
 function extractAdminRoles(
@@ -125,7 +122,7 @@ export async function authenticatePasswordUser({
     email: string
     password: string
 }): Promise<PersistedUser | null> {
-    const normalizedEmail = normalizeEmail(email)
+    const normalizedEmail = normalizeAuthEmail(email)
 
     if (!normalizedEmail || !password.trim()) {
         return null
