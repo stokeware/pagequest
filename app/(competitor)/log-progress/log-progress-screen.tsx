@@ -4,7 +4,10 @@ import { useRouter } from 'next/navigation'
 import { useId, useState, useTransition } from 'react'
 
 import { Button, Card, CardContent, FormField, Input } from '@/components/ui'
-import { calculateCampaignWorkspaceRowPoints } from '@/lib/campaign-workspace'
+import {
+    calculateCampaignWorkspaceRowPoints,
+    setCampaignWorkspaceRowCompletion,
+} from '@/lib/campaign-workspace'
 import { sortChallengesForCompetitorView } from '@/lib/challenge-config'
 import { cn } from '@/lib/utils'
 
@@ -673,13 +676,15 @@ export function LogProgressScreen({
                                                                                 ) =>
                                                                                     currentRow.id ===
                                                                                     row.id
-                                                                                        ? {
-                                                                                              ...currentRow,
-                                                                                              completed:
-                                                                                                  event
-                                                                                                      .target
-                                                                                                      .checked,
-                                                                                          }
+                                                                                        ? setCampaignWorkspaceRowCompletion(
+                                                                                              {
+                                                                                                  completed:
+                                                                                                      event
+                                                                                                          .target
+                                                                                                          .checked,
+                                                                                                  row: currentRow,
+                                                                                              }
+                                                                                          )
                                                                                         : currentRow
                                                                             )
                                                                     )
@@ -968,6 +973,7 @@ function ensurePersonalGoalRow(
         bookName: personalGoalTitle,
         challengeId: personalGoalChallenge?.id ?? '',
         completed: existingPersonalGoalRow?.completed ?? false,
+        completedAt: existingPersonalGoalRow?.completedAt,
         id: existingPersonalGoalRow?.id ?? 'progress-row-personal-goal',
         minutes: existingPersonalGoalRow?.minutes ?? '',
         pages: existingPersonalGoalRow?.pages ?? '',

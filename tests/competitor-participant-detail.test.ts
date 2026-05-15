@@ -151,8 +151,7 @@ describe('competitor participant detail view model', () => {
         expect(viewModel.snapshotCards[1]).toMatchObject({
             title: 'Total points',
             value: '418.25 points',
-            description:
-                '320 pages • 95 audiobook minutes • 3 books • 1 challenge',
+            description: '320 pages • 95 minutes • 3 books • 1 challenge',
         })
         expect(viewModel.recentActivity[0]).toMatchObject({
             title: 'Because of Winn-Dixie',
