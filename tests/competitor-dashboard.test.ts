@@ -147,6 +147,7 @@ describe('competitor dashboard view model', () => {
         expect(viewModel.snapshotCards[1]).toMatchObject({
             title: 'Total points',
             value: '418.25 points',
+            description: '320 pages • 95 minutes • 3 books • 1 challenge',
         })
         expect(viewModel.summaryMetrics).toEqual([])
         expect(viewModel.recentActivity[0]).toMatchObject({

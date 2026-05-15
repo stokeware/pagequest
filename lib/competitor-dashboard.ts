@@ -330,7 +330,7 @@ function getPointsDescription(
 ) {
     const parts = [
         `${formatCount(participant.totalPages)} pages`,
-        `${formatCount(participant.totalAudiobookMinutes)} audiobook minutes`,
+        `${formatCount(participant.totalAudiobookMinutes)} minutes`,
     ]
 
     if (participant.totalBooks > 0) {
