@@ -7,6 +7,7 @@ export type PersistedProgressRow = {
     bookName: string
     challengeId: string
     completed: boolean
+    completedAt?: string
     id: string
     minutes: string
     pages: string
@@ -28,6 +29,7 @@ export type CampaignWorkspaceChallenge = {
 
 export type CampaignWorkspaceCompletedBook = {
     challengeId: string
+    completedAt: Date | null
     id: string
     minutes: number
     pages: number
@@ -69,6 +71,7 @@ export function parseCampaignWorkspaceState(
                       bookName: getStringValue(row.bookName),
                       challengeId: getStringValue(row.challengeId),
                       completed: getBooleanValue(row.completed),
+                      completedAt: getIsoDateTimeValue(row.completedAt),
                       id: getStringValue(row.id) || `progress-row-${index + 1}`,
                       minutes: getStringValue(row.minutes),
                       pages: getStringValue(row.pages),
@@ -136,6 +139,7 @@ export function getCompletedCampaignWorkspaceBooks(
         return [
             {
                 challengeId: row.challengeId,
+                completedAt: toDateOrNull(row.completedAt),
                 id: row.id,
                 minutes: toNonNegativeNumber(row.minutes),
                 pages: toNonNegativeNumber(row.pages),
@@ -143,6 +147,46 @@ export function getCompletedCampaignWorkspaceBooks(
             } satisfies CampaignWorkspaceCompletedBook,
         ]
     })
+}
+
+export function setCampaignWorkspaceRowCompletion({
+    completed,
+    now = new Date(),
+    row,
+}: {
+    completed: boolean
+    now?: Date
+    row: PersistedProgressRow
+}) {
+    if (!completed) {
+        return {
+            ...row,
+            completed: false,
+            completedAt: undefined,
+        }
+    }
+
+    return {
+        ...row,
+        completed: true,
+        completedAt: row.completedAt ?? now.toISOString(),
+    }
+}
+
+export function normalizeCampaignWorkspaceRowCompletions({
+    now = new Date(),
+    rows,
+}: {
+    now?: Date
+    rows: PersistedProgressRow[]
+}) {
+    return rows.map((row) =>
+        setCampaignWorkspaceRowCompletion({
+            completed: row.completed,
+            now,
+            row,
+        })
+    )
 }
 
 export function calculateCampaignWorkspaceTotals({
@@ -227,6 +271,26 @@ function getBooleanValue(value: unknown) {
     return value === true
 }
 
+function getIsoDateTimeValue(value: unknown) {
+    if (typeof value !== 'string') {
+        return undefined
+    }
+
+    const trimmedValue = value.trim()
+
+    if (trimmedValue.length === 0) {
+        return undefined
+    }
+
+    const parsedValue = new Date(trimmedValue)
+
+    if (Number.isNaN(parsedValue.getTime())) {
+        return undefined
+    }
+
+    return parsedValue.toISOString()
+}
+
 function toNonNegativeNumber(value: string) {
     const numericValue = Number(value)
 
@@ -235,4 +299,18 @@ function toNonNegativeNumber(value: string) {
     }
 
     return numericValue
+}
+
+function toDateOrNull(value: string | undefined) {
+    if (!value) {
+        return null
+    }
+
+    const parsedValue = new Date(value)
+
+    if (Number.isNaN(parsedValue.getTime())) {
+        return null
+    }
+
+    return parsedValue
 }

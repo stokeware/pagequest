@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma'
 
 import {
     campaignWorkspaceAuditAction,
+    normalizeCampaignWorkspaceRowCompletions,
     parseCampaignWorkspaceState,
     type CampaignWorkspaceState,
 } from './workspace-state'
@@ -171,10 +172,13 @@ export async function saveCampaignWorkspaceAction(
 
         const nextWorkspaceState = {
             ...parsedWorkspaceState,
-            progressRows: parsedWorkspaceState.progressRows.filter(
-                (row) =>
-                    row.rowType === 'PERSONAL_GOAL' || row.bookName.length > 0
-            ),
+            progressRows: normalizeCampaignWorkspaceRowCompletions({
+                rows: parsedWorkspaceState.progressRows.filter(
+                    (row) =>
+                        row.rowType === 'PERSONAL_GOAL' ||
+                        row.bookName.length > 0
+                ),
+            }),
         }
 
         await transaction.auditLog.create({

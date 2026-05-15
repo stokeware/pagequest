@@ -817,7 +817,7 @@ function getWorkspaceCompletedBooks({
         )
 
         return {
-            activityDate: latestWorkspaceAudit.createdAt,
+            activityDate: book.completedAt ?? latestWorkspaceAudit.createdAt,
             challengeLabel: challenge ? getChallengeLabel(challenge) : null,
             id: `${participantId}:${book.id}`,
             participantId,

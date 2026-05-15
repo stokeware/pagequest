@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
     calculateCampaignWorkspaceTotals,
     emptyCampaignWorkspaceState,
+    getCompletedCampaignWorkspaceBooks,
+    normalizeCampaignWorkspaceRowCompletions,
+    parseCampaignWorkspaceState,
+    setCampaignWorkspaceRowCompletion,
 } from '@/lib/campaign-workspace'
 
 describe('campaign workspace totals', () => {
@@ -91,5 +95,82 @@ describe('campaign workspace totals', () => {
 
         expect(totals.hasMeaningfulProgress).toBe(false)
         expect(totals.totalPoints.toString()).toBe('0')
+    })
+
+    it('stores the first completion timestamp until a row is unchecked', () => {
+        const firstCompletedRow = setCampaignWorkspaceRowCompletion({
+            completed: true,
+            now: new Date('2026-05-07T12:00:00Z'),
+            row: {
+                bookName: 'Matilda',
+                challengeId: '',
+                completed: false,
+                id: 'progress-row-1',
+                minutes: '30',
+                pages: '150',
+                rowType: 'STANDARD',
+            },
+        })
+
+        const preservedCompletedRow = setCampaignWorkspaceRowCompletion({
+            completed: true,
+            now: new Date('2026-05-10T12:00:00Z'),
+            row: firstCompletedRow,
+        })
+        const uncheckedRow = setCampaignWorkspaceRowCompletion({
+            completed: false,
+            row: preservedCompletedRow,
+        })
+
+        expect(firstCompletedRow.completedAt).toBe('2026-05-07T12:00:00.000Z')
+        expect(preservedCompletedRow.completedAt).toBe(
+            '2026-05-07T12:00:00.000Z'
+        )
+        expect(uncheckedRow.completedAt).toBeUndefined()
+    })
+
+    it('returns saved completion timestamps for completed workspace books', () => {
+        const workspaceState = parseCampaignWorkspaceState({
+            personalGoalTitle: '',
+            progressRows: [
+                {
+                    bookName: 'The Penderwicks',
+                    challengeId: 'challenge-1',
+                    completed: true,
+                    completedAt: '2026-05-07T18:30:00.000Z',
+                    id: 'progress-row-1',
+                    minutes: '0',
+                    pages: '340',
+                    rowType: 'STANDARD',
+                },
+            ],
+            recommendationTitle: '',
+        })
+
+        const books = getCompletedCampaignWorkspaceBooks(workspaceState)
+
+        expect(books).toHaveLength(1)
+        expect(books[0]?.completedAt?.toISOString()).toBe(
+            '2026-05-07T18:30:00.000Z'
+        )
+    })
+
+    it('backfills missing completion timestamps for older saved rows', () => {
+        const rows = normalizeCampaignWorkspaceRowCompletions({
+            now: new Date('2026-05-06T12:00:00Z'),
+            rows: [
+                {
+                    bookName: 'Because of Winn-Dixie',
+                    challengeId: '',
+                    completed: true,
+                    id: 'progress-row-1',
+                    minutes: '0',
+                    pages: '180',
+                    rowType: 'STANDARD',
+                },
+            ],
+        })
+
+        expect(rows[0]?.completedAt).toBe('2026-05-06T12:00:00.000Z')
     })
 })

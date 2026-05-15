@@ -1,6 +1,7 @@
 export {
     campaignWorkspaceAuditAction,
     emptyCampaignWorkspaceState,
+    normalizeCampaignWorkspaceRowCompletions,
     parseCampaignWorkspaceState,
     type CampaignWorkspaceState,
     type PersistedProgressRow,

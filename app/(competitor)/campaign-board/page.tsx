@@ -23,6 +23,7 @@ import { getAchievedChallengeIds } from '../log-progress/challenge-achievement'
 import {
     campaignWorkspaceAuditAction,
     emptyCampaignWorkspaceState,
+    normalizeCampaignWorkspaceRowCompletions,
     parseCampaignWorkspaceState,
     type CampaignWorkspaceState,
 } from '../log-progress/workspace-state'
@@ -136,6 +137,7 @@ async function getLogProgressViewModel(
                           createdAt: 'desc',
                       },
                       select: {
+                          createdAt: true,
                           metadata: true,
                       },
                       take: 1,
@@ -178,6 +180,7 @@ async function getLogProgressViewModel(
                   campaign.challenges,
                   participant.id
               ),
+              savedAt: participant.auditLogs[0]?.createdAt,
               metadata: participant.auditLogs[0]?.metadata,
           })
         : emptyCampaignWorkspaceState
@@ -242,6 +245,7 @@ function hydrateWorkspaceState({
     challengeSources,
     challenges,
     metadata,
+    savedAt,
 }: {
     challengeSources: Array<{
         bookTitle: string
@@ -252,8 +256,13 @@ function hydrateWorkspaceState({
         kind: ChallengeKind
     }>
     metadata: unknown
+    savedAt?: Date
 }): CampaignWorkspaceState {
     const parsedWorkspaceState = parseCampaignWorkspaceState(metadata)
+    const normalizedProgressRows = normalizeCampaignWorkspaceRowCompletions({
+        now: savedAt,
+        rows: parsedWorkspaceState.progressRows,
+    })
     const personalGoalTitle =
         challengeSources.find((source) => source.kind === 'PERSONAL_GOAL')
             ?.bookTitle ?? parsedWorkspaceState.personalGoalTitle
@@ -264,7 +273,7 @@ function hydrateWorkspaceState({
         challenges.find(
             (challenge) => challenge.kind === 'PERSONAL_GOAL_INSTANCE'
         )?.id ?? ''
-    const personalGoalRow = parsedWorkspaceState.progressRows.find(
+    const personalGoalRow = normalizedProgressRows.find(
         (row) => row.rowType === 'PERSONAL_GOAL'
     ) ?? {
         bookName: personalGoalTitle,
@@ -285,7 +294,7 @@ function hydrateWorkspaceState({
                 challengeId: personalGoalChallengeId,
                 rowType: 'PERSONAL_GOAL',
             },
-            ...parsedWorkspaceState.progressRows.filter(
+            ...normalizedProgressRows.filter(
                 (row) => row.rowType !== 'PERSONAL_GOAL'
             ),
         ],
