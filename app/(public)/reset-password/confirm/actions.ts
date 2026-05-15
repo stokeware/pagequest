@@ -36,6 +36,16 @@ function buildPasswordResetConfirmPath({
         : '/reset-password/confirm'
 }
 
+function isRedirectSignal(error: unknown) {
+    if (typeof error !== 'object' || error === null) {
+        return false
+    }
+
+    const digest = 'digest' in error ? error.digest : null
+
+    return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')
+}
+
 export async function completePasswordResetAction(formData: FormData) {
     const token = normalizePasswordResetToken(getStringField(formData, 'token'))
     const password = getStringField(formData, 'password')
@@ -70,6 +80,10 @@ export async function completePasswordResetAction(formData: FormData) {
 
         redirect(buildPasswordResetConfirmPath({ token }))
     } catch (error) {
+        if (isRedirectSignal(error)) {
+            throw error
+        }
+
         const message =
             error instanceof Error
                 ? error.message
