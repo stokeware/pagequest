@@ -276,6 +276,356 @@ export function LogProgressScreen({
         setNextProgressRowNumber((currentValue) => currentValue + 1)
     }
 
+    const renderProgressRowEditor = (
+        row: ProgressRow,
+        index: number,
+        layout: 'card' | 'table'
+    ) => {
+        const availableChallenges = getAvailableProgressChallenges({
+            campaignChallenges,
+            progressRows,
+            rowId: row.id,
+        })
+        const isPersonalGoalRow = row.rowType === 'PERSONAL_GOAL'
+        const personalGoalChallenge =
+            getPersonalGoalChallenge(campaignChallenges)
+        const challengeValue = isPersonalGoalRow
+            ? row.challengeId || '__personal-goal__'
+            : row.challengeId
+        const rowPoints = formatProgressPoints(
+            calculateProgressRowPoints({
+                campaignChallenges,
+                pointsPerBook: progressScoring.pointsPerBook,
+                pointsPerMinute: progressScoring.pointsPerMinute,
+                pointsPerPage: progressScoring.pointsPerPage,
+                row,
+            })
+        )
+
+        const handleBookNameChange = (nextValue: string) => {
+            if (isPersonalGoalRow) {
+                setPersonalGoalTitle(nextValue)
+            }
+
+            updateProgressRows(
+                (rows) =>
+                    rows.map((currentRow) =>
+                        currentRow.id === row.id
+                            ? {
+                                  ...currentRow,
+                                  bookName: nextValue,
+                              }
+                            : currentRow
+                    ),
+                isPersonalGoalRow ? nextValue : personalGoalTitle
+            )
+        }
+
+        const challengeSelect = (
+            <select
+                aria-label={`Challenge ${row.id}`}
+                className={selectClassName}
+                disabled={availableChallenges.length === 0 || isPersonalGoalRow}
+                value={challengeValue}
+                onChange={(event) =>
+                    updateProgressRows((rows) =>
+                        rows.map((currentRow) =>
+                            currentRow.id === row.id
+                                ? {
+                                      ...currentRow,
+                                      challengeId: event.target.value,
+                                  }
+                                : currentRow
+                        )
+                    )
+                }
+            >
+                {isPersonalGoalRow ? (
+                    <option value={challengeValue}>
+                        {personalGoalChallenge?.title ?? 'Personal Goal'}
+                    </option>
+                ) : (
+                    <>
+                        <option value=''>
+                            {availableChallenges.length > 0
+                                ? 'Select challenge'
+                                : 'No challenges available'}
+                        </option>
+
+                        {availableChallenges.map((challenge) => (
+                            <option key={challenge.id} value={challenge.id}>
+                                {challenge.title}
+                            </option>
+                        ))}
+                    </>
+                )}
+            </select>
+        )
+
+        if (layout === 'card') {
+            return (
+                <div
+                    key={row.id}
+                    className='rounded-[calc(var(--radius-lg)-2px)] border border-border/70 bg-card/60 p-4'
+                >
+                    <div className='flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-3'>
+                        <div>
+                            <p className='text-sm font-semibold text-foreground'>
+                                {isPersonalGoalRow
+                                    ? 'Personal goal entry'
+                                    : `Book ${index + 1}`}
+                            </p>
+                            <p className='text-xs uppercase tracking-[0.16em] text-muted-foreground'>
+                                Progress entry
+                            </p>
+                        </div>
+
+                        <div className='text-right'>
+                            <p className='text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground'>
+                                Points
+                            </p>
+                            <p className='text-sm font-medium text-foreground'>
+                                {rowPoints}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className='mt-4 grid gap-4 sm:grid-cols-2'>
+                        <FormField
+                            label='Book name'
+                            htmlFor={`${baseId}-${row.id}-book-card`}
+                        >
+                            <Input
+                                id={`${baseId}-${row.id}-book-card`}
+                                aria-label={`Book name ${row.id}`}
+                                placeholder='Enter a book title'
+                                value={row.bookName}
+                                onChange={(event) =>
+                                    handleBookNameChange(event.target.value)
+                                }
+                            />
+                        </FormField>
+
+                        <FormField
+                            label='Challenge'
+                            htmlFor={`${baseId}-${row.id}-challenge-card`}
+                        >
+                            {challengeSelect}
+                        </FormField>
+
+                        <FormField
+                            label='Pages'
+                            htmlFor={`${baseId}-${row.id}-pages-card`}
+                        >
+                            <Input
+                                id={`${baseId}-${row.id}-pages-card`}
+                                aria-label={`Pages ${row.id}`}
+                                min='0'
+                                placeholder='0'
+                                type='number'
+                                value={row.pages}
+                                onChange={(event) =>
+                                    updateProgressRows((rows) =>
+                                        rows.map((currentRow) =>
+                                            currentRow.id === row.id
+                                                ? {
+                                                      ...currentRow,
+                                                      pages: event.target.value,
+                                                  }
+                                                : currentRow
+                                        )
+                                    )
+                                }
+                            />
+                        </FormField>
+
+                        <FormField
+                            label='Minutes'
+                            htmlFor={`${baseId}-${row.id}-minutes-card`}
+                        >
+                            <Input
+                                id={`${baseId}-${row.id}-minutes-card`}
+                                aria-label={`Minutes ${row.id}`}
+                                min='0'
+                                placeholder='0'
+                                type='number'
+                                value={row.minutes}
+                                onChange={(event) =>
+                                    updateProgressRows((rows) =>
+                                        rows.map((currentRow) =>
+                                            currentRow.id === row.id
+                                                ? {
+                                                      ...currentRow,
+                                                      minutes:
+                                                          event.target.value,
+                                                  }
+                                                : currentRow
+                                        )
+                                    )
+                                }
+                            />
+                        </FormField>
+                    </div>
+
+                    <div className='mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4'>
+                        <label
+                            className='flex items-center gap-3 text-sm font-medium text-foreground'
+                            htmlFor={`${baseId}-${row.id}-completed-card`}
+                        >
+                            <input
+                                id={`${baseId}-${row.id}-completed-card`}
+                                aria-label={`Completed ${row.id}`}
+                                checked={row.completed}
+                                className={checkboxClassName}
+                                type='checkbox'
+                                onChange={(event) =>
+                                    updateProgressRows((rows) =>
+                                        rows.map((currentRow) =>
+                                            currentRow.id === row.id
+                                                ? setCampaignWorkspaceRowCompletion(
+                                                      {
+                                                          completed:
+                                                              event.target
+                                                                  .checked,
+                                                          row: currentRow,
+                                                      }
+                                                  )
+                                                : currentRow
+                                        )
+                                    )
+                                }
+                            />
+                            Completed
+                        </label>
+
+                        {isPersonalGoalRow ? null : (
+                            <Button
+                                type='button'
+                                variant='destructive'
+                                className={cn(
+                                    'w-full sm:w-auto',
+                                    rowActionButtonClassName
+                                )}
+                                onClick={() => deleteProgressRow(row.id)}
+                            >
+                                Delete
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        return (
+            <tr
+                key={row.id}
+                className='border-b border-border/50 last:border-b-0'
+            >
+                <td className='px-3 py-3 align-top'>
+                    <Input
+                        aria-label={`Book name ${row.id}`}
+                        placeholder='Enter a book title'
+                        value={row.bookName}
+                        onChange={(event) =>
+                            handleBookNameChange(event.target.value)
+                        }
+                    />
+                </td>
+
+                <td className='px-3 py-3 align-top'>
+                    <Input
+                        aria-label={`Pages ${row.id}`}
+                        min='0'
+                        placeholder='0'
+                        type='number'
+                        value={row.pages}
+                        onChange={(event) =>
+                            updateProgressRows((rows) =>
+                                rows.map((currentRow) =>
+                                    currentRow.id === row.id
+                                        ? {
+                                              ...currentRow,
+                                              pages: event.target.value,
+                                          }
+                                        : currentRow
+                                )
+                            )
+                        }
+                    />
+                </td>
+
+                <td className='px-3 py-3 align-top'>
+                    <Input
+                        aria-label={`Minutes ${row.id}`}
+                        min='0'
+                        placeholder='0'
+                        type='number'
+                        value={row.minutes}
+                        onChange={(event) =>
+                            updateProgressRows((rows) =>
+                                rows.map((currentRow) =>
+                                    currentRow.id === row.id
+                                        ? {
+                                              ...currentRow,
+                                              minutes: event.target.value,
+                                          }
+                                        : currentRow
+                                )
+                            )
+                        }
+                    />
+                </td>
+
+                <td className='px-3 py-3 align-top text-center'>
+                    <div className='flex justify-center pt-2'>
+                        <input
+                            aria-label={`Completed ${row.id}`}
+                            checked={row.completed}
+                            className={checkboxClassName}
+                            type='checkbox'
+                            onChange={(event) =>
+                                updateProgressRows((rows) =>
+                                    rows.map((currentRow) =>
+                                        currentRow.id === row.id
+                                            ? setCampaignWorkspaceRowCompletion(
+                                                  {
+                                                      completed:
+                                                          event.target.checked,
+                                                      row: currentRow,
+                                                  }
+                                              )
+                                            : currentRow
+                                    )
+                                )
+                            }
+                        />
+                    </div>
+                </td>
+
+                <td className='px-3 py-3 align-top'>{challengeSelect}</td>
+
+                <td className='px-3 py-3 align-top text-right'>
+                    <span className='block pt-2 text-sm font-medium text-muted-foreground'>
+                        {rowPoints}
+                    </span>
+                </td>
+
+                <td className='px-3 py-3 align-top text-right'>
+                    {isPersonalGoalRow ? null : (
+                        <Button
+                            type='button'
+                            variant='destructive'
+                            className={rowActionButtonClassName}
+                            onClick={() => deleteProgressRow(row.id)}
+                        >
+                            Delete
+                        </Button>
+                    )}
+                </td>
+            </tr>
+        )
+    }
+
     return (
         <div className='stack-lg'>
             <header className='surface-card rounded-[calc(var(--radius-xl)+4px)] border border-(--line-strong) bg-card/72 px-6 py-8 shadow-[0_1.25rem_3rem_rgba(64,105,124,0.12)]'>
@@ -488,7 +838,27 @@ export function LogProgressScreen({
                 ) : (
                     <Card className='surface-card'>
                         <CardContent className='pt-6'>
-                            <div className='overflow-x-auto'>
+                            <div
+                                className='space-y-4 lg:hidden'
+                                role='list'
+                                aria-label='Progress entries'
+                            >
+                                {progressRows.map((row, index) =>
+                                    renderProgressRowEditor(row, index, 'card')
+                                )}
+                            </div>
+
+                            <div className='mt-4 lg:mt-0 lg:hidden'>
+                                <p className='text-xs text-muted-foreground'>
+                                    Save changes stays below each entry on
+                                    smaller screens so it remains reachable.
+                                </p>
+                            </div>
+
+                            <div
+                                className='mt-6 hidden overflow-x-auto pb-2 lg:block'
+                                aria-label='Scrollable progress table'
+                            >
                                 <table className='min-w-272 w-full border-collapse table-fixed'>
                                     <colgroup>
                                         <col className='w-[44%]' />
@@ -526,297 +896,22 @@ export function LogProgressScreen({
                                     </thead>
 
                                     <tbody>
-                                        {progressRows.map((row) => {
-                                            const availableChallenges =
-                                                getAvailableProgressChallenges({
-                                                    campaignChallenges,
-                                                    progressRows,
-                                                    rowId: row.id,
-                                                })
-                                            const isPersonalGoalRow =
-                                                row.rowType === 'PERSONAL_GOAL'
-                                            const personalGoalChallenge =
-                                                getPersonalGoalChallenge(
-                                                    campaignChallenges
-                                                )
-                                            const challengeValue =
-                                                isPersonalGoalRow
-                                                    ? row.challengeId ||
-                                                      '__personal-goal__'
-                                                    : row.challengeId
-
-                                            return (
-                                                <tr
-                                                    key={row.id}
-                                                    className='border-b border-border/50 last:border-b-0'
-                                                >
-                                                    <td className='px-3 py-3 align-top'>
-                                                        <Input
-                                                            aria-label={`Book name ${row.id}`}
-                                                            placeholder='Enter a book title'
-                                                            value={row.bookName}
-                                                            onChange={(
-                                                                event
-                                                            ) => {
-                                                                const nextValue =
-                                                                    event.target
-                                                                        .value
-
-                                                                if (
-                                                                    isPersonalGoalRow
-                                                                ) {
-                                                                    setPersonalGoalTitle(
-                                                                        nextValue
-                                                                    )
-                                                                }
-
-                                                                updateProgressRows(
-                                                                    (rows) =>
-                                                                        rows.map(
-                                                                            (
-                                                                                currentRow
-                                                                            ) =>
-                                                                                currentRow.id ===
-                                                                                row.id
-                                                                                    ? {
-                                                                                          ...currentRow,
-                                                                                          bookName:
-                                                                                              nextValue,
-                                                                                      }
-                                                                                    : currentRow
-                                                                        ),
-                                                                    isPersonalGoalRow
-                                                                        ? nextValue
-                                                                        : personalGoalTitle
-                                                                )
-                                                            }}
-                                                        />
-                                                    </td>
-
-                                                    <td className='px-3 py-3 align-top'>
-                                                        <Input
-                                                            aria-label={`Pages ${row.id}`}
-                                                            min='0'
-                                                            placeholder='0'
-                                                            type='number'
-                                                            value={row.pages}
-                                                            onChange={(event) =>
-                                                                updateProgressRows(
-                                                                    (rows) =>
-                                                                        rows.map(
-                                                                            (
-                                                                                currentRow
-                                                                            ) =>
-                                                                                currentRow.id ===
-                                                                                row.id
-                                                                                    ? {
-                                                                                          ...currentRow,
-                                                                                          pages: event
-                                                                                              .target
-                                                                                              .value,
-                                                                                      }
-                                                                                    : currentRow
-                                                                        )
-                                                                )
-                                                            }
-                                                        />
-                                                    </td>
-
-                                                    <td className='px-3 py-3 align-top'>
-                                                        <Input
-                                                            aria-label={`Minutes ${row.id}`}
-                                                            min='0'
-                                                            placeholder='0'
-                                                            type='number'
-                                                            value={row.minutes}
-                                                            onChange={(event) =>
-                                                                updateProgressRows(
-                                                                    (rows) =>
-                                                                        rows.map(
-                                                                            (
-                                                                                currentRow
-                                                                            ) =>
-                                                                                currentRow.id ===
-                                                                                row.id
-                                                                                    ? {
-                                                                                          ...currentRow,
-                                                                                          minutes:
-                                                                                              event
-                                                                                                  .target
-                                                                                                  .value,
-                                                                                      }
-                                                                                    : currentRow
-                                                                        )
-                                                                )
-                                                            }
-                                                        />
-                                                    </td>
-
-                                                    <td className='px-3 py-3 align-top text-center'>
-                                                        <div className='flex justify-center pt-2'>
-                                                            <input
-                                                                aria-label={`Completed ${row.id}`}
-                                                                checked={
-                                                                    row.completed
-                                                                }
-                                                                className={
-                                                                    checkboxClassName
-                                                                }
-                                                                type='checkbox'
-                                                                onChange={(
-                                                                    event
-                                                                ) =>
-                                                                    updateProgressRows(
-                                                                        (
-                                                                            rows
-                                                                        ) =>
-                                                                            rows.map(
-                                                                                (
-                                                                                    currentRow
-                                                                                ) =>
-                                                                                    currentRow.id ===
-                                                                                    row.id
-                                                                                        ? setCampaignWorkspaceRowCompletion(
-                                                                                              {
-                                                                                                  completed:
-                                                                                                      event
-                                                                                                          .target
-                                                                                                          .checked,
-                                                                                                  row: currentRow,
-                                                                                              }
-                                                                                          )
-                                                                                        : currentRow
-                                                                            )
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </td>
-
-                                                    <td className='px-3 py-3 align-top'>
-                                                        <select
-                                                            aria-label={`Challenge ${row.id}`}
-                                                            className={
-                                                                selectClassName
-                                                            }
-                                                            disabled={
-                                                                availableChallenges.length ===
-                                                                    0 ||
-                                                                isPersonalGoalRow
-                                                            }
-                                                            value={
-                                                                challengeValue
-                                                            }
-                                                            onChange={(event) =>
-                                                                updateProgressRows(
-                                                                    (rows) =>
-                                                                        rows.map(
-                                                                            (
-                                                                                currentRow
-                                                                            ) =>
-                                                                                currentRow.id ===
-                                                                                row.id
-                                                                                    ? {
-                                                                                          ...currentRow,
-                                                                                          challengeId:
-                                                                                              event
-                                                                                                  .target
-                                                                                                  .value,
-                                                                                      }
-                                                                                    : currentRow
-                                                                        )
-                                                                )
-                                                            }
-                                                        >
-                                                            {isPersonalGoalRow ? (
-                                                                <option
-                                                                    value={
-                                                                        challengeValue
-                                                                    }
-                                                                >
-                                                                    {personalGoalChallenge?.title ??
-                                                                        'Personal Goal'}
-                                                                </option>
-                                                            ) : (
-                                                                <>
-                                                                    <option value=''>
-                                                                        {availableChallenges.length >
-                                                                        0
-                                                                            ? 'Select challenge'
-                                                                            : 'No challenges available'}
-                                                                    </option>
-
-                                                                    {availableChallenges.map(
-                                                                        (
-                                                                            challenge
-                                                                        ) => (
-                                                                            <option
-                                                                                key={
-                                                                                    challenge.id
-                                                                                }
-                                                                                value={
-                                                                                    challenge.id
-                                                                                }
-                                                                            >
-                                                                                {
-                                                                                    challenge.title
-                                                                                }
-                                                                            </option>
-                                                                        )
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                        </select>
-                                                    </td>
-
-                                                    <td className='px-3 py-3 align-top text-right'>
-                                                        <span className='block pt-2 text-sm font-medium text-muted-foreground'>
-                                                            {formatProgressPoints(
-                                                                calculateProgressRowPoints(
-                                                                    {
-                                                                        campaignChallenges,
-                                                                        pointsPerBook:
-                                                                            progressScoring.pointsPerBook,
-                                                                        pointsPerMinute:
-                                                                            progressScoring.pointsPerMinute,
-                                                                        pointsPerPage:
-                                                                            progressScoring.pointsPerPage,
-                                                                        row,
-                                                                    }
-                                                                )
-                                                            )}
-                                                        </span>
-                                                    </td>
-
-                                                    <td className='px-3 py-3 align-top text-right'>
-                                                        {isPersonalGoalRow ? null : (
-                                                            <Button
-                                                                type='button'
-                                                                variant='destructive'
-                                                                className={
-                                                                    rowActionButtonClassName
-                                                                }
-                                                                onClick={() =>
-                                                                    deleteProgressRow(
-                                                                        row.id
-                                                                    )
-                                                                }
-                                                            >
-                                                                Delete
-                                                            </Button>
-                                                        )}
-                                                    </td>
-                                                </tr>
+                                        {progressRows.map((row, index) =>
+                                            renderProgressRowEditor(
+                                                row,
+                                                index,
+                                                'table'
                                             )
-                                        })}
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
 
-                            <div className='mt-6 flex flex-wrap items-center justify-between gap-3'>
+                            <div className='mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                                 <Button
                                     type='button'
                                     variant='outline'
+                                    className='w-full sm:w-auto'
                                     onClick={addProgressRow}
                                 >
                                     New Book
@@ -824,6 +919,7 @@ export function LogProgressScreen({
 
                                 <Button
                                     type='button'
+                                    className='w-full sm:w-auto'
                                     disabled={
                                         !campaignParticipantId ||
                                         !hasUnsavedChanges ||

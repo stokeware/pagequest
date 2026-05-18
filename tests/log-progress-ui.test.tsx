@@ -158,6 +158,12 @@ describe('log progress competitor UI', () => {
         expect(html).toContain('0')
         expect(html).toContain('New Book')
         expect(html).toContain('Save Changes')
+        expect(html).toContain('aria-label="Progress entries"')
+        expect(html).toContain('Personal goal entry')
+        expect(html).toContain('aria-label="Scrollable progress table"')
+        expect(html).toContain(
+            'Save changes stays below each entry on smaller screens so it remains reachable.'
+        )
         expect(html).toContain('Delete')
         expect(html).toContain(
             'aria-label="Challenge progress-row-personal-goal"'
