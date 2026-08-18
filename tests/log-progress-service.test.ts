@@ -83,6 +83,33 @@ function buildTransaction({
 }
 
 describe('recordLogProgressEntry', () => {
+    it('rejects new entries after a campaign has ended', async () => {
+        const participant = buildParticipantSnapshot()
+        const transaction = buildTransaction({ participant })
+
+        await expect(
+            recordLogProgressEntry(transaction, {
+                actorUserId: 'user-1',
+                formValues: {
+                    activityDate: '2026-05-08',
+                    bookAuthor: '',
+                    bookTitle: 'The Giver',
+                    challengeId: '',
+                    notes: '',
+                    type: 'PAGES_READ',
+                    value: '42',
+                },
+                now: new Date('2026-06-01T00:00:00.000Z'),
+                campaignParticipantId: 'participant-1',
+            })
+        ).rejects.toMatchObject({
+            code: 'campaign-ended',
+            message: 'This campaign has ended and is now read only.',
+        })
+
+        expect(transaction.readingEntry.create).not.toHaveBeenCalled()
+    })
+
     it('recalculates participant totals after saving a standard reading entry', async () => {
         const transaction = buildTransaction({
             persistedEntries: [

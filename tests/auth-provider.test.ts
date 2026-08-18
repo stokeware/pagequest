@@ -163,12 +163,12 @@ describe('password authentication helpers', () => {
 
     it('creates and resolves database-backed sessions', async () => {
         authProviderMocks.prisma.session.create.mockResolvedValue({
-            expires: new Date('2026-06-01T00:00:00.000Z'),
+            expires: new Date('2099-06-01T00:00:00.000Z'),
             sessionToken: 'session-token-1',
             userId: 'user-1',
         })
         authProviderMocks.prisma.session.findUnique.mockResolvedValue({
-            expires: new Date('2026-06-01T00:00:00.000Z'),
+            expires: new Date('2099-06-01T00:00:00.000Z'),
             sessionToken: 'session-token-1',
             user: {
                 email: 'admin@example.com',

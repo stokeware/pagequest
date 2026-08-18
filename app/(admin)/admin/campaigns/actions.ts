@@ -159,6 +159,7 @@ async function loadQuest(campaignId: string) {
             pointsPerPage: true,
             publishedAt: true,
             startAt: true,
+            status: true,
             timezone: true,
             visibility: true,
         },
@@ -356,6 +357,84 @@ export async function deleteCampaignAction(formData: FormData) {
 
         finishAction({
             outcome: 'deleted',
+        })
+    } catch (error) {
+        if (isRedirectSignal(error)) {
+            throw error
+        }
+
+        finishAction({
+            detail: resolveCampaignErrorCode(error),
+            outcome: 'error',
+            selectedCampaignId: campaign.id,
+        })
+    }
+}
+
+export async function endCampaignAction(formData: FormData) {
+    const actor = await requireAdminActionUser()
+    const campaignId = getStringField(formData, 'campaignId')
+
+    if (!campaignId) {
+        finishAction({
+            detail: 'missing-campaign',
+            outcome: 'error',
+        })
+    }
+
+    const campaign = await loadQuest(campaignId)
+
+    if (!campaign) {
+        finishAction({
+            detail: 'campaign-not-found',
+            outcome: 'error',
+        })
+    }
+
+    if (campaign.status !== 'ACTIVE') {
+        finishAction({
+            detail: 'campaign-not-active',
+            outcome: 'error',
+            selectedCampaignId: campaign.id,
+        })
+    }
+
+    const endedAt = new Date()
+
+    try {
+        await prisma.$transaction(async (transaction) => {
+            await transaction.campaign.update({
+                data: {
+                    endAt: endedAt,
+                    status: 'COMPLETED',
+                },
+                where: {
+                    id: campaign.id,
+                },
+            })
+
+            await transaction.auditLog.create({
+                data: {
+                    action: 'campaign.ended',
+                    actorUserId: actor.id,
+                    entityId: campaign.id,
+                    entityType: 'Campaign',
+                    metadata: {
+                        campaignName: campaign.name,
+                        endedAt: endedAt.toISOString(),
+                        previousEndAt: campaign.endAt.toISOString(),
+                    },
+                    campaignId: campaign.id,
+                },
+            })
+        })
+
+        revalidatePath('/campaign-board')
+        revalidatePath('/dashboard')
+        revalidatePath('/leaderboard')
+        finishAction({
+            outcome: 'ended',
+            selectedCampaignId: campaign.id,
         })
     } catch (error) {
         if (isRedirectSignal(error)) {

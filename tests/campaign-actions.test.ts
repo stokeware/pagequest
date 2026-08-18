@@ -21,6 +21,7 @@ const campaignActionMocks = vi.hoisted(() => {
         },
         campaign: {
             delete: vi.fn(),
+            update: vi.fn(),
         },
         challenge: {
             create: vi.fn(),
@@ -80,6 +81,7 @@ import {
     createCampaignChallengeAction,
     deleteCampaignAction,
     deleteCampaignChallengeAction,
+    endCampaignAction,
     saveCampaignChallengesAction,
     updateCompetitorChallengesAction,
 } from '@/app/(admin)/admin/campaigns/actions'
@@ -101,6 +103,9 @@ describe('admin campaign challenge actions', () => {
             undefined
         )
         campaignActionMocks.transaction.campaign.delete.mockResolvedValue(
+            undefined
+        )
+        campaignActionMocks.transaction.campaign.update.mockResolvedValue(
             undefined
         )
         campaignActionMocks.transaction.challenge.create.mockResolvedValue({
@@ -313,6 +318,56 @@ describe('admin campaign challenge actions', () => {
                 },
             },
         })
+    })
+
+    it('ends an active campaign and records the change', async () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-05-15T18:00:00.000Z'))
+        campaignActionMocks.prisma.campaign.findUnique.mockResolvedValue({
+            archivedAt: null,
+            endAt: new Date('2026-05-30T12:00:00.000Z'),
+            id: 'campaign-1',
+            name: 'Spring Story Sprint',
+            status: 'ACTIVE',
+        })
+
+        const formData = new FormData()
+        formData.set('campaignId', 'campaign-1')
+
+        await expect(endCampaignAction(formData)).rejects.toMatchObject({
+            digest: expect.stringContaining('NEXT_REDIRECT'),
+        })
+
+        expect(
+            campaignActionMocks.transaction.campaign.update
+        ).toHaveBeenCalledWith({
+            data: {
+                endAt: new Date('2026-05-15T18:00:00.000Z'),
+                status: 'COMPLETED',
+            },
+            where: {
+                id: 'campaign-1',
+            },
+        })
+        expect(
+            campaignActionMocks.transaction.auditLog.create
+        ).toHaveBeenCalledWith({
+            data: {
+                action: 'campaign.ended',
+                actorUserId: 'admin-1',
+                campaignId: 'campaign-1',
+                entityId: 'campaign-1',
+                entityType: 'Campaign',
+                metadata: {
+                    campaignName: 'Spring Story Sprint',
+                    endedAt: '2026-05-15T18:00:00.000Z',
+                    previousEndAt: '2026-05-30T12:00:00.000Z',
+                },
+            },
+        })
+        expect(campaignActionMocks.redirect).toHaveBeenCalledWith(
+            '/admin/campaigns?outcome=ended&selectedCampaignId=campaign-1'
+        )
     })
 
     it('saves all campaign challenges and creates a new row entry', async () => {

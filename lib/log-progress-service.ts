@@ -432,6 +432,13 @@ export async function recordLogProgressEntry(
         )
     }
 
+    if (input.now > participant.campaign.endAt) {
+        throw new LogProgressMutationError(
+            'campaign-ended',
+            'This campaign has ended and is now read only.'
+        )
+    }
+
     const validationResult = validateLogProgressFormValues(input.formValues, {
         availableChallengeIds: participant.campaign.challenges.map(
             (challenge) => challenge.id
