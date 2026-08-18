@@ -39,6 +39,7 @@ const defaultViewModel: LogProgressViewModel = {
     campaignParticipantId: null,
     campaignChallenges: [],
     campaignName: 'Campaign assignment pending',
+    isReadOnly: false,
     progressScoring: {
         pointsPerBook: 0,
         pointsPerMinute: 0.75,
@@ -223,6 +224,7 @@ async function getLogProgressViewModel(
         ),
         campaignParticipantId: participant?.id ?? null,
         campaignName: campaign.name,
+        isReadOnly: campaign.status === 'COMPLETED',
         progressScoring: {
             pointsPerBook: Number(campaign.pointsPerBook.toString()),
             pointsPerMinute: Number(

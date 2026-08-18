@@ -33,6 +33,7 @@ export type LogProgressViewModel = {
     campaignParticipantId: string | null
     campaignChallenges: LogProgressCampaignChallenge[]
     campaignName: string
+    isReadOnly: boolean
     progressScoring: {
         pointsPerBook: number
         pointsPerMinute: number
@@ -132,6 +133,7 @@ export function LogProgressScreen({
     campaignChallenges,
     campaignName,
     initialActiveTab = 'progress',
+    isReadOnly,
     progressScoring,
     workspaceState,
 }: LogProgressScreenProps) {
@@ -325,7 +327,11 @@ export function LogProgressScreen({
             <select
                 aria-label={`Challenge ${row.id}`}
                 className={selectClassName}
-                disabled={availableChallenges.length === 0 || isPersonalGoalRow}
+                disabled={
+                    isReadOnly ||
+                    availableChallenges.length === 0 ||
+                    isPersonalGoalRow
+                }
                 value={challengeValue}
                 onChange={(event) =>
                     updateProgressRows((rows) =>
@@ -399,6 +405,7 @@ export function LogProgressScreen({
                                 id={`${baseId}-${row.id}-book-card`}
                                 aria-label={`Book name ${row.id}`}
                                 placeholder='Enter a book title'
+                                disabled={isReadOnly}
                                 value={row.bookName}
                                 onChange={(event) =>
                                     handleBookNameChange(event.target.value)
@@ -423,6 +430,7 @@ export function LogProgressScreen({
                                 min='0'
                                 placeholder='0'
                                 type='number'
+                                disabled={isReadOnly}
                                 value={row.pages}
                                 onChange={(event) =>
                                     updateProgressRows((rows) =>
@@ -449,6 +457,7 @@ export function LogProgressScreen({
                                 min='0'
                                 placeholder='0'
                                 type='number'
+                                disabled={isReadOnly}
                                 value={row.minutes}
                                 onChange={(event) =>
                                     updateProgressRows((rows) =>
@@ -477,6 +486,7 @@ export function LogProgressScreen({
                                 aria-label={`Completed ${row.id}`}
                                 checked={row.completed}
                                 className={checkboxClassName}
+                                disabled={isReadOnly}
                                 type='checkbox'
                                 onChange={(event) =>
                                     updateProgressRows((rows) =>
@@ -498,7 +508,7 @@ export function LogProgressScreen({
                             Completed
                         </label>
 
-                        {isPersonalGoalRow ? null : (
+                        {isPersonalGoalRow || isReadOnly ? null : (
                             <Button
                                 type='button'
                                 variant='destructive'
@@ -525,6 +535,7 @@ export function LogProgressScreen({
                     <Input
                         aria-label={`Book name ${row.id}`}
                         placeholder='Enter a book title'
+                        disabled={isReadOnly}
                         value={row.bookName}
                         onChange={(event) =>
                             handleBookNameChange(event.target.value)
@@ -538,6 +549,7 @@ export function LogProgressScreen({
                         min='0'
                         placeholder='0'
                         type='number'
+                        disabled={isReadOnly}
                         value={row.pages}
                         onChange={(event) =>
                             updateProgressRows((rows) =>
@@ -560,6 +572,7 @@ export function LogProgressScreen({
                         min='0'
                         placeholder='0'
                         type='number'
+                        disabled={isReadOnly}
                         value={row.minutes}
                         onChange={(event) =>
                             updateProgressRows((rows) =>
@@ -582,6 +595,7 @@ export function LogProgressScreen({
                             aria-label={`Completed ${row.id}`}
                             checked={row.completed}
                             className={checkboxClassName}
+                            disabled={isReadOnly}
                             type='checkbox'
                             onChange={(event) =>
                                 updateProgressRows((rows) =>
@@ -611,7 +625,7 @@ export function LogProgressScreen({
                 </td>
 
                 <td className='px-3 py-3 align-top text-right'>
-                    {isPersonalGoalRow ? null : (
+                    {isPersonalGoalRow || isReadOnly ? null : (
                         <Button
                             type='button'
                             variant='destructive'
@@ -638,6 +652,16 @@ export function LogProgressScreen({
                     </p>
                 ) : null}
             </header>
+
+            {isReadOnly ? (
+                <div
+                    className='rounded-lg border border-[rgba(64,105,124,0.3)] bg-[rgba(64,105,124,0.1)] px-4 py-3 text-center text-sm font-medium text-foreground'
+                    role='status'
+                >
+                    This campaign has ended. Your campaign information is read
+                    only.
+                </div>
+            ) : null}
 
             <div className='flex justify-center'>
                 <div
@@ -690,6 +714,7 @@ export function LogProgressScreen({
                                                 id='recommendation-challenge'
                                                 name='recommendationChallenge'
                                                 placeholder='Enter a book title'
+                                                disabled={isReadOnly}
                                                 value={recommendationTitle}
                                                 onChange={(event) => {
                                                     setRecommendationTitle(
@@ -707,6 +732,7 @@ export function LogProgressScreen({
                                                 id='personal-goal-book'
                                                 name='personalGoal'
                                                 placeholder='Enter a book title'
+                                                disabled={isReadOnly}
                                                 value={personalGoalTitle}
                                                 onChange={(event) => {
                                                     const nextValue =
@@ -728,6 +754,7 @@ export function LogProgressScreen({
                                         <Button
                                             type='button'
                                             disabled={
+                                                isReadOnly ||
                                                 !campaignParticipantId ||
                                                 !hasUnsavedChanges ||
                                                 isPending
@@ -912,6 +939,7 @@ export function LogProgressScreen({
                                     type='button'
                                     variant='outline'
                                     className='w-full sm:w-auto'
+                                    disabled={isReadOnly}
                                     onClick={addProgressRow}
                                 >
                                     New Book
@@ -921,6 +949,7 @@ export function LogProgressScreen({
                                     type='button'
                                     className='w-full sm:w-auto'
                                     disabled={
+                                        isReadOnly ||
                                         !campaignParticipantId ||
                                         !hasUnsavedChanges ||
                                         isPending

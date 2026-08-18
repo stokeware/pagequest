@@ -50,6 +50,7 @@ describe('log progress competitor UI', () => {
                 campaignParticipantId='participant-1'
                 campaignName='Spring Story Sprint'
                 initialActiveTab='challenges'
+                isReadOnly={false}
                 progressScoring={{
                     pointsPerBook: 0,
                     pointsPerMinute: 0.75,
@@ -88,6 +89,7 @@ describe('log progress competitor UI', () => {
                 campaignParticipantId={null}
                 campaignName='Campaign assignment pending'
                 initialActiveTab='challenges'
+                isReadOnly={false}
                 progressScoring={{
                     pointsPerBook: 0,
                     pointsPerMinute: 0.75,
@@ -136,6 +138,7 @@ describe('log progress competitor UI', () => {
                 ]}
                 campaignParticipantId='participant-1'
                 campaignName='Spring Story Sprint'
+                isReadOnly={false}
                 progressScoring={{
                     pointsPerBook: 0,
                     pointsPerMinute: 0.75,
@@ -172,6 +175,35 @@ describe('log progress competitor UI', () => {
         expect(html).toContain(
             '<option value="challenge-2" selected="">Personal Goal</option>'
         )
+    })
+
+    it('renders an ended campaign workspace in read-only mode', () => {
+        const html = renderToStaticMarkup(
+            <LogProgressScreen
+                campaignDateRange='May 12 - May 15'
+                campaignChallenges={[]}
+                campaignParticipantId='participant-1'
+                campaignName='Spring Story Sprint'
+                isReadOnly
+                progressScoring={{
+                    pointsPerBook: 0,
+                    pointsPerMinute: 0.75,
+                    pointsPerPage: 1,
+                }}
+                workspaceState={{
+                    personalGoalTitle: 'The Giver',
+                    progressRows: [],
+                    recommendationTitle: 'Gathering Blue',
+                }}
+            />
+        )
+
+        expect(html).toContain(
+            'This campaign has ended. Your campaign information is read only.'
+        )
+        expect(html).toContain('New Book')
+        expect(html).not.toContain('>Delete</button>')
+        expect(html).toContain('disabled=""')
     })
 
     it('sorts challenge choices like the challenges table and hides own recommendation and personal goal', () => {

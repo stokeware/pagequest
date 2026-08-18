@@ -23,6 +23,7 @@ import {
     createCampaignAction,
     deleteCampaignAction,
     deleteCampaignChallengeAction,
+    endCampaignAction,
     saveCampaignChallengesAction,
     updateCampaignAction,
     updateCompetitorChallengesAction,
@@ -56,6 +57,10 @@ const noticeContent = {
         title: 'Campaign deleted.',
         tone: 'success',
     },
+    ended: {
+        title: 'Campaign ended. Competitor access is now read only.',
+        tone: 'success',
+    },
     error: {
         title: 'Campaign update blocked.',
         tone: 'error',
@@ -71,6 +76,7 @@ const errorDetailMessages: Record<string, string> = {
         'Only one campaign can be active at a time. Adjust the dates or archive the current live campaign first.',
     'campaign-not-editable':
         'Archived campaigns stay visible here but cannot be edited from this screen.',
+    'campaign-not-active': 'Only an active campaign can be ended.',
     'campaign-not-found': 'That campaign record is no longer available.',
     'challenge-in-use':
         'Challenges with historical completions cannot be deleted because scores and reports still reference them.',
@@ -889,25 +895,43 @@ export default async function AdminCampaignsPage({
                     <CompetitorChallengesTable campaign={selectedCampaign} />
                     <CampaignChallengesTable campaign={selectedCampaign} />
 
-                    <form
-                        action={deleteCampaignAction}
-                        className='flex justify-end pt-2'
-                    >
-                        <input
-                            type='hidden'
-                            name='campaignId'
-                            value={selectedCampaign.id}
-                        />
-                        <ConfirmSubmitButton
-                            type='submit'
-                            variant='destructive'
-                            title='Delete campaign?'
-                            description={`Delete ${selectedCampaign.name} and all of its challenges? This cannot be undone.`}
-                            confirmLabel='Delete campaign'
-                        >
-                            Delete campaign
-                        </ConfirmSubmitButton>
-                    </form>
+                    <div className='flex justify-end gap-2 pt-2'>
+                        {selectedCampaign.status === 'ACTIVE' ? (
+                            <form action={endCampaignAction}>
+                                <input
+                                    type='hidden'
+                                    name='campaignId'
+                                    value={selectedCampaign.id}
+                                />
+                                <ConfirmSubmitButton
+                                    type='submit'
+                                    variant='outline'
+                                    title='End campaign?'
+                                    description={`End ${selectedCampaign.name}? Competitors will no longer be able to enter data, but they can still view their campaign results.`}
+                                    confirmLabel='End campaign'
+                                >
+                                    End Campaign
+                                </ConfirmSubmitButton>
+                            </form>
+                        ) : null}
+
+                        <form action={deleteCampaignAction}>
+                            <input
+                                type='hidden'
+                                name='campaignId'
+                                value={selectedCampaign.id}
+                            />
+                            <ConfirmSubmitButton
+                                type='submit'
+                                variant='destructive'
+                                title='Delete campaign?'
+                                description={`Delete ${selectedCampaign.name} and all of its challenges? This cannot be undone.`}
+                                confirmLabel='Delete campaign'
+                            >
+                                Delete campaign
+                            </ConfirmSubmitButton>
+                        </form>
+                    </div>
                 </>
             ) : (
                 <EmptyState

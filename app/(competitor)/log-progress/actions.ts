@@ -118,6 +118,12 @@ export async function saveCampaignWorkspaceAction(
 
     const participant = await prisma.campaignParticipant.findUnique({
         select: {
+            campaign: {
+                select: {
+                    endAt: true,
+                    status: true,
+                },
+            },
             campaignId: true,
             id: true,
             removedAt: true,
@@ -154,6 +160,17 @@ export async function saveCampaignWorkspaceAction(
         return {
             detail: 'participant-access-denied',
             message: 'You can only save your own campaign workspace.',
+            outcome: 'error',
+        }
+    }
+
+    if (
+        participant.campaign.status === 'COMPLETED' ||
+        new Date() > participant.campaign.endAt
+    ) {
+        return {
+            detail: 'campaign-ended',
+            message: 'This campaign has ended and is now read only.',
             outcome: 'error',
         }
     }
@@ -209,6 +226,8 @@ function resolveLogProgressErrorMessage(error: unknown) {
     const errorCode = resolveLogProgressMutationErrorCode(error)
 
     switch (errorCode) {
+        case 'campaign-ended':
+            return 'This campaign has ended and is now read only.'
         case 'duplicate-one-time-challenge-completion':
             return 'That one-time challenge has already been credited for this campaign participant.'
         case 'invalid-entry':
